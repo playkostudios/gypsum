@@ -1,0 +1,8 @@
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+package-lock.json
+node_modules/
+dist/*.js
+dist/*.js.map
+dist/*.d.ts
