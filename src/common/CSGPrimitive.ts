@@ -1,6 +1,6 @@
 export type CSGPrimitive = {
     primitive: 'cube',
-    size?: Vec3 | number,
+    size?: [number, number, number] | number,
     center?: boolean,
 } | {
     primitive: 'cylinder',

@@ -1,6 +1,9 @@
 {
   "root": true,
   "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": ["tsconfig-common.json", "tsconfig-client.json", "tsconfig-worker.json"]
+  },
   "plugins": [
     "@typescript-eslint/eslint-plugin"
   ],

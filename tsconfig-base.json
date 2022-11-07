@@ -3,7 +3,6 @@
     "outDir": "lib",
     "target": "es6",
     "module": "es6",
-    "lib": ["ESNext", "dom"],
     "sourceMap": true,
     "strict": true,
     "strictFunctionTypes": true,
@@ -15,15 +14,12 @@
     "noUnusedLocals": false,
     "noUnusedParameters": true,
     "skipLibCheck": true,
-    "declaration": true,
+    "declaration": false,
     "esModuleInterop": true,
     "noImplicitOverride": true,
     "experimentalDecorators": true,
-    "moduleResolution": "node",
-    "emitDeclarationOnly": true
+    "moduleResolution": "node"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "lib"],
   "ts-node": {
     // It is faster to skip typechecking.
     // Remove if you want ts-node to do typechecking.

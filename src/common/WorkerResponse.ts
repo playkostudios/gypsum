@@ -1,4 +1,6 @@
-type WorkerResponse = {
+export type WorkerIDMap = Array<[newID: number, originalID: number]>;
+export type WorkerResult = [mesh: Mesh, meshRelation: MeshRelation, idMap: WorkerIDMap] | boolean | number | Box | Properties | Curvature;
+export type WorkerResponse = {
     type: 'created',
 } | {
     type: 'ready',
@@ -11,12 +13,10 @@ type WorkerResponse = {
     type: 'result',
     success: true,
     jobID: number,
-    mesh: Mesh,
+    result: WorkerResult,
 } | {
     type: 'result',
     success: false,
     jobID: number,
     error: unknown,
 };
-
-export default WorkerResponse;

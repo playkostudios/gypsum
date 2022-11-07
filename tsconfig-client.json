@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig-base",
+  "compilerOptions": {
+    "lib": ["ESNext", "dom"]
+  },
+  "include": ["src/client.ts", "types/**/*.d.ts"],
+  "exclude": ["node_modules", "lib", "src/worker.ts", "src/common/**/*.ts"]
+}
