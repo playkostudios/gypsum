@@ -28,11 +28,15 @@ function evaluateOpTree(tree: WorkerOperation): WorkerResult {
 
     iterateOpTree(tree, (_context, _key, [meshID, mesh]) => {
         // mesh
+        // logWorker(console.debug, 'Adding mesh as manifold to stack');
+
         const meshManif = new manifold.Manifold(mesh);
         idMap.push([meshManif.originalID(), meshID]);
         stack.push(meshManif);
     }, (_context, _key, node) => {
         // primitive
+        // logWorker(console.debug, `Adding primitive (${node.primitive}) to stack`);
+
         switch (node.primitive) {
             case 'cube':
                 stack.push(manifold.cube(
@@ -58,6 +62,8 @@ function evaluateOpTree(tree: WorkerOperation): WorkerResult {
         }
     }, (_context, _key, node) => {
         // operation
+        // logWorker(console.debug, `Starting operation (${node.operation})...`);
+
         switch (node.operation) {
             case 'add':
             case 'union':
@@ -71,6 +77,8 @@ function evaluateOpTree(tree: WorkerOperation): WorkerResult {
                     const wantedCount = node.manifolds.length;
                     const manifolds = new Array<Manifold>();
 
+                    // logWorker(console.debug, `Popping ${wantedCount} manifolds, pushing 1`);
+
                     for (let i = 0; i < wantedCount; i++) {
                         const next = stack.pop();
                         if (next === undefined) {
@@ -82,8 +90,10 @@ function evaluateOpTree(tree: WorkerOperation): WorkerResult {
 
                     stack.push(opFunc(manifolds));
                 } else {
+                    // logWorker(console.debug, 'Popping 2 manifolds, pushing 1');
+
                     if (stack.length < 2) {
-                        throw new Error(`Expected 2 manifolds in the stack, got ${stack.length}`);
+                        throw new Error(`Expected at least 2 manifolds in the stack, got ${stack.length}`);
                     }
 
                     stack.push(opFunc(
@@ -100,8 +110,10 @@ function evaluateOpTree(tree: WorkerOperation): WorkerResult {
             case 'transform':
             case 'refine':
             case 'asOriginal': {
-                if (stack.length !== 1) {
-                    throw new Error('Expected 1 manifold on the stack, got none');
+                // logWorker(console.debug, 'Popping 1 manifold, pushing 1');
+
+                if (stack.length < 1) {
+                    throw new Error(`Expected at least 1 manifold on the stack, got ${stack.length}`);
                 }
 
                 const top = stack.pop() as Manifold;
@@ -131,12 +143,16 @@ function evaluateOpTree(tree: WorkerOperation): WorkerResult {
                 break;
             }
             case 'extrude':
+                // logWorker(console.debug, 'Pushing 1 manifold');
+
                 stack.push(manifold.extrude(
                     node.crossSection, node.height, node.nDivisions,
                     node.twistDegrees, node.scaleTop
                 ));
                 break;
             case 'revolve':
+                // logWorker(console.debug, 'Pushing 1 manifold');
+
                 stack.push(manifold.revolve(
                     node.crossSection, node.circularSegments
                 ));
@@ -151,10 +167,13 @@ function evaluateOpTree(tree: WorkerOperation): WorkerResult {
                 }
             }
         }
+
+        // logWorker(console.debug, 'Operation finished');
     }, (_context, _key, root) => {
+        // logWorker(console.debug, 'Top operation. Popping 1 manifold');
         // top operation
         if (stack.length !== 1) {
-            throw new Error('Expected 1 manifold on the stack, got none');
+            throw new Error(`Expected 1 manifold on the stack, got ${stack.length}`);
         }
         if (result !== undefined) {
             throw new Error('Expected no current result, but result was already set');

@@ -189,34 +189,25 @@ export class ManifoldPool {
             // TODO joint support?
             const hasExtra: boolean = (tangents || normals || texCoords || colors);
 
-            const fakeFloat32Array = (wantedLength: number, accessor: WL.MeshAttributeAccessor) => {
-                return accessor._tempBufferGetter(wantedLength);
-            }
-
-            // const positionBuffer = fakeFloat32Array(vertexCount * 3, positions);
             const positionBuffer = new Float32Array(vertexCount * 3);
 
             let tangentBuffer: Float32Array | undefined;
             if (tangents) {
-                // tangentBuffer = tangents._tempBufferGetter(vertexCount * 4);
                 tangentBuffer = new Float32Array(vertexCount * 4);
             }
 
             let normalBuffer: Float32Array | undefined;
             if (normals) {
-                // normalBuffer = fakeFloat32Array(vertexCount * 3, normals);
                 normalBuffer = new Float32Array(vertexCount * 3);
             }
 
             let texCoordBuffer: Float32Array | undefined;
             if (texCoords) {
-                // texCoordBuffer = texCoords._tempBufferGetter(vertexCount * 2);
                 texCoordBuffer = new Float32Array(vertexCount * 2);
             }
 
             let colorBuffer: Float32Array | undefined;
             if (colors) {
-                // colorBuffer = fakeFloat32Array(vertexCount * 4, colors);
                 colorBuffer = new Float32Array(vertexCount * 4);
             }
 
@@ -322,26 +313,21 @@ export class ManifoldPool {
             }
 
             positions.set(0, positionBuffer);
-            // _wl_mesh_set_attribute_values(positions._attribute, positions._componentCount * 4, positionBuffer.byteOffset, 12 * vertexCount, positions._formatSize, positions._offset, positions._stride);
 
             if (tangentBuffer) {
                 tangents.set(0, tangentBuffer);
-                // tangentBuffer.done();
             }
 
             if (normalBuffer) {
                 normals.set(0, normalBuffer);
-                // _wl_mesh_set_attribute_values(normals._attribute, normals._componentCount * 4, normalBuffer.byteOffset, 12 * vertexCount, normals._formatSize, normals._offset, normals._stride)
             }
 
             if (texCoordBuffer) {
                 texCoords.set(0, texCoordBuffer);
-                // texCoordBuffer.done();
             }
 
             if (colorBuffer) {
                 colors.set(0, colorBuffer);
-                // _wl_mesh_set_attribute_values(colors._attribute, colors._componentCount * 4, colorBuffer.byteOffset, 16 * vertexCount, colors._formatSize, colors._offset, colors._stride)
             }
 
             meshArr.push([wleMesh, material]);
