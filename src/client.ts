@@ -31,11 +31,11 @@ function getFromBary(vecSize: number, a: number, b: number, c: number, aBary: Ve
     return [aVec, bVec, cVec];
 }
 
-function setFromBary(i: number, vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor, accessor: WL.MeshAttributeAccessor) {
+function setFromBary(i: number, vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor, buffer: Float32Array) {
     const [aVec, bVec, cVec] = getFromBary(vecSize, a, b, c, aBary, bBary, cBary, origAccessor);
-    accessor.set(i, aVec);
-    accessor.set(i + 1, bVec);
-    accessor.set(i + 2, cVec);
+    buffer.set(aVec, i);
+    buffer.set(bVec, i + 3);
+    buffer.set(cVec, i + 6);
 }
 
 export class ManifoldPool {
@@ -189,7 +189,38 @@ export class ManifoldPool {
             // TODO joint support?
             const hasExtra: boolean = (tangents || normals || texCoords || colors);
 
-            for (let i = 0, j = 0; i < vaTriCount; i++) {
+            const fakeFloat32Array = (wantedLength: number, accessor: WL.MeshAttributeAccessor) => {
+                return accessor._tempBufferGetter(wantedLength);
+            }
+
+            // const positionBuffer = fakeFloat32Array(vertexCount * 3, positions);
+            const positionBuffer = new Float32Array(vertexCount * 3);
+
+            let tangentBuffer: Float32Array | undefined;
+            if (tangents) {
+                // tangentBuffer = tangents._tempBufferGetter(vertexCount * 4);
+                tangentBuffer = new Float32Array(vertexCount * 4);
+            }
+
+            let normalBuffer: Float32Array | undefined;
+            if (normals) {
+                // normalBuffer = fakeFloat32Array(vertexCount * 3, normals);
+                normalBuffer = new Float32Array(vertexCount * 3);
+            }
+
+            let texCoordBuffer: Float32Array | undefined;
+            if (texCoords) {
+                // texCoordBuffer = texCoords._tempBufferGetter(vertexCount * 2);
+                texCoordBuffer = new Float32Array(vertexCount * 2);
+            }
+
+            let colorBuffer: Float32Array | undefined;
+            if (colors) {
+                // colorBuffer = fakeFloat32Array(vertexCount * 4, colors);
+                colorBuffer = new Float32Array(vertexCount * 4);
+            }
+
+            for (let i = 0, j2 = 0, j3 = 0, j4 = 0; i < vaTriCount; i++, j2 += 6, j3 += 9, j4 += 16) {
                 const triIdx = va[i];
                 const triIndices = mesh.triVerts[triIdx];
                 const triBary = meshRelation.triBary[triIdx];
@@ -229,14 +260,14 @@ export class ManifoldPool {
 
                     const [a, b, c] = origTris[triBary.tri];
 
-                    if (tangents) {
+                    if (tangentBuffer) {
                         const origTangents = origMesh.attribute(WL.MeshAttribute.Tangent);
                         if (origTangents) {
-                            setFromBary(j, 4, a, b, c, aBary, bBary, cBary, origTangents, tangents);
+                            setFromBary(j4, 4, a, b, c, aBary, bBary, cBary, origTangents, tangentBuffer);
                         }
                     }
 
-                    if (normals) {
+                    if (normalBuffer) {
                         const origPositions = origMesh.attribute(WL.MeshAttribute.Position);
                         const origNormals = origMesh.attribute(WL.MeshAttribute.Normal);
 
@@ -264,30 +295,53 @@ export class ManifoldPool {
                             }
 
                             // set normals
-                            normals.set(j, aVec);
-                            normals.set(j + 1, bVec);
-                            normals.set(j + 2, cVec);
+                            normalBuffer.set(aVec, j3);
+                            normalBuffer.set(bVec, j3 + 3);
+                            normalBuffer.set(cVec, j3 + 6);
                         }
                     }
 
-                    if (texCoords) {
+                    if (texCoordBuffer) {
                         const origTexCoords = origMesh.attribute(WL.MeshAttribute.Tangent);
                         if (origTexCoords) {
-                            setFromBary(j, 2, a, b, c, aBary, bBary, cBary, origTexCoords, texCoords);
+                            setFromBary(j2, 2, a, b, c, aBary, bBary, cBary, origTexCoords, texCoordBuffer);
                         }
                     }
 
-                    if (colors) {
+                    if (colorBuffer) {
                         const origColors = origMesh.attribute(WL.MeshAttribute.Color);
                         if (origColors) {
-                            setFromBary(j, 3, a, b, c, aBary, bBary, cBary, origColors, colors);
+                            setFromBary(j4, 4, a, b, c, aBary, bBary, cBary, origColors, colorBuffer);
                         }
                     }
                 }
 
-                positions.set(j++, aPosNew);
-                positions.set(j++, bPosNew);
-                positions.set(j++, cPosNew);
+                positionBuffer.set(aPosNew, j3);
+                positionBuffer.set(bPosNew, j3 + 3);
+                positionBuffer.set(cPosNew, j3 + 6);
+            }
+
+            positions.set(0, positionBuffer);
+            // _wl_mesh_set_attribute_values(positions._attribute, positions._componentCount * 4, positionBuffer.byteOffset, 12 * vertexCount, positions._formatSize, positions._offset, positions._stride);
+
+            if (tangentBuffer) {
+                tangents.set(0, tangentBuffer);
+                // tangentBuffer.done();
+            }
+
+            if (normalBuffer) {
+                normals.set(0, normalBuffer);
+                // _wl_mesh_set_attribute_values(normals._attribute, normals._componentCount * 4, normalBuffer.byteOffset, 12 * vertexCount, normals._formatSize, normals._offset, normals._stride)
+            }
+
+            if (texCoordBuffer) {
+                texCoords.set(0, texCoordBuffer);
+                // texCoordBuffer.done();
+            }
+
+            if (colorBuffer) {
+                colors.set(0, colorBuffer);
+                // _wl_mesh_set_attribute_values(colors._attribute, colors._componentCount * 4, colorBuffer.byteOffset, 16 * vertexCount, colors._formatSize, colors._offset, colors._stride)
             }
 
             meshArr.push([wleMesh, material]);
