@@ -230,45 +230,58 @@ export class ManifoldPool {
                     const [a, b, c] = origTris[triBary.tri];
 
                     if (tangents) {
-                        setFromBary(j, 4, a, b, c, aBary, bBary, cBary, origMesh.attribute(WL.MeshAttribute.Tangent), tangents);
-                    }
-                    if (normals) {
-                        // FIXME normal flipping breaks on some meshes
-                        const origPos = origMesh.attribute(WL.MeshAttribute.Normal);
-                        const [aVec, bVec, cVec] = getFromBary(3, a, b, c, aBary, bBary, cBary, origMesh.attribute(WL.MeshAttribute.Normal));
-
-                        // get original face normal
-                        const bOrig = origPos.get(b);
-                        const baOrig = vec3.sub(vec3.create(), origPos.get(a), bOrig);
-                        vec3.normalize(baOrig, baOrig);
-                        const bcOrig = vec3.sub(vec3.create(), origPos.get(c), bOrig);
-                        vec3.normalize(bcOrig, bcOrig);
-                        const faceOrig = vec3.cross(vec3.create(), baOrig, bcOrig);
-
-                        // get new face normal
-                        const baNew = vec3.sub(vec3.create(), aPosNew, bPosNew);
-                        vec3.normalize(baNew, baNew);
-                        const bcNew = vec3.sub(vec3.create(), cPosNew, bPosNew);
-                        vec3.normalize(bcNew, bcNew);
-                        const faceNew = vec3.cross(vec3.create(), baNew, bcNew);
-
-                        // negate normals if necessary
-                        if (vec3.dot(faceOrig, faceNew) < 0) {
-                            vec3.negate(aVec as Vec3, aVec as Vec3);
-                            vec3.negate(bVec as Vec3, bVec as Vec3);
-                            vec3.negate(cVec as Vec3, cVec as Vec3);
+                        const origTangents = origMesh.attribute(WL.MeshAttribute.Tangent);
+                        if (origTangents) {
+                            setFromBary(j, 4, a, b, c, aBary, bBary, cBary, origTangents, tangents);
                         }
+                    }
 
-                        // set normals
-                        normals.set(j, aVec);
-                        normals.set(j + 1, bVec);
-                        normals.set(j + 2, cVec);
+                    if (normals) {
+                        const origPositions = origMesh.attribute(WL.MeshAttribute.Position);
+                        const origNormals = origMesh.attribute(WL.MeshAttribute.Normal);
+
+                        if (origPositions && origNormals) {
+                            const [aVec, bVec, cVec] = getFromBary(3, a, b, c, aBary, bBary, cBary, origNormals);
+
+                            // get original face normal
+                            const bOrig = origPositions.get(b);
+                            const abOrig = vec3.sub(vec3.create(), bOrig, origPositions.get(a));
+                            const bcOrig = vec3.sub(vec3.create(), origPositions.get(c), bOrig);
+                            const faceOrig = vec3.cross(vec3.create(), abOrig, bcOrig);
+                            vec3.normalize(faceOrig, faceOrig);
+
+                            // get new face normal
+                            const abNew = vec3.sub(vec3.create(), bPosNew, aPosNew);
+                            const bcNew = vec3.sub(vec3.create(), cPosNew, bPosNew);
+                            const faceNew = vec3.cross(vec3.create(), abNew, bcNew);
+                            vec3.normalize(faceNew, faceNew);
+
+                            // negate normals if necessary
+                            if (vec3.dot(faceOrig, faceNew) < 0) {
+                                vec3.negate(aVec as Vec3, aVec as Vec3);
+                                vec3.negate(bVec as Vec3, bVec as Vec3);
+                                vec3.negate(cVec as Vec3, cVec as Vec3);
+                            }
+
+                            // set normals
+                            normals.set(j, aVec);
+                            normals.set(j + 1, bVec);
+                            normals.set(j + 2, cVec);
+                        }
                     }
+
                     if (texCoords) {
-                        setFromBary(j, 2, a, b, c, aBary, bBary, cBary, origMesh.attribute(WL.MeshAttribute.TextureCoordinate), texCoords);
+                        const origTexCoords = origMesh.attribute(WL.MeshAttribute.Tangent);
+                        if (origTexCoords) {
+                            setFromBary(j, 2, a, b, c, aBary, bBary, cBary, origTexCoords, texCoords);
+                        }
                     }
+
                     if (colors) {
-                        setFromBary(j, 3, a, b, c, aBary, bBary, cBary, origMesh.attribute(WL.MeshAttribute.Color), colors);
+                        const origColors = origMesh.attribute(WL.MeshAttribute.Color);
+                        if (origColors) {
+                            setFromBary(j, 3, a, b, c, aBary, bBary, cBary, origColors, colors);
+                        }
                     }
                 }
 
