@@ -62,6 +62,6 @@
     "typescript": "^4.8.4"
   },
   "peerDependencies": {
-    "manifold-3d": "1.x"
+    "manifold-3d": "2.x"
   }
 }
