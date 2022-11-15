@@ -5,7 +5,7 @@ import { CSGOperation } from '../common/CSGOperation';
 import { iterateOpTree } from '../common/iterate-operation-tree';
 import { WorkerResponse } from '../common/WorkerResponse';
 import { vec3 } from 'gl-matrix';
-import { ManifoldWLMesh } from './ManifoldWLMesh';
+import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
 
 import type { WorkerRequest } from '../common/WorkerRequest';
 
@@ -22,10 +22,10 @@ function getFromBary(vecSize: number, a: number, b: number, c: number, aBary: Ve
     const cVec = new Array(vecSize);
     const bVec = new Array(vecSize);
 
-    for (let j = 0; j < vecSize; j++) {
-        aVec[j] = aOrigVal[j] * aBary[0] + bOrigVal[j] * aBary[1] + cOrigVal[j] * aBary[2];
-        bVec[j] = aOrigVal[j] * bBary[0] + bOrigVal[j] * bBary[1] + cOrigVal[j] * bBary[2];
-        cVec[j] = aOrigVal[j] * cBary[0] + bOrigVal[j] * cBary[1] + cOrigVal[j] * cBary[2];
+    for (let i = 0; i < vecSize; i++) {
+        aVec[i] = aOrigVal[i] * aBary[0] + bOrigVal[i] * aBary[1] + cOrigVal[i] * aBary[2];
+        bVec[i] = aOrigVal[i] * bBary[0] + bOrigVal[i] * bBary[1] + cOrigVal[i] * bBary[2];
+        cVec[i] = aOrigVal[i] * cBary[0] + bOrigVal[i] * cBary[1] + cOrigVal[i] * cBary[2];
     }
 
     return [aVec, bVec, cVec];
@@ -34,8 +34,10 @@ function getFromBary(vecSize: number, a: number, b: number, c: number, aBary: Ve
 function setFromBary(i: number, vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor, buffer: Float32Array) {
     const [aVec, bVec, cVec] = getFromBary(vecSize, a, b, c, aBary, bBary, cBary, origAccessor);
     buffer.set(aVec, i);
-    buffer.set(bVec, i + vecSize);
-    buffer.set(cVec, i + vecSize);
+    i += vecSize;
+    buffer.set(bVec, i);
+    i += vecSize;
+    buffer.set(cVec, i);
 }
 
 export class ManifoldPool {
@@ -44,7 +46,7 @@ export class ManifoldPool {
     private libraryPath: string;
     private workers: WorkerArray | null = null;
     private nextJobID = 0;
-    private jobs = new Map<number, [resolve: (value: JobResult) => void, reject: (reason: unknown) => void, origMeshes: Array<Mesh | WL.Mesh>, materialMap: Map<WL.Mesh | Mesh, WL.Material>]>();
+    private jobs = new Map<number, [resolve: (value: JobResult) => void, reject: (reason: unknown) => void, origMeshes: Array<BaseManifoldWLMesh | WL.Mesh>]>();
 
     constructor(workerCount: number | null = null, workerPath = 'manifold-wle.worker.min.js', libraryPath = 'manifold.js') {
         this.wantedWorkerCount = Math.max(
@@ -54,15 +56,17 @@ export class ManifoldPool {
         this.libraryPath = libraryPath;
     }
 
-    private meshFromWLE(wleMesh: ManifoldWLMesh | WL.Mesh): Mesh {
-        if (wleMesh instanceof ManifoldWLMesh) {
+    private toManifoldMesh(wleMesh: BaseManifoldWLMesh | WL.Mesh): Mesh {
+        if (wleMesh instanceof BaseManifoldWLMesh) {
             return wleMesh.manifoldMesh;
+        } else if(wleMesh instanceof WL.Mesh) {
+            return BaseManifoldWLMesh.manifoldFromWLE(wleMesh, false);
         } else {
-            return ManifoldWLMesh.manifoldFromWLE(wleMesh);
+            return wleMesh;
         }
     }
 
-    private meshToWLEArr(mesh: Mesh, meshRelation: MeshRelation, meshIDMap: Map<number, WL.Mesh | Mesh>, materialMap: Map<WL.Mesh | Mesh, WL.Material>): MeshArr {
+    private meshToWLEArr(mesh: Mesh, meshRelation: MeshRelation, meshIDMap: Map<number, BaseManifoldWLMesh | WL.Mesh>): MeshArr {
         // validate triangle count
         const triCount = mesh.triVerts.length;
 
@@ -71,43 +75,54 @@ export class ManifoldPool {
         }
 
         // map triangles to materials
-        const vertexArrays = new Map<WL.Material | null, Array<number>>();
+        const vertexArrays = new Map<WL.Material | null, Map<WL.Mesh | null, Array<[triIdx: number, origTriIdx: number]>>>();
         let iTri = 0;
         for (; iTri < triCount; iTri++) {
             // get original triangle
             const triBary = meshRelation.triBary[iTri];
             const origMesh = meshIDMap.get(triBary.originalID);
-            const material = materialMap.get(origMesh) ?? null;
+            let wleMesh: WL.Mesh | null;
+            let material: WL.Material;
+            let iTriOrig = iTri;
+
+            if (origMesh instanceof BaseManifoldWLMesh) {
+                [[wleMesh, material], iTriOrig] = origMesh.getTriBarySubmesh(triBary.tri);
+            } else {
+                material = null;
+                wleMesh = origMesh;
+            }
+
+            // get vertex array map (wle mesh -> va)
+            let vaMap = vertexArrays.get(material);
+            if (!vaMap) {
+                vaMap = new Map();
+                vertexArrays.set(material, vaMap);
+            }
 
             // get vertex array
-            let va = vertexArrays.get(material);
+            let va = vaMap.get(wleMesh);
             if (!va) {
                 va = [];
-                vertexArrays.set(material, va);
+                vaMap.set(wleMesh, va);
             }
 
             // add triangle points to vertex array
-            va.push(iTri);
+            va.push([iTri, iTriOrig]);
         }
 
         // make mesh for each vertex array
         const meshArr: MeshArr = [];
 
-        for (const [material, va] of vertexArrays) {
-            // make index buffer
-            const vaTriCount = va.length;
-            const vertexCount = vaTriCount * 3;
-            let indexType: WL.MeshIndexType, indexData: Uint8Array | Uint16Array | Uint32Array;
-            if (vertexCount <= 255) {
-                indexType = WL.MeshIndexType.UnsignedByte;
-                indexData = new Uint8Array(vertexCount);
-            } else if (vertexCount <= 65535) {
-                indexType = WL.MeshIndexType.UnsignedShort;
-                indexData = new Uint16Array(vertexCount);
-            } else {
-                indexType = WL.MeshIndexType.UnsignedInt;
-                indexData = new Uint32Array(vertexCount);
+        for (const [material, vaMap] of vertexArrays) {
+            // count triangles in vertex array
+            let vaTotalTriCount = 0;
+            for (const va of vaMap.values()) {
+                vaTotalTriCount += va.length;
             }
+
+            // make index buffer
+            const vertexCount = vaTotalTriCount * 3;
+            const [indexData, indexType] = BaseManifoldWLMesh.makeIndexBuffer(vertexCount);
 
             for (let i = 0; i < vertexCount; i++) {
                 indexData[i] = i;
@@ -146,113 +161,123 @@ export class ManifoldPool {
                 colorBuffer = new Float32Array(vertexCount * 4);
             }
 
-            for (let i = 0, j2 = 0, j3 = 0, j4 = 0; i < vaTriCount; i++, j2 += 6, j3 += 9, j4 += 12) {
-                const triIdx = va[i];
-                const triIndices = mesh.triVerts[triIdx];
-                const triBary = meshRelation.triBary[triIdx];
-                const origMesh = meshIDMap.get(triBary.originalID);
+            let j2 = 0, j3 = 0, j4 = 0;
+            for (const [origMesh, va] of vaMap) {
+                const vaTriCount = va.length;
 
-                const aPosNew = mesh.vertPos[triIndices[0]];
-                const bPosNew = mesh.vertPos[triIndices[1]];
-                const cPosNew = mesh.vertPos[triIndices[2]];
+                for (let i = 0; i < vaTriCount; i++, j2 += 6, j3 += 9, j4 += 12) {
+                    const [triIdx, origTriIdx] = va[i];
+                    const triIndices = mesh.triVerts[triIdx];
+                    const triBary = meshRelation.triBary[triIdx];
 
-                if (hasExtra && origMesh && origMesh instanceof WL.Mesh) {
-                    const aBaryIdx = triBary.vertBary[0];
-                    const bBaryIdx = triBary.vertBary[1];
-                    const cBaryIdx = triBary.vertBary[2];
+                    const aPosNew = mesh.vertPos[triIndices[0]];
+                    const bPosNew = mesh.vertPos[triIndices[1]];
+                    const cPosNew = mesh.vertPos[triIndices[2]];
 
-                    let aBary: Vec3;
-                    if (aBaryIdx < 0) {
-                        aBary = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][aBaryIdx + 3] as Vec3;
-                    } else {
-                        aBary = meshRelation.barycentric[aBaryIdx];
-                    }
+                    if (hasExtra && origMesh) {
+                        const aBaryIdx = triBary.vertBary[0];
+                        const bBaryIdx = triBary.vertBary[1];
+                        const cBaryIdx = triBary.vertBary[2];
 
-                    let bBary: Vec3;
-                    if (bBaryIdx < 0) {
-                        bBary = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][bBaryIdx + 3] as Vec3;
-                    } else {
-                        bBary = meshRelation.barycentric[bBaryIdx];
-                    }
-
-                    let cBary: Vec3;
-                    if (cBaryIdx < 0) {
-                        cBary = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][cBaryIdx + 3] as Vec3;
-                    } else {
-                        cBary = meshRelation.barycentric[cBaryIdx];
-                    }
-
-                    let a: number, b: number, c: number;
-                    if (origMesh.indexData) {
-                        let triOffset = triBary.tri * 3;
-                        a = origMesh.indexData[triOffset++];
-                        b = origMesh.indexData[triOffset++];
-                        c = origMesh.indexData[triOffset];
-                    } else {
-                        a = triBary.tri * 3;
-                        b = a + 1;
-                        c = b + 1;
-                    }
-
-                    if (tangentBuffer) {
-                        const origTangents = origMesh.attribute(WL.MeshAttribute.Tangent);
-                        if (origTangents) {
-                            setFromBary(j4, 4, a, b, c, aBary, bBary, cBary, origTangents, tangentBuffer);
+                        let aBary: Vec3;
+                        if (aBaryIdx < 0) {
+                            aBary = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][aBaryIdx + 3] as Vec3;
+                        } else {
+                            aBary = meshRelation.barycentric[aBaryIdx];
                         }
-                    }
 
-                    if (normalBuffer) {
-                        const origPositions = origMesh.attribute(WL.MeshAttribute.Position);
-                        const origNormals = origMesh.attribute(WL.MeshAttribute.Normal);
+                        let bBary: Vec3;
+                        if (bBaryIdx < 0) {
+                            bBary = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][bBaryIdx + 3] as Vec3;
+                        } else {
+                            bBary = meshRelation.barycentric[bBaryIdx];
+                        }
 
-                        if (origPositions && origNormals) {
-                            const [aVec, bVec, cVec] = getFromBary(3, a, b, c, aBary, bBary, cBary, origNormals);
+                        let cBary: Vec3;
+                        if (cBaryIdx < 0) {
+                            cBary = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][cBaryIdx + 3] as Vec3;
+                        } else {
+                            cBary = meshRelation.barycentric[cBaryIdx];
+                        }
 
-                            // get original face normal
-                            const bOrig = origPositions.get(b);
-                            const abOrig = vec3.sub(vec3.create(), bOrig, origPositions.get(a));
-                            const bcOrig = vec3.sub(vec3.create(), origPositions.get(c), bOrig);
-                            const faceOrig = vec3.cross(vec3.create(), abOrig, bcOrig);
-                            vec3.normalize(faceOrig, faceOrig);
+                        let a: number, b: number, c: number;
+                        if (origMesh.indexData) {
+                            let triOffset = origTriIdx * 3;
+                            a = origMesh.indexData[triOffset++];
+                            b = origMesh.indexData[triOffset++];
+                            c = origMesh.indexData[triOffset];
+                        } else {
+                            a = origTriIdx * 3;
+                            b = a + 1;
+                            c = b + 1;
+                        }
 
-                            // get new face normal
-                            const abNew = vec3.sub(vec3.create(), bPosNew, aPosNew);
-                            const bcNew = vec3.sub(vec3.create(), cPosNew, bPosNew);
-                            const faceNew = vec3.cross(vec3.create(), abNew, bcNew);
-                            vec3.normalize(faceNew, faceNew);
-
-                            // negate normals if necessary
-                            if (vec3.dot(faceOrig, faceNew) < 0) {
-                                vec3.negate(aVec as Vec3, aVec as Vec3);
-                                vec3.negate(bVec as Vec3, bVec as Vec3);
-                                vec3.negate(cVec as Vec3, cVec as Vec3);
+                        if (tangentBuffer) {
+                            const origTangents = origMesh.attribute(WL.MeshAttribute.Tangent);
+                            if (origTangents) {
+                                // TODO handle transforms and flips
+                                setFromBary(j4, 4, a, b, c, aBary, bBary, cBary, origTangents, tangentBuffer);
                             }
+                        }
 
-                            // set normals
-                            normalBuffer.set(aVec, j3);
-                            normalBuffer.set(bVec, j3 + 3);
-                            normalBuffer.set(cVec, j3 + 6);
+                        if (normalBuffer) {
+                            const origPositions = origMesh.attribute(WL.MeshAttribute.Position);
+                            const origNormals = origMesh.attribute(WL.MeshAttribute.Normal);
+
+                            if (origPositions && origNormals) {
+                                const [aVec, bVec, cVec] = getFromBary(3, a, b, c, aBary, bBary, cBary, origNormals);
+
+                                // get original face normal
+                                const bOrig = origPositions.get(b);
+                                const abOrig = vec3.sub(vec3.create(), bOrig, origPositions.get(a));
+                                const bcOrig = vec3.sub(vec3.create(), origPositions.get(c), bOrig);
+                                const faceOrig = vec3.cross(vec3.create(), abOrig, bcOrig);
+                                vec3.normalize(faceOrig, faceOrig);
+
+                                // get new face normal
+                                const abNew = vec3.sub(vec3.create(), bPosNew, aPosNew);
+                                const bcNew = vec3.sub(vec3.create(), cPosNew, bPosNew);
+                                const faceNew = vec3.cross(vec3.create(), abNew, bcNew);
+                                vec3.normalize(faceNew, faceNew);
+
+                                // NOTE this doesn't work if, for some bizarre
+                                // reason, vertex normals are pointing inside
+                                // the solid on purpose
+                                // TODO handle transforms and flips
+
+                                // negate normals if necessary
+                                if (vec3.dot(faceOrig, faceNew) < 0) {
+                                    vec3.negate(aVec as Vec3, aVec as Vec3);
+                                    vec3.negate(bVec as Vec3, bVec as Vec3);
+                                    vec3.negate(cVec as Vec3, cVec as Vec3);
+                                }
+
+                                // set normals
+                                normalBuffer.set(aVec, j3);
+                                normalBuffer.set(bVec, j3 + 3);
+                                normalBuffer.set(cVec, j3 + 6);
+                            }
+                        }
+
+                        if (texCoordBuffer) {
+                            const origTexCoords = origMesh.attribute(WL.MeshAttribute.TextureCoordinate);
+                            if (origTexCoords) {
+                                setFromBary(j2, 2, a, b, c, aBary, bBary, cBary, origTexCoords, texCoordBuffer);
+                            }
+                        }
+
+                        if (colorBuffer) {
+                            const origColors = origMesh.attribute(WL.MeshAttribute.Color);
+                            if (origColors) {
+                                setFromBary(j4, 4, a, b, c, aBary, bBary, cBary, origColors, colorBuffer);
+                            }
                         }
                     }
 
-                    if (texCoordBuffer) {
-                        const origTexCoords = origMesh.attribute(WL.MeshAttribute.Tangent);
-                        if (origTexCoords) {
-                            setFromBary(j2, 2, a, b, c, aBary, bBary, cBary, origTexCoords, texCoordBuffer);
-                        }
-                    }
-
-                    if (colorBuffer) {
-                        const origColors = origMesh.attribute(WL.MeshAttribute.Color);
-                        if (origColors) {
-                            setFromBary(j4, 4, a, b, c, aBary, bBary, cBary, origColors, colorBuffer);
-                        }
-                    }
+                    positionBuffer.set(aPosNew, j3);
+                    positionBuffer.set(bPosNew, j3 + 3);
+                    positionBuffer.set(cPosNew, j3 + 6);
                 }
-
-                positionBuffer.set(aPosNew, j3);
-                positionBuffer.set(bPosNew, j3 + 3);
-                positionBuffer.set(cPosNew, j3 + 6);
             }
 
             positions.set(0, positionBuffer);
@@ -328,13 +353,13 @@ export class ManifoldPool {
                         break;
                     }
 
-                    const [jobResolve, jobReject, origMap, materialMap] = job;
+                    const [jobResolve, jobReject, origMap] = job;
                     if (event.data.success) {
                         const result = event.data.result;
 
                         if (Array.isArray(result)) {
                             const [mesh, meshRelation, meshIDMap] = result;
-                            const mappedOrigMap = new Map<number, WL.Mesh | Mesh>();
+                            const mappedOrigMap = new Map<number, BaseManifoldWLMesh | WL.Mesh>();
 
                             for (const [src, dst] of meshIDMap) {
                                 const orig = origMap[dst];
@@ -343,9 +368,7 @@ export class ManifoldPool {
                                 }
                             }
 
-                            console.log(result);
-
-                            jobResolve(this.meshToWLEArr(mesh, meshRelation, mappedOrigMap, materialMap));
+                            jobResolve(this.meshToWLEArr(mesh, meshRelation, mappedOrigMap));
                         } else {
                             jobResolve(result);
                         }
@@ -391,7 +414,7 @@ export class ManifoldPool {
         return bestWorker;
     }
 
-    async dispatch(operation: CSGOperation<ManifoldWLMesh | WL.Mesh | Mesh>, materialMap?: Map<ManifoldWLMesh | WL.Mesh | Mesh, WL.Material>): Promise<JobResult> {
+    async dispatch(operation: CSGOperation<BaseManifoldWLMesh | WL.Mesh>): Promise<JobResult> {
         if (!this.workers) {
             await this.initialize();
         }
@@ -402,14 +425,10 @@ export class ManifoldPool {
 
         let nextMeshID = 0;
         const meshIDMap = new Map<number, Mesh>();
-        const origMap = new Array<WL.Mesh | Mesh>();
+        const origMap = new Array<BaseManifoldWLMesh | WL.Mesh>();
         iterateOpTree(operation, (context, key, mesh) => {
             // mesh
-            let converted = mesh;
-            if (mesh instanceof WL.Mesh) {
-                converted = this.meshFromWLE(mesh);
-            }
-
+            const converted = this.toManifoldMesh(mesh);
             meshIDMap.set(nextMeshID, mesh);
             context[key] = [nextMeshID++, converted];
             origMap.push(mesh);
@@ -419,10 +438,8 @@ export class ManifoldPool {
         best[1]++;
         const jobID = this.nextJobID++;
 
-        const finalMaterialMap = new Map(materialMap?.entries());
-
         return await new Promise((resolve, reject) => {
-            this.jobs.set(jobID, [resolve, reject, origMap, finalMaterialMap]);
+            this.jobs.set(jobID, [resolve, reject, origMap]);
             best[0].postMessage(<WorkerRequest>{
                 type: 'operation', jobID, operation
             });
