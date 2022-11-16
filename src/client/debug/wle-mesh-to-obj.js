@@ -1,4 +1,9 @@
 export function wleMeshToOBJ(wleMesh) {
+    // converts a wonderland WL.Mesh object to an wavefront obj 3D model file.
+    // this was created because the mesh debug shaders for wonderland engine
+    // don't work properly for indexed meshes, so debugging must be done in an
+    // external program
+
     const positions = wleMesh.attribute(WL.MeshAttribute.Position);
     let lines = [];
 

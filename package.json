@@ -1,6 +1,6 @@
 {
   "name": "manifold-wle",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "description": "Helper library for using Manifold with Wonderland Engine",
   "exports": "./dist/index.esm.min.js",
   "types": "dist/index.d.ts",

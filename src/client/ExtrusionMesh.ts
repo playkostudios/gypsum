@@ -6,13 +6,14 @@ import { BaseManifoldWLMesh, Submesh, SubmeshMap } from './BaseManifoldWLMesh';
 import triangulate2DPolygon from './triangulation/triangulate-2d-polygon';
 import type { CurveFrame, CurveFrames } from './rmf/curve-frame';
 
-const temp0 = vec3.create();
 const internalCtorKey = Symbol();
-
-type SegmentsUVs = [startV: number, endV: number, segmentsUs: Array<number>];
 type InternalCtorArgs = [ctorKey: symbol, submeshes: Array<Submesh>, premadeManifoldMesh: Mesh, submeshMap: SubmeshMap];
 
-interface ExtrusionMaterialOptions {
+const temp0 = vec3.create();
+
+type SegmentsUVs = [startV: number, endV: number, segmentsUs: Array<number>];
+
+export interface ExtrusionMaterialOptions {
     startMaterial?: WL.Material;
     endMaterial?: WL.Material;
     segmentMaterial?: WL.Material;
