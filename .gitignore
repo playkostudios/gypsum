@@ -6,3 +6,4 @@ node_modules/
 dist/*.js
 dist/*.js.map
 dist/*.d.ts
+src_ignore/

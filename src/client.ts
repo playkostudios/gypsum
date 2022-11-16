@@ -1,5 +1,3 @@
-export * from './client/debug/wle-mesh-to-obj';
-
 export * from './client/polylines/circle-polyline';
 export * from './client/polylines/cube-polyline';
 export * from './client/polylines/rectangle-polyline';
