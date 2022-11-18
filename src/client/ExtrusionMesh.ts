@@ -4,10 +4,10 @@
 import { mat3, mat4, vec2, vec3 } from 'gl-matrix';
 import { BaseManifoldWLMesh, Submesh, SubmeshMap } from './BaseManifoldWLMesh';
 import triangulate2DPolygon from './triangulation/triangulate-2d-polygon';
-import type { CurveFrame, CurveFrames } from './rmf/curve-frame';
+import internalCtorKey from './mesh-gen/internal-ctor-key';
+import type { CurveFrames } from './rmf/curve-frame';
 
-const internalCtorKey = Symbol();
-type InternalCtorArgs = [ctorKey: symbol, submeshes: Array<Submesh>, premadeManifoldMesh: Mesh, submeshMap: SubmeshMap];
+type InternalCtorArgs = [ctorKey: symbol, submeshes: Array<Submesh>, premadeManifoldMesh: Mesh | undefined, submeshMap: SubmeshMap | undefined];
 
 const temp0 = vec3.create();
 
@@ -24,17 +24,21 @@ export interface ExtrusionOptions extends ExtrusionMaterialOptions {
     startBaseUVs?: Array<vec2>;
     endBaseUVs?: Array<vec2>;
     segmentsUVs?: [startV: number | null, endV: number | null, segmentsUs: Array<number> | null];
+    curveScales?: Array<number>;
 }
 
-function getMatrix(outputMat: mat4, frame: CurveFrame, position: vec3) {
+function getMatrix(outputMat: mat4, index: number, frames: CurveFrames, positions: Array<vec3>, scales: Array<number> | null) {
     // r (normal) = +y, s (binormal) = +x, t (tangent) = +z
     // make matrix from position and frame
-    const [r, s, t] = frame;
+    const [r, s, t] = frames[index];
+    const position = positions[index];
+    const scale = scales ? scales[index] : 1;
+
     mat4.set(
         outputMat,
-        s[0], s[1], s[2], 0,
-        r[0], r[1], r[2], 0,
-        t[0], t[1], t[2], 0,
+        scale * s[0], scale * s[1], scale * s[2], 0,
+        scale * r[0], scale * r[1], scale * r[2], 0,
+        scale * t[0], scale * t[1], scale * t[2], 0,
         position[0], position[1], position[2], 1
     );
 }
@@ -83,6 +87,12 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         const endBaseUVs: Array<vec2> | null = options?.endBaseUVs ?? null;
         if (endBaseUVs && endBaseUVs.length !== loopLen) {
             throw new Error('End base UV count must match polyline length');
+        }
+
+        // validate curve scales
+        const curveScales: Array<number> | null = options?.curveScales ?? null;
+        if (curveScales && curveScales.length !== pointCount) {
+            throw new Error('There must be exactly one scale per point when curve scales are specified');
         }
 
         // validate segment UVs
@@ -439,7 +449,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
 
         i = 0;
         for (let p = 0; p < pointCount; p++) {
-            getMatrix(matrix, curveFrames[p], curvePositions[p]);
+            getMatrix(matrix, p, curveFrames, curvePositions, curveScales);
 
             if (p > 0) {
                 extrusionLength += vec3.distance(curvePositions[p], curvePositions[p - 1]);
@@ -454,7 +464,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         }
 
         // make start base vertices
-        getMatrix(matrix, curveFrames[0], curvePositions[0]);
+        getMatrix(matrix, 0, curveFrames, curvePositions, curveScales);
         const startNormal = vec3.clone(curveFrames[0][2]); // [2] = t = curve tangent
         vec3.negate(startNormal, startNormal);
 
@@ -485,7 +495,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         }
 
         for (let p = 0; p < pointCount; p++) {
-            getMatrix(matrix, curveFrames[p], curvePositions[p]);
+            getMatrix(matrix, p, curveFrames, curvePositions, curveScales);
             const lOffset = p * loopLen;
 
             if (p > 0) {
@@ -560,7 +570,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         }
 
         // make end base vertices
-        getMatrix(matrix, curveFrames[segmentCount], curvePositions[segmentCount]);
+        getMatrix(matrix, segmentCount, curveFrames, curvePositions, curveScales);
         const endNormal = curveFrames[segmentCount][2]; // [2] = t = curve tangent
         const lEndOffset = segmentCount * loopLen;
 

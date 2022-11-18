@@ -1,12 +1,10 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="../../types/globals.d.ts" />
 
-import { vec3 } from 'gl-matrix';
+import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
 import VertexHasher from './VertexHasher';
 
 const MAX_INDEX_BUFFER_SIZE = 4294967296;
-const temp0 = vec3.create();
-const temp1 = vec3.create();
 
 /**
  * Maps a manifold triangle index to a WLE submesh index. The format is:
@@ -118,14 +116,10 @@ export abstract class BaseManifoldWLMesh {
                     normals.set(j + 1, mesh.vertNormal[b]);
                     normals.set(j + 2, mesh.vertNormal[c]);
                 } else {
-                    // calculate triangle plane normal
-                    vec3.sub(temp0, bPos, aPos); // BA
-                    vec3.sub(temp1, bPos, cPos); // BC
-                    vec3.cross(temp0, temp1, temp0); // normal
-
-                    normals.set(j, temp0);
-                    normals.set(j + 1, temp0);
-                    normals.set(j + 2, temp0);
+                    const normal = normalFromTriangle(aPos, bPos, cPos);
+                    normals.set(j, normal);
+                    normals.set(j + 1, normal);
+                    normals.set(j + 2, normal);
                 }
             }
 

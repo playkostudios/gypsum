@@ -8,6 +8,7 @@ export * from './client/rmf/curve-frame';
 export * from './client/rmf/make-rotation-minimizing-frames';
 
 export * from './client/BaseManifoldWLMesh';
+export * from './client/BasePrismoidPyramidMesh';
 export * from './client/CubeMesh';
 export * from './client/ExtrusionMesh';
 export * from './client/LinearExtrusionMesh';

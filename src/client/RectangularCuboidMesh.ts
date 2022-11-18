@@ -1,9 +1,9 @@
 import { BaseManifoldWLMesh, Submesh, SubmeshMap } from './BaseManifoldWLMesh';
+import internalCtorKey from './mesh-gen/internal-ctor-key';
 import { vec3 } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
 
-const internalCtorKey = Symbol();
 type InternalCtorArgs = [ctorKey: symbol, width: number, height: number, depth: number, submeshes: Array<Submesh>, premadeManifoldMesh: Mesh, submeshMap: SubmeshMap];
 
 export type CuboidFaceUVs = [tl: vec2, bl: vec2, br: vec2, tr: vec2];
