@@ -6,6 +6,7 @@ import { BaseManifoldWLMesh, Submesh, SubmeshMap } from './BaseManifoldWLMesh';
 import triangulate2DPolygon from './triangulation/triangulate-2d-polygon';
 import internalCtorKey from './mesh-gen/internal-ctor-key';
 import type { CurveFrames } from './rmf/curve-frame';
+import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
 
 type InternalCtorArgs = [ctorKey: symbol, submeshes: Array<Submesh>, premadeManifoldMesh: Mesh | undefined, submeshMap: SubmeshMap | undefined];
 
@@ -195,8 +196,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         let manifSegmentStart = 0;
         let manifSegmentEnd = loopLen;
 
-        let i = 0;
-        for (let s = 0; s < segmentCount; s++) {
+        for (let s = 0, i = 0; s < segmentCount; s++) {
             // (wle)
             if (hasSmoothNormals) {
                 for (let l = 0; l < segmentStride; l++) {
@@ -378,9 +378,8 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         // 2: endMesh
         const submeshMap: SubmeshMap = new Float32Array(manifTriCount * 2);
 
-        i = 0;
         const jEndOffset = (baseTriCount + segmentsTriCount) * 2;
-        for (let j = 0; i < triangulatedBaseLen; i++) {
+        for (let i = 0, j = 0; i < triangulatedBaseLen; i++) {
             // start and end bases submesh indices
             submeshMap[j] = 0
             submeshMap[jEndOffset + j++] = 2;
@@ -389,8 +388,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
             submeshMap[jEndOffset + j++] = i;
         }
 
-        i = 0;
-        for (let j = baseTriCount * 2; i < segmentsTriCount; i++) {
+        for (let i = 0, j = baseTriCount * 2; i < segmentsTriCount; i++) {
             // segment triangle indices
             submeshMap[j++] = 1;
             submeshMap[j++] = i;
@@ -398,57 +396,12 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
 
         this.submeshMap = submeshMap;
 
-        // pre-calculate untransformed normals of each edge in the polyline, and
-        // smooth normals for each vertex, if smooth normals are enabled
-        let edgeNormals: Array<vec3> | null = null;
-        let smoothNormals: Array<vec3> | null = null;
-
-        if (hasVertexNormals) {
-            edgeNormals = new Array(loopLen);
-
-            if (hasSmoothNormals) {
-                smoothNormals = new Array(loopLen);
-            }
-
-            // first edge normal
-            vec3.set(temp0, 0, 0, -1);
-            const lXYLast = polyline[0];
-            const mXYLast = polyline[lLast];
-            const lastEdgeNormal = vec3.fromValues(lXYLast[0] - mXYLast[0], lXYLast[1] - mXYLast[1], 0);
-            edgeNormals[lLast] = vec3.cross(lastEdgeNormal, temp0, lastEdgeNormal);
-
-            // other edge normals + smooth normals
-            for (let l = 0; l < lLast; l++) {
-                const m = l + 1;
-                const lXY = polyline[lLast - l];
-                const mXY = polyline[lLast - m];
-                const edgeNormal = vec3.fromValues(lXY[0] - mXY[0], lXY[1] - mXY[1], 0);
-                edgeNormals[l] = vec3.cross(edgeNormal, temp0, edgeNormal);
-
-                if (smoothNormals) {
-                    const lastEdge = l === 0 ? lLast : (l - 1);
-                    const prevEdgeNormal = edgeNormals[lastEdge];
-                    const smoothNormal = vec3.add(vec3.create(), prevEdgeNormal, edgeNormal);
-                    vec3.normalize(smoothNormal, smoothNormal);
-                    smoothNormals[l] = smoothNormal;
-                }
-            }
-
-            // last smooth vertex normal
-            if (smoothNormals) {
-                const lastSmoothNormal = vec3.add(vec3.create(), edgeNormals[lLast - 1], edgeNormals[lLast]);
-                vec3.normalize(lastSmoothNormal, lastSmoothNormal);
-                smoothNormals[lLast] = lastSmoothNormal;
-            }
-        }
-
         // pre-calculate segment positions. vertex positions for manifold are
         // populated this way. also pre-calculate extrusion length
         const matrix = mat4.create();
         let extrusionLength = 0;
 
-        i = 0;
-        for (let p = 0; p < pointCount; p++) {
+        for (let i = 0, p = 0; p < pointCount; p++) {
             getMatrix(matrix, p, curveFrames, curvePositions, curveScales);
 
             if (p > 0) {
@@ -463,14 +416,69 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
             }
         }
 
+        // pre-calculate transformed normals of each edge in the polyline, and
+        // smooth normals for each vertex, if smooth normals are enabled. vertex
+        // normals are pre-calculated because they are shared in some cases
+        let edgeNormals: Array<vec3> | null = null;
+        let smoothNormals: Array<vec3> | null = null;
+
+        if (hasVertexNormals) {
+            // calculate edge normals from one of the triangles in a segment
+            edgeNormals = new Array(loopLen * segmentCount);
+
+            for (let i = 0, s = 0; s < segmentCount; s++) {
+                for (let l = 0; l < loopLen; l++) {
+                    edgeNormals[i] = normalFromTriangle(
+                        manifVertPos[i],
+                        manifVertPos[i + 1],
+                        manifVertPos[i + loopLen],
+                        vec3.create(),
+                    );
+                    i++;
+                }
+            }
+
+            // calculate smooth vertex normals by getting the average of the
+            // normals of all triangles touching a vertex
+            // XXX note that there is probably no need to do weighted vertex
+            // normals (http://www.bytehazard.com/articles/vertnorm.html)
+            // because we are only getting the face normals of 2 triangles per
+            // segment, where both are pointing at different directions
+            if (hasSmoothNormals) {
+                smoothNormals = new Array(loopLen * pointCount);
+
+                for (let i = 0, p = 0; p < pointCount; p++) {
+                    const lOffset = p * loopLen;
+
+                    for (let l = 0; l < loopLen; l++) {
+                        const smoothNormal = vec3.create();
+
+                        if (p > 0) {
+                            // normals from previous segment
+                            const prevStart = lOffset - loopLen;
+                            vec3.add(smoothNormal, smoothNormal, edgeNormals[prevStart + l]);
+                            vec3.add(smoothNormal, smoothNormal, edgeNormals[prevStart + (l - 1 + loopLen) % loopLen]);
+                        }
+
+                        if (p < segmentCount) {
+                            // normals from next segment
+                            vec3.add(smoothNormal, smoothNormal, edgeNormals[lOffset + l]);
+                            vec3.add(smoothNormal, smoothNormal, edgeNormals[lOffset + (l - 1 + loopLen) % loopLen]);
+                        }
+
+                        smoothNormals[i] = vec3.normalize(smoothNormal, smoothNormal);
+                        i++;
+                    }
+                }
+            }
+        }
+
         // make start base vertices
         getMatrix(matrix, 0, curveFrames, curvePositions, curveScales);
         const startNormal = vec3.clone(curveFrames[0][2]); // [2] = t = curve tangent
         vec3.negate(startNormal, startNormal);
 
-        i = 0;
-        let uv = 0;
-        for (let l = 0; l < loopLen; l++) {
+        for (let i = 0, l = 0, uv = 0; l < loopLen; l++) {
             startPosBuf.set(manifVertPos[lLast - l], i);
 
             if (startNormBuf) {
@@ -485,16 +493,13 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         }
 
         // make segment vertices
-        const normalMatrix = mat3.create();
-
-        i = 0;
         let curLength = 0, iTexCoord = 0, vRange = 0;
 
         if (segmentsUVs) {
             vRange = segmentsUVs[1] - segmentsUVs[0];
         }
 
-        for (let p = 0; p < pointCount; p++) {
+        for (let i = 0, p = 0; p < pointCount; p++) {
             getMatrix(matrix, p, curveFrames, curvePositions, curveScales);
             const lOffset = p * loopLen;
 
@@ -502,18 +507,12 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
                 curLength += vec3.distance(curvePositions[p], curvePositions[p - 1]);
             }
 
-            if (segNormBuf) {
-                // XXX don't use normalFromMat4 or you will always get identity matrices
-                mat3.fromMat4(normalMatrix, matrix);
-            }
-
             for (let l = 0; l < loopLen; l++) {
                 segPosBuf.set(manifVertPos[l + lOffset], i);
 
                 if (smoothNormals) {
                     if (segNormBuf) {
-                        vec3.transformMat3(temp0, smoothNormals[l], normalMatrix);
-                        segNormBuf.set(temp0, i);
+                        segNormBuf.set(smoothNormals[lOffset + l], i);
                     }
                     if (segTexCoordBuf) {
                         const u = (segmentsUVs as SegmentsUVs)[2][l];
@@ -523,9 +522,9 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
                     }
                 } else {
                     if (segNormBuf) {
-                        vec3.transformMat3(temp0, (edgeNormals as Array<vec3>)[l], normalMatrix);
-                        segNormBuf.set(temp0, i);
-                        segNormBuf.set(temp0, i + 3);
+                        const edgeNormal = (edgeNormals as Array<vec3>)[Math.min(p, segmentCount - 1) * loopLen + l];
+                        segNormBuf.set(edgeNormal, i);
+                        segNormBuf.set(edgeNormal, i + 3);
                     }
                     if (segTexCoordBuf) {
                         const u1 = (segmentsUVs as SegmentsUVs)[2][l];
@@ -555,8 +554,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
                 segPosBuf.set(manifVertPos[lOffset], i);
 
                 if (segNormBuf) {
-                    vec3.transformMat3(temp0, smoothNormals[0], normalMatrix);
-                    segNormBuf.set(temp0, i);
+                    segNormBuf.set(smoothNormals[lOffset], i);
                 }
                 if (segTexCoordBuf) {
                     const u = (segmentsUVs as SegmentsUVs)[2][loopLen];
@@ -574,8 +572,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         const endNormal = curveFrames[segmentCount][2]; // [2] = t = curve tangent
         const lEndOffset = segmentCount * loopLen;
 
-        i = 0, uv = 0;
-        for (let l = 0; l < loopLen; l++) {
+        for (let i = 0, l = 0, uv = 0; l < loopLen; l++) {
             endPosBuf.set(manifVertPos[lEndOffset + lLast - l], i);
 
             if (endNormBuf) {

@@ -2,7 +2,7 @@
 /// <reference path="../../types/globals.d.ts" />
 
 import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
-import VertexHasher from './VertexHasher';
+import VertexHasher from './mesh-gen/VertexHasher';
 
 const MAX_INDEX_BUFFER_SIZE = 4294967296;
 
