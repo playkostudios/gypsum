@@ -2,11 +2,9 @@ import { makeCirclePolyline } from '../client';
 import { PrismMesh } from './PrismMesh';
 
 import type { PrismPyramidOptions } from './PrismPyramidOptions';
+import type { RadialOptions } from './RadialOptions';
 
-export interface CylinderOptions extends PrismPyramidOptions {
-    subDivisions?: number;
-    radius?: number;
-}
+export interface CylinderOptions extends RadialOptions, PrismPyramidOptions {}
 
 export class CylinderMesh extends PrismMesh {
     constructor(options?: CylinderOptions) {
