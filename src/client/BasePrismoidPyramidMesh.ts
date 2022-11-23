@@ -81,7 +81,7 @@ export class BasePrismoidPyramidMesh extends ExtrusionMesh {
 
             // (base indexes)
             const hasTopApex = (topScale === 0);
-            const [baseIndexData, baseIndexType] = BaseManifoldWLMesh.makeIndexBuffer(triangulatedBaseLen);
+            const [baseIndexData, baseIndexType] = BaseManifoldWLMesh.makeIndexBuffer(triangulatedBaseLen, polylineLen);
 
             // bases face down by default, so if the apex is at the bottom, the
             // base needs to have its winding order inverted
@@ -103,7 +103,8 @@ export class BasePrismoidPyramidMesh extends ExtrusionMesh {
             });
 
             // (lateral indices)
-            const [latIndexData, latIndexType] = BaseManifoldWLMesh.makeIndexBuffer(polylineLen * 4);
+            const latVertexCount = polylineLen * 2 + (hasSmoothNormals ? 0 : polylineLen);
+            const [latIndexData, latIndexType] = BaseManifoldWLMesh.makeIndexBuffer(polylineLen * 4, latVertexCount);
 
             // index format:
             // [polylineLen]: base vertices (if smooth normals)
@@ -144,7 +145,7 @@ export class BasePrismoidPyramidMesh extends ExtrusionMesh {
             }
 
             const latMesh = new WL.Mesh({
-                vertexCount: polylineLen * 2 + (hasSmoothNormals ? 0 : polylineLen),
+                vertexCount: latVertexCount,
                 indexData: latIndexData,
                 indexType: latIndexType
             });

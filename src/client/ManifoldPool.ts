@@ -122,7 +122,8 @@ export class ManifoldPool {
 
             // make index buffer
             const vertexCount = vaTotalTriCount * 3;
-            const [indexData, indexType] = BaseManifoldWLMesh.makeIndexBuffer(vertexCount);
+            // XXX no vertex merging
+            const [indexData, indexType] = BaseManifoldWLMesh.makeIndexBuffer(vertexCount, vertexCount);
 
             for (let i = 0; i < vertexCount; i++) {
                 indexData[i] = i;

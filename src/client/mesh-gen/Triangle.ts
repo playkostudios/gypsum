@@ -6,6 +6,8 @@ function validateEdgeIndex(edgeIndex: number) {
     }
 }
 
+export type VertexStar = Array<[triangle: Triangle, vertexIndex: number]>;
+
 /**
  * An easy-to-use triangle representation. Memory efficient per triangle, but
  * not per whole mesh, as it does not share vertex data with other triangles.
@@ -49,22 +51,26 @@ export class Triangle {
     private edgeTriangle2: Triangle | null = null;
 
     /**
-     * The positions, normals and UVs of each triangle. UVs are optional; if the
-     * length of this array is 18, then UVs are not available, else (if 24),
-     * then UVs are available.
+     * The positions, normals and UVs of each triangle. Even though normals and
+     * UVs are optional, space will still be reserved for them.
      *
-     * The format is not interleaved:
+     * The format is interleaved:
      * - float 0-2: vertex 0's position
-     * - float 3-5: vertex 1's position
-     * - float 6-8: vertex 2's position
-     * - float 9-11: vertex 0's normal
-     * - float 12-14: vertex 1's normal
-     * - float 15-17: vertex 2's normal
-     * - float 18-19: vertex 0's UV
-     * - float 20-21: vertex 1's UV
+     * - float 3-5: vertex 0's normal
+     * - float 6-7: vertex 0's UV (unused if no uvs)
+     * - float 8-10: vertex 1's position
+     * - float 11-13: vertex 1's normal
+     * - float 14-15: vertex 1's UV
+     * - float 16-18: vertex 2's position
+     * - float 19-21: vertex 2's normal
      * - float 22-23: vertex 2's UV
      */
-    private vertexData: Float32Array;
+    readonly vertexData: Float32Array;
+
+    /**
+     * A generic helper variable intended to be used as an index.
+     */
+    helper = 0;
 
     private setEdgeTriangle(edgeIndex: number, triangle: Triangle | null) {
         switch(edgeIndex) {
@@ -83,12 +89,8 @@ export class Triangle {
         return this.bitData >> 6;
     }
 
-    get hasUVs(): boolean {
-        return this.vertexData.length === 24;
-    }
-
-    constructor(hasUVs = false) {
-        this.vertexData = new Float32Array(hasUVs ? 24 : 18);
+    constructor() {
+        this.vertexData = new Float32Array(24);
     }
 
     getConnectedEdge(edgeIndex: number): [number, Triangle] | null {
@@ -140,37 +142,132 @@ export class Triangle {
     }
 
     getPosition(vertexIndex: number): vec3 {
-        const offset = 3 * vertexIndex;
+        const offset = 8 * vertexIndex;
         return this.vertexData.slice(offset, offset + 3);
     }
 
     getNormal(vertexIndex: number): vec3 {
-        const offset = 3 * vertexIndex + 9;
+        const offset = 8 * vertexIndex + 3;
         return this.vertexData.slice(offset, offset + 3);
     }
 
     getUV(vertexIndex: number): vec2 {
-        const offset = 2 * vertexIndex + 18;
+        const offset = 8 * vertexIndex + 6;
         return this.vertexData.slice(offset, offset + 2);
     }
 
-    setPosition(vertexIndex: number, newPosition: vec3) {
-        const offset = 3 * vertexIndex;
+    setPosition(vertexIndex: number, newPosition: Readonly<vec3>) {
+        const offset = 8 * vertexIndex;
         this.vertexData[offset] = newPosition[0];
         this.vertexData[offset + 1] = newPosition[1];
         this.vertexData[offset + 2] = newPosition[2];
     }
 
-    setNormal(vertexIndex: number, newNormal: vec3) {
-        const offset = 3 * vertexIndex + 9;
+    setNormal(vertexIndex: number, newNormal: Readonly<vec3>) {
+        const offset = 8 * vertexIndex + 3;
         this.vertexData[offset] = newNormal[0];
         this.vertexData[offset + 1] = newNormal[1];
         this.vertexData[offset + 2] = newNormal[2];
     }
 
-    setUV(vertexIndex: number, newUV: vec2) {
-        const offset = 2 * vertexIndex + 18;
+    setUV(vertexIndex: number, newUV: Readonly<vec2>) {
+        const offset = 8 * vertexIndex + 6;
         this.vertexData[offset] = newUV[0];
         this.vertexData[offset + 1] = newUV[1];
+    }
+
+    /**
+     * Normalize this triangle's position, in place. Normals are set to be equal
+     * to the position. Useful for spherifying a mesh.
+     */
+    normalize() {
+        for (let i = 0; i < 24; i += 8) {
+            // normalize positions
+            let x = this.vertexData[i];
+            let y = this.vertexData[i + 1];
+            let z = this.vertexData[i + 2];
+            const mul = 1 / Math.sqrt(x * x + y * y + z * z);
+            x *= mul;
+            y *= mul;
+            z *= mul;
+            this.vertexData[i] = x;
+            this.vertexData[i + 1] = y;
+            this.vertexData[i + 2] = z;
+
+            // set normals
+            this.vertexData[i + 3] = x;
+            this.vertexData[i + 4] = y;
+            this.vertexData[i + 5] = z;
+        }
+    }
+
+    getVertexOffset(vertexIndex: number): number {
+        return 8 * vertexIndex;
+    }
+
+    getVertexStar(vertexIndex: number): VertexStar {
+        // assuming that the triangle is part of a manifold that consists only
+        // of triangles, then the manifold is a simplicial complex, so the star
+        // of the vertex can be queried
+        const output: VertexStar = [[this, vertexIndex]];
+
+        // go in the clockwise direction
+        let curTri = this as Triangle;
+        let curVertexIndex = vertexIndex;
+        let looped = false;
+        for (;;) {
+            // to go in the clockwise direction, the edge we want to follow has
+            // the same ID as the vertex we started at
+            const edge = curVertexIndex;
+            const otherEdgePair = curTri.getConnectedEdge(edge);
+
+            if (otherEdgePair === null) {
+                break; // dead end
+            }
+
+            [curVertexIndex, curTri] = otherEdgePair;
+
+            if (curTri === this) {
+                // looped
+                looped = true;
+                break;
+            }
+
+            // other edge is right after the vertex we want. add 1 to get the
+            // other vertex index
+            curVertexIndex = (curVertexIndex + 1) % 3;
+            output.push([curTri, curVertexIndex]);
+        }
+
+        if (looped) {
+            // looped, so whole star is already visited
+            return output;
+        }
+
+        // not looped, so the star needs to be walked in the CCW direction
+        curTri = this as Triangle;
+        curVertexIndex = vertexIndex;
+        for (;;) {
+            // to go in the clockwise direction, the edge we want to follow has
+            // an ID which is before the vertex we started at
+            const edge = (curVertexIndex + 2) % 3;
+            const otherEdgePair = curTri.getConnectedEdge(edge);
+
+            if (otherEdgePair === null) {
+                break; // dead end
+            }
+
+            [curVertexIndex, curTri] = otherEdgePair;
+
+            if (curTri === this) {
+                break; // looped
+            }
+
+            // other edge starts at the vertex we want, no need to correct
+            // vertex index
+            output.push([curTri, curVertexIndex]);
+        }
+
+        return output;
     }
 }

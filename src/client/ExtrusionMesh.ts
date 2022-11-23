@@ -143,9 +143,9 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         const segmentsTriCount = segmentCount * loopLen * 2;
         const manifTriCount = 2 * baseTriCount + segmentsTriCount;
 
-        const [indexDataStart, indexTypeStart] = BaseManifoldWLMesh.makeIndexBuffer(triangulatedBaseLen);
-        const [indexDataEnd, indexTypeEnd] = BaseManifoldWLMesh.makeIndexBuffer(triangulatedBaseLen);
-        const [indexDataSeg, indexTypeSeg] = BaseManifoldWLMesh.makeIndexBuffer(loopLen * segmentCount * 6);
+        const [indexDataStart, indexTypeStart] = BaseManifoldWLMesh.makeIndexBuffer(triangulatedBaseLen, loopLen);
+        const [indexDataEnd, indexTypeEnd] = BaseManifoldWLMesh.makeIndexBuffer(triangulatedBaseLen, loopLen);
+        const [indexDataSeg, indexTypeSeg] = BaseManifoldWLMesh.makeIndexBuffer(loopLen * segmentCount * 6, segVertexCount);
 
         // manifold mesh output
         const manifTriVerts = new Array<Vec3>(manifTriCount);

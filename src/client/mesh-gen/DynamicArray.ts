@@ -50,9 +50,9 @@ export type TypedArrayValue<T extends TypedArrayCtor> = MappedType<T, TypedArray
  */
 export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
     private _length = 0;
-    array: TypedArray<TypedArrayCtorType>;
+    array: TypedArray<TypedArrayCtorType> | null;
 
-    constructor(public ctor: TypedArrayCtorType, public capacity = 32) {
+    constructor(public ctor: TypedArrayCtorType, capacity = 32) {
         this.array = new this.ctor(capacity) as TypedArray<TypedArrayCtorType>;
     }
 
@@ -65,11 +65,31 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
         this._length = newLength;
     }
 
+    setLength_guarded(newLength: number) {
+        this.assertValid();
+        this.length = newLength;
+    }
+
+    get capacity(): number {
+        return (this.array as TypedArray<TypedArrayCtorType>).length;
+    }
+
+    getCapacity_guarded(): number {
+        this.assertValid();
+        return this.capacity;
+    }
+
     private resizeCapacity(newCapacity: number) {
-        const oldArray = this.array;
-        const newBuffer = new ArrayBuffer(this.array.BYTES_PER_ELEMENT * newCapacity);
+        const oldArray = this.array as TypedArray<TypedArrayCtorType>;
+        const newBuffer = new ArrayBuffer(oldArray.BYTES_PER_ELEMENT * newCapacity);
         this.array = new this.ctor(newBuffer) as TypedArray<TypedArrayCtorType>;
         this.array.set(oldArray as unknown as (ArrayLike<number> & ArrayLike<bigint>));
+    }
+
+    private assertValid() {
+        if (!this.array) {
+            throw new Error('Assertion failed: array !== null');
+        }
     }
 
     private assertPositiveIndex(index: number) {
@@ -128,54 +148,73 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
         this.resizeCapacity(DynamicArray.getNextCapacity(wantedLength));
     }
 
-    unsafePushBack(value: TypedArrayValue<TypedArrayCtorType>) {
-        this.array[this._length++] = value;
+    expandCapacity_guarded(wantedLength: number) {
+        this.assertValid();
+        this.expandCapacity(wantedLength);
     }
 
     pushBack(value: TypedArrayValue<TypedArrayCtorType>) {
-        this.expandCapacity(length + 1);
-        this.unsafePushBack(value);
+        // XXX unlike pushBack_guarded, this doesn't expand the array. it
+        // assumes that the array already has enough capacity
+        (this.array as TypedArray<TypedArrayCtorType>)[this._length++] = value;
     }
 
-    unsafeGet(index: number): TypedArrayValue<TypedArrayCtorType> {
-        return this.array[index] as TypedArrayValue<TypedArrayCtorType>;
+    pushBack_guarded(value: TypedArrayValue<TypedArrayCtorType>) {
+        this.assertValid();
+        const oldCapacity = this.capacity;
+        this.expandCapacity(this._length + 1);
+        const newCapacity = this.capacity;
+
+        if (oldCapacity !== newCapacity) {
+            console.warn('Guarded pushBack resulted in expanded capacity. Make sure to pre-allocate the needed capacity when switching to unguarded pushBack calls');
+        }
+
+        this.pushBack(value);
     }
 
     get(index: number): TypedArrayValue<TypedArrayCtorType> {
+        return (this.array as TypedArray<TypedArrayCtorType>)[index] as TypedArrayValue<TypedArrayCtorType>;
+    }
+
+    get_guarded(index: number): TypedArrayValue<TypedArrayCtorType> {
+        this.assertValid();
         this.assertValidIndex(index);
-        return this.unsafeGet(index);
-    }
-
-    unsafeSlice(startIndex: number, endIndex: number): TypedArray<TypedArrayCtorType> {
-        return this.array.slice(startIndex, endIndex) as TypedArray<TypedArrayCtorType>;
-    }
-
-    slice(startIndex: number, endIndex: number): TypedArray<TypedArrayCtorType> {
-        this.assertValidPosRangeParam(startIndex);
-        this.assertValidPosRangeParam(endIndex);
-        this.assertValidRangeOrder(startIndex, endIndex);
-        return this.unsafeSlice(startIndex, endIndex);
-    }
-
-    unsafeSet(index: number, value: TypedArrayValue<TypedArrayCtorType>): void {
-        this.array[index] = value;
+        return this.get(index);
     }
 
     set(index: number, value: TypedArrayValue<TypedArrayCtorType>): void {
-        this.assertValidIndex(index);
-        return this.unsafeSet(index, value);
+        (this.array as TypedArray<TypedArrayCtorType>)[index] = value;
     }
 
-    unsafeCopy(offset: number, values: ArrayLike<TypedArrayValue<TypedArrayCtorType>>): void {
-        this.array.set(values as (ArrayLike<number> & ArrayLike<bigint>), offset);
+    set_guarded(index: number, value: TypedArrayValue<TypedArrayCtorType>): void {
+        this.assertValid();
+        this.assertValidIndex(index);
+        return this.set(index, value);
+    }
+
+    slice(startIndex: number, endIndex: number): TypedArray<TypedArrayCtorType> {
+        return (this.array as TypedArray<TypedArrayCtorType>).slice(startIndex, endIndex) as TypedArray<TypedArrayCtorType>;
+    }
+
+    slice_guarded(startIndex: number, endIndex: number): TypedArray<TypedArrayCtorType> {
+        this.assertValid();
+        this.assertValidPosRangeParam(startIndex);
+        this.assertValidPosRangeParam(endIndex);
+        this.assertValidRangeOrder(startIndex, endIndex);
+        return this.slice(startIndex, endIndex);
     }
 
     copy(offset: number, values: ArrayLike<TypedArrayValue<TypedArrayCtorType>>): void {
-        this.assertValidIndex(offset + values.length);
-        this.unsafeCopy(offset, values);
+        (this.array as TypedArray<TypedArrayCtorType>).set(values as (ArrayLike<number> & ArrayLike<bigint>), offset);
     }
 
-    unsafeFill(fillValue: TypedArrayValue<TypedArrayCtorType>, startIndex?: number, endIndex?: number): void {
+    copy_guarded(offset: number, values: ArrayLike<TypedArrayValue<TypedArrayCtorType>>): void {
+        this.assertValid();
+        this.assertValidIndex(offset + values.length);
+        this.copy(offset, values);
+    }
+
+    fill(fillValue: TypedArrayValue<TypedArrayCtorType>, startIndex?: number, endIndex?: number): void {
         // XXX undefined < 0 returns false, so its safe to cast to a number
         if ((startIndex as number) < 0) {
             startIndex = this._length + (startIndex as number);
@@ -191,7 +230,9 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
         (this.array as Float32Array).fill(fillValue as number, startIndex, endIndex);
     }
 
-    fill(fillValue: TypedArrayValue<TypedArrayCtorType>, startIndex?: number, endIndex?: number): void {
+    fill_guarded(fillValue: TypedArrayValue<TypedArrayCtorType>, startIndex?: number, endIndex?: number): void {
+        this.assertValid();
+
         if (startIndex !== undefined) {
             this.assertValidRangeParam(startIndex);
         }
@@ -199,7 +240,7 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
             this.assertValidRangeParam(endIndex);
         }
 
-        this.unsafeFill(fillValue, startIndex, endIndex);
+        this.fill(fillValue, startIndex, endIndex);
     }
 
     resize(newLength: number, fillValue: TypedArrayValue<TypedArrayCtorType>) {
@@ -207,7 +248,37 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
         this.length = newLength;
 
         if (newLength > oldLength) {
-            this.unsafeFill(fillValue, oldLength, newLength);
+            this.fill(fillValue, oldLength, newLength);
         }
+    }
+
+    resize_guarded(newLength: number, fillValue: TypedArrayValue<TypedArrayCtorType>) {
+        this.assertValid();
+        this.assertPositiveIndex(newLength);
+        this.resize(newLength, fillValue);
+    }
+
+    invalidate() {
+        this.array = null;
+        this._length = 0;
+    }
+
+    /**
+     * Turns this DynamicArray into a typed array ready to be used by external
+     * APIs. The dynamic array will be invalidated after this call.
+     *
+     * Creates a new typed array as a view into the same buffer as
+     * {@link DynamicArray#array} ({@link DynamicArray#array} is invalidated,
+     * but not the underlying buffer).
+     */
+    finalize(): TypedArray<TypedArrayCtorType> {
+        this.assertValid();
+
+        const oldArray = this.array as TypedArray<TypedArrayCtorType>;
+        const newArray = new this.ctor(oldArray.buffer, 0, this._length) as TypedArray<TypedArrayCtorType>;
+
+        this.invalidate();
+
+        return newArray;
     }
 }

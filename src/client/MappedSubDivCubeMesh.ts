@@ -97,7 +97,7 @@ export abstract class MappedSubDivCubeMesh extends BaseManifoldWLMesh {
             const polePlaneVertexCount = halfPoleSegCountP1 * poleSegCountP1;
             const planeVertexCount = segCountP1 * segCountP1;
             const vertexCount = halfPlaneVertexCount * 2 + polePlaneVertexCount * 4 + planeVertexCount * 3;
-            const [indexData, indexType] = BaseManifoldWLMesh.makeIndexBuffer(indexCount);
+            const [indexData, indexType] = BaseManifoldWLMesh.makeIndexBuffer(indexCount, vertexCount);
             const unsafeIndexData = indexData as unknown as Array<number>;
             let vertexOffset = 0, j = 0;
 
@@ -218,7 +218,7 @@ export abstract class MappedSubDivCubeMesh extends BaseManifoldWLMesh {
 
             const subMeshes: Array<Submesh> = new Array(6);
             for (let i = 0; i < 6; i++) {
-                const [indexData, indexType] = BaseManifoldWLMesh.makeIndexBuffer(faceIndexCount);
+                const [indexData, indexType] = BaseManifoldWLMesh.makeIndexBuffer(faceIndexCount, vertexCount);
                 makeFaceIndices(indexData as unknown as Array<number>, 0, segCount, segCount, 0);
                 const mesh = new WL.Mesh({ vertexCount, indexData, indexType });
                 subMeshes[i] = [ mesh, materials[i] ];

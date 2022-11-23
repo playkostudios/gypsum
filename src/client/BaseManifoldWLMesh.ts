@@ -4,7 +4,7 @@
 import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
 import VertexHasher from './mesh-gen/VertexHasher';
 
-const MAX_INDEX_BUFFER_SIZE = 4294967296;
+const MAX_INDEX = 0xFFFFFFFF;
 
 /**
  * Maps a manifold triangle index to a WLE submesh index. The format is:
@@ -248,15 +248,15 @@ export abstract class BaseManifoldWLMesh {
         }
     }
 
-    static makeIndexBuffer(size: number): [indexData: Uint8Array, indexType: WL.MeshIndexType] | [indexData: Uint16Array, indexType: WL.MeshIndexType] | [indexData: Uint32Array, indexType: WL.MeshIndexType] {
-        if (size < 256) {
+    static makeIndexBuffer(size: number, vertexCount: number): [indexData: Uint8Array, indexType: WL.MeshIndexType] | [indexData: Uint16Array, indexType: WL.MeshIndexType] | [indexData: Uint32Array, indexType: WL.MeshIndexType] {
+        if (vertexCount <= 0xFF) {
             return [new Uint8Array(size), WL.MeshIndexType.UnsignedByte];
-        } else if (size < 65536) {
+        } else if (vertexCount <= 0xFFFF) {
             return [new Uint16Array(size), WL.MeshIndexType.UnsignedShort];
-        } else if (size < MAX_INDEX_BUFFER_SIZE) {
+        } else if (vertexCount <= MAX_INDEX) {
             return [new Uint32Array(size), WL.MeshIndexType.UnsignedInt];
         } else {
-            throw new Error(`Maximum index buffer size exceeded (${MAX_INDEX_BUFFER_SIZE})`);
+            throw new Error(`Maximum index exceeded (${MAX_INDEX})`);
         }
     }
 }
