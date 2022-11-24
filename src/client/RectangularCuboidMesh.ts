@@ -1,10 +1,7 @@
-import { BaseManifoldWLMesh, Submesh, SubmeshMap } from './BaseManifoldWLMesh';
-import internalCtorKey from './mesh-gen/internal-ctor-key';
+import { BaseManifoldWLMesh, SubmeshMap } from './BaseManifoldWLMesh';
 import { vec3 } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
-
-type InternalCtorArgs = [ctorKey: symbol, width: number, height: number, depth: number, submeshes: Array<Submesh>, premadeManifoldMesh: Mesh, submeshMap: SubmeshMap];
 
 export type CuboidFaceUVs = [tl: vec2, bl: vec2, br: vec2, tr: vec2];
 export type CuboidFaceUVPosRatio = number;
@@ -104,27 +101,7 @@ export class RectangularCuboidMesh extends BaseManifoldWLMesh {
     public readonly height: number;
     public readonly depth: number;
 
-    constructor(internalCtorArgs: InternalCtorArgs);
-    constructor(width: number, height: number, depth: number, options?: CuboidOptions);
-    constructor(arg0: number | InternalCtorArgs, arg1?: number, arg2?: number, arg3?: CuboidOptions) {
-        if (arguments.length === 1 && Array.isArray(arg0) && arg0.length === 7 && arg0[0] === internalCtorKey) {
-            // internal constructor. not for public use. implemented this way
-            // because typescript doesn't support multiple constructors
-            const internalCtorArgs = arg0 as InternalCtorArgs;
-            super(internalCtorArgs[4], internalCtorArgs[5], internalCtorArgs[6]);
-
-            this.width = internalCtorArgs[1];
-            this.height = internalCtorArgs[2];
-            this.depth = internalCtorArgs[3];
-            return;
-        } else if (arguments.length !== 3 && arguments.length !== 4) {
-            throw new Error('Unexpected number of arguments. Expected 3 or 4 arguments');
-        }
-
-        const width = arg0 as number;
-        const height = arg1 as number;
-        const depth = arg2 as number;
-        const options = arg3 as CuboidOptions | undefined;
+    constructor(width: number, height: number, depth: number, options?: CuboidOptions) {
 
         // index array with single face
         const indexType = WL.MeshIndexType.UnsignedByte;
@@ -181,7 +158,7 @@ export class RectangularCuboidMesh extends BaseManifoldWLMesh {
         const frontMesh = makeMesh(faceIndices[5], vertPos, [0, 0, 1], options?.frontUVs, width, height, wlMeshOpts);
 
         // make submesh map
-        const submeshMap: SubmeshMap = new Float32Array([
+        const submeshMap: SubmeshMap = new Uint8Array([
             0, 0, 0, 1, // left plane
             1, 0, 1, 1, // right plane
             2, 0, 2, 1, // down plane
@@ -202,24 +179,5 @@ export class RectangularCuboidMesh extends BaseManifoldWLMesh {
         this.width = width;
         this.height = height;
         this.depth = depth;
-    }
-
-    clone(materials?: CuboidMaterialOptions): RectangularCuboidMesh {
-        return new RectangularCuboidMesh(<InternalCtorArgs>[
-            internalCtorKey,
-            this.width,
-            this.height,
-            this.depth,
-            [
-                [ this.submeshes[0][0], materials?.leftMaterial ?? null ],
-                [ this.submeshes[1][0], materials?.rightMaterial ?? null ],
-                [ this.submeshes[2][0], materials?.downMaterial ?? null ],
-                [ this.submeshes[3][0], materials?.upMaterial ?? null ],
-                [ this.submeshes[4][0], materials?.backMaterial ?? null ],
-                [ this.submeshes[5][0], materials?.frontMaterial ?? null ],
-            ],
-            this.premadeManifoldMesh,
-            this.submeshMap
-        ]);
     }
 }

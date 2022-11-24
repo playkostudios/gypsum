@@ -1,4 +1,8 @@
-import type { vec2, vec3 } from 'gl-matrix';
+import { vec3, mat4, quat } from 'gl-matrix';
+
+import type { vec2 } from 'gl-matrix';
+
+const THIRD = 1 / 3;
 
 function validateEdgeIndex(edgeIndex: number) {
     if ([0, 1, 2].indexOf(edgeIndex) === -1) {
@@ -36,8 +40,8 @@ export class Triangle {
      *   Other triangle's edge index can be 0, 1 or 2. If 3, then the edge is
      *   not connected.
      *
-     * Bits 6-51:
-     *   45-bit material ID. Triangles with different material IDs will be put
+     * Bits 6-31:
+     *   25-bit material ID. Triangles with different material IDs will be put
      *   in different WL.Mesh instances, but the same manifold if they are
      *   connected.
      */
@@ -72,6 +76,22 @@ export class Triangle {
      */
     helper = 0;
 
+    constructor(vertexData?: Float32Array) {
+        if (vertexData) {
+            this.vertexData = vertexData;
+        } else {
+            this.vertexData = new Float32Array(24);
+        }
+    }
+
+    static fromVertices(vert0: Float32Array, vert1: Float32Array, vert2: Float32Array): Triangle {
+        const vertexData = new Float32Array(24);
+        vertexData.set(vert0);
+        vertexData.set(vert1, 8);
+        vertexData.set(vert2, 16);
+        return new Triangle(vertexData);
+    }
+
     private setEdgeTriangle(edgeIndex: number, triangle: Triangle | null) {
         switch(edgeIndex) {
             case 0:
@@ -82,30 +102,31 @@ export class Triangle {
                 break;
             case 2:
                 this.edgeTriangle2 = triangle;
+                break;
+            default:
+                throw new Error(`Invalid edge index (${edgeIndex})`);
         }
     }
 
     get materialID(): number {
-        return this.bitData >> 6;
-    }
-
-    constructor() {
-        this.vertexData = new Float32Array(24);
+        return this.bitData >>> 6;
     }
 
     getConnectedEdge(edgeIndex: number): [number, Triangle] | null {
         validateEdgeIndex(edgeIndex);
 
-        const otherEdge = (this.bitData >> (edgeIndex << 1)) & 0b11;
-        switch(otherEdge) {
+        const otherEdge = (this.bitData >>> (edgeIndex << 1)) & 0b11;
+        if (otherEdge === 3) {
+            return null;
+        }
+
+        switch(edgeIndex) {
             case 0:
                 return [otherEdge, this.edgeTriangle0 as Triangle];
             case 1:
                 return [otherEdge, this.edgeTriangle1 as Triangle];
-            case 2:
-                return [otherEdge, this.edgeTriangle2 as Triangle];
             default:
-                return null;
+                return [otherEdge, this.edgeTriangle2 as Triangle];
         }
     }
 
@@ -154,6 +175,11 @@ export class Triangle {
     getUV(vertexIndex: number): vec2 {
         const offset = 8 * vertexIndex + 6;
         return this.vertexData.slice(offset, offset + 2);
+    }
+
+    getVertex(vertexIndex: number): Float32Array {
+        const offset = 8 * vertexIndex;
+        return this.vertexData.slice(offset, offset + 8);
     }
 
     setPosition(vertexIndex: number, newPosition: Readonly<vec3>) {
@@ -269,5 +295,68 @@ export class Triangle {
         }
 
         return output;
+    }
+
+    translate(offset: vec3): void {
+        this.vertexData[0] += offset[0];
+        this.vertexData[1] += offset[1];
+        this.vertexData[2] += offset[2];
+        this.vertexData[8] += offset[0];
+        this.vertexData[9] += offset[1];
+        this.vertexData[10] += offset[2];
+        this.vertexData[16] += offset[0];
+        this.vertexData[17] += offset[1];
+        this.vertexData[18] += offset[2];
+    }
+
+    scale(factor: vec3): void {
+        this.vertexData[0] *= factor[0];
+        this.vertexData[1] *= factor[1];
+        this.vertexData[2] *= factor[2];
+        this.vertexData[8] *= factor[0];
+        this.vertexData[9] *= factor[1];
+        this.vertexData[10] *= factor[2];
+        this.vertexData[16] *= factor[0];
+        this.vertexData[17] *= factor[1];
+        this.vertexData[18] *= factor[2];
+    }
+
+    uniformScale(factor: number): void {
+        this.vertexData[0] *= factor;
+        this.vertexData[1] *= factor;
+        this.vertexData[2] *= factor;
+        this.vertexData[8] *= factor;
+        this.vertexData[9] *= factor;
+        this.vertexData[10] *= factor;
+        this.vertexData[16] *= factor;
+        this.vertexData[17] *= factor;
+        this.vertexData[18] *= factor;
+    }
+
+    rotate(rotation: quat): void {
+        vec3.transformQuat(this.vertexData, this.vertexData, rotation);
+        const pos1 = this.getPosition(1);
+        vec3.transformQuat(pos1, pos1, rotation);
+        this.setPosition(1, pos1);
+        const pos2 = this.getPosition(2);
+        vec3.transformQuat(pos2, pos2, rotation);
+        this.setPosition(2, pos2);
+    }
+
+    transform(matrix: mat4): void {
+        vec3.transformMat4(this.vertexData, this.vertexData, matrix);
+        const pos1 = this.getPosition(1);
+        vec3.transformMat4(pos1, pos1, matrix);
+        this.setPosition(1, pos1);
+        const pos2 = this.getPosition(2);
+        vec3.transformMat4(pos2, pos2, matrix);
+        this.setPosition(2, pos2);
+    }
+
+    getMidpoint(): vec3 {
+        const mid = vec3.clone(this.vertexData);
+        vec3.add(mid, mid, this.getPosition(1));
+        vec3.add(mid, mid, this.getPosition(2));
+        return vec3.scale(mid, mid, THIRD);
     }
 }

@@ -301,10 +301,6 @@ export abstract class MappedSubDivCubeMesh extends BaseManifoldWLMesh {
         }
     }
 
-    clone(): MappedSubDivCubeMesh {
-        throw new Error('NIY: clone');
-    }
-
     static mapEquirectUVs(normal: vec3, texCoord: vec2, isFirstHalf: boolean | null) {
         // calculate yaw and pitch from normalized position
         const dx = normal[0];

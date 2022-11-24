@@ -1,16 +1,11 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="../../types/globals.d.ts" />
 
-import { mat3, mat4, vec2, vec3 } from 'gl-matrix';
-import { BaseManifoldWLMesh, Submesh, SubmeshMap } from './BaseManifoldWLMesh';
+import { mat4, vec2, vec3 } from 'gl-matrix';
+import { BaseManifoldWLMesh, SubmeshMap } from './BaseManifoldWLMesh';
 import triangulate2DPolygon from './triangulation/triangulate-2d-polygon';
-import internalCtorKey from './mesh-gen/internal-ctor-key';
 import type { CurveFrames } from './rmf/curve-frame';
 import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
-
-type InternalCtorArgs = [ctorKey: symbol, submeshes: Array<Submesh>, premadeManifoldMesh: Mesh | undefined, submeshMap: SubmeshMap | undefined];
-
-const temp0 = vec3.create();
 
 type SegmentsUVs = [startV: number, endV: number, segmentsUs: Array<number>];
 
@@ -45,24 +40,7 @@ function getMatrix(outputMat: mat4, index: number, frames: CurveFrames, position
 }
 
 export class ExtrusionMesh extends BaseManifoldWLMesh {
-    constructor(internalCtorArgs: InternalCtorArgs);
-    constructor(polyline: Array<vec2>, curvePositions: Array<vec3>, curveFrames: CurveFrames, options?: ExtrusionOptions);
-    constructor(arg0: Array<vec2> | InternalCtorArgs, arg1?: Array<vec3>, arg2?: CurveFrames, arg3?: ExtrusionOptions) {
-        if (arguments.length === 1 && Array.isArray(arg0) && arg0.length === 4 && arg0[0] === internalCtorKey) {
-            // internal constructor. not for public use. implemented this way
-            // because typescript doesn't support multiple constructors
-            const internalCtorArgs = arg0 as InternalCtorArgs;
-            super(internalCtorArgs[1], internalCtorArgs[2], internalCtorArgs[3]);
-            return;
-        } else if (arguments.length !== 3 && arguments.length !== 4) {
-            throw new Error('Unexpected number of arguments. Expected 3 or 4 arguments');
-        }
-
-        const polyline = arg0 as Array<vec2>;
-        const curvePositions = arg1 as Array<vec3>;
-        const curveFrames = arg2 as CurveFrames;
-        const options = arg3 as ExtrusionOptions;
-
+    constructor(polyline: Array<vec2>, curvePositions: Array<vec3>, curveFrames: CurveFrames, options?: ExtrusionOptions) {
         // validate curve
         const pointCount = curvePositions.length;
         const loopLen = polyline.length;
@@ -376,7 +354,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         // 0: startMesh
         // 1: segMesh
         // 2: endMesh
-        const submeshMap: SubmeshMap = new Float32Array(manifTriCount * 2);
+        const submeshMap: SubmeshMap = BaseManifoldWLMesh.makeSubmeshMapBuffer(manifTriCount, Math.max(baseTriCount, segmentsTriCount), 2);
 
         const jEndOffset = (baseTriCount + segmentsTriCount) * 2;
         for (let i = 0, j = 0; i < triangulatedBaseLen; i++) {
@@ -616,18 +594,5 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         if (endTexCoordBuf) {
             (endTexCoords as WL.MeshAttributeAccessor).set(0, endTexCoordBuf);
         }
-    }
-
-    clone(materials?: ExtrusionMaterialOptions): ExtrusionMesh {
-        return new ExtrusionMesh(<InternalCtorArgs>[
-            internalCtorKey,
-            [
-                [ this.submeshes[0][0], materials?.startMaterial ?? null ],
-                [ this.submeshes[1][0], materials?.segmentMaterial ?? null ],
-                [ this.submeshes[2][0], materials?.endMaterial ?? null ]
-            ],
-            this.premadeManifoldMesh,
-            this.submeshMap
-        ]);
     }
 }

@@ -16,6 +16,7 @@ export * from './client/CylinderMesh';
 export * from './client/ExtrusionMesh';
 export * from './client/FrustumMesh';
 export * from './client/IcosahedronMesh';
+export * from './client/IcosphereMesh';
 export * from './client/LinearExtrusionMesh';
 export * from './client/ManifoldPool';
 export * from './client/ManifoldWLMesh';

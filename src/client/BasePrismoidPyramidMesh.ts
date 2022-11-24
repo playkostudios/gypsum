@@ -3,7 +3,6 @@ import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
 import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
 import { vec3, vec2 } from 'gl-matrix';
 import { ExtrusionMesh } from './ExtrusionMesh';
-import internalCtorKey from './mesh-gen/internal-ctor-key';
 
 import type { CurveFrame } from '../client';
 
@@ -54,7 +53,7 @@ function makeBaseUVs(polyline: Array<vec2>, polylineLen: number, bottomBase: boo
     return baseUVs;
 }
 
-export class BasePrismoidPyramidMesh extends ExtrusionMesh {
+export class BasePrismoidPyramidMesh extends BaseManifoldWLMesh {
     constructor(polyline: Array<vec2>, bottomScale: number, topScale: number, bottomOffset: vec3, topOffset: vec3, hasSmoothNormals: boolean) {
         // validate that there is at most one apex
         if (topScale === 0 && bottomScale === 0) {
@@ -159,10 +158,10 @@ export class BasePrismoidPyramidMesh extends ExtrusionMesh {
             const latTexCoords = latMesh.attribute(WL.MeshAttribute.TextureCoordinate);
 
             if (!basePositions) {
-                throw new Error('Could not get positions mesh attribute accessor');
+                throw new Error('Could not get positions mesh attribute accessor (base)');
             }
             if (!latPositions) {
-                throw new Error('Could not get positions mesh attribute accessor');
+                throw new Error('Could not get positions mesh attribute accessor (lateral)');
             }
 
             // (base vertices)
@@ -302,19 +301,14 @@ export class BasePrismoidPyramidMesh extends ExtrusionMesh {
 
             // TODO manifold
 
-            super([
-                internalCtorKey,
-                [[baseMesh, null], [latMesh, null]],
-                undefined,
-                undefined
-            ]);
+            super([[baseMesh, null], [latMesh, null]]);
         } else {
             // prismoid
             const rst: CurveFrame = [ [0, 0, 1], [1, 0, 0], [0, 1, 0] ];
             const startBaseUVs = makeBaseUVs(polyline, polylineLen, true);
             const endBaseUVs = makeBaseUVs(polyline, polylineLen, false);
 
-            super(
+            return new ExtrusionMesh(
                 polyline,
                 [ bottomOffset, topOffset ],
                 [ rst, rst ],
@@ -325,11 +319,7 @@ export class BasePrismoidPyramidMesh extends ExtrusionMesh {
                     curveScales: [ bottomScale, topScale ],
                     smoothNormals: hasSmoothNormals,
                 },
-            )
+            );
         }
-    }
-
-    clone(): BasePrismoidPyramidMesh {
-        throw new Error('NIY: clone');
     }
 }

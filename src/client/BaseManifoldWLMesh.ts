@@ -16,7 +16,7 @@ const MAX_INDEX = 0xFFFFFFFF;
  * [2n]: submesh index of manifold triangle n
  * [2n + 1]: triangle index of manifold triangle n
  */
-export type SubmeshMap = Float32Array;
+export type SubmeshMap = Uint8Array | Uint16Array | Uint32Array;
 
 export type Submesh = [mesh: WL.Mesh, material: WL.Material];
 
@@ -43,8 +43,6 @@ export abstract class BaseManifoldWLMesh {
 
         return this.premadeManifoldMesh;
     }
-
-    abstract clone(): BaseManifoldWLMesh;
 
     get submeshCount(): number {
         return this.submeshes.length;
@@ -144,17 +142,19 @@ export abstract class BaseManifoldWLMesh {
         // being different edges)
         // validate vertex count
         let totalVertexCount = 0;
+        let maxSubmeshTriCount = 0;
 
         for (const wleMesh of wleMeshes) {
             const packedVertexCount = wleMesh.vertexCount;
             const indexData = wleMesh.indexData;
-            const vertexCount = indexData === null ? packedVertexCount : indexData.length;
+            const indexCount = indexData === null ? packedVertexCount : indexData.length;
 
-            if (vertexCount % 3 !== 0) {
-                throw new Error(`Mesh has an invalid vertex count (${vertexCount}). Must be a multiple of 3`);
+            if (indexCount % 3 !== 0) {
+                throw new Error(`Mesh has an invalid index count (${indexCount}). Must be a multiple of 3`);
             }
 
-            totalVertexCount += vertexCount;
+            totalVertexCount += indexCount;
+            maxSubmeshTriCount = Math.max(maxSubmeshTriCount, indexCount / 3);
         }
 
         const totalTriCount = totalVertexCount / 3;
@@ -163,7 +163,7 @@ export abstract class BaseManifoldWLMesh {
             triVerts: new Array<Vec3>(totalTriCount)
         }
         const hasher = new VertexHasher();
-        const submeshMap = genSubmeshMap ? new Float32Array(totalTriCount * 2) : null;
+        const submeshMap = genSubmeshMap ? BaseManifoldWLMesh.makeSubmeshMapBuffer(totalTriCount, maxSubmeshTriCount, wleMeshes.length - 1) : null;
         let jm = 0;
         let js = 0;
 
@@ -255,6 +255,19 @@ export abstract class BaseManifoldWLMesh {
             return [new Uint16Array(size), WL.MeshIndexType.UnsignedShort];
         } else if (vertexCount <= MAX_INDEX) {
             return [new Uint32Array(size), WL.MeshIndexType.UnsignedInt];
+        } else {
+            throw new Error(`Maximum index exceeded (${MAX_INDEX})`);
+        }
+    }
+
+    static makeSubmeshMapBuffer(triCount: number, maxSubmeshTriCount: number, maxSubmeshIdx: number): SubmeshMap {
+        const maxNum = Math.max(maxSubmeshTriCount - 1, maxSubmeshIdx);
+        if (maxNum <= 0xFF) {
+            return new Uint8Array(triCount * 2);
+        } else if (maxNum <= 0xFFFF) {
+            return new Uint16Array(triCount * 2);
+        } else if (maxNum <= MAX_INDEX) {
+            return new Uint32Array(triCount * 2);
         } else {
             throw new Error(`Maximum index exceeded (${MAX_INDEX})`);
         }
