@@ -12,16 +12,29 @@ const MAT4_IDENTITY = mat4.create();
 const TAU_INV = 1 / (Math.PI * 2);
 
 function getMatchingEdge(a: vec3, b: vec3, oPos0: vec3, oPos1: vec3, oPos2: vec3): number | null {
-    // TODO make a decision tree instead of this innefficient abomination
-    if ((vec3.exactEquals(a, oPos0) && vec3.exactEquals(b, oPos1)) || (vec3.exactEquals(b, oPos0) && vec3.exactEquals(a, oPos1))) {
-        return 0;
-    } else if ((vec3.exactEquals(a, oPos1) && vec3.exactEquals(b, oPos2)) || (vec3.exactEquals(b, oPos1) && vec3.exactEquals(a, oPos2))) {
-        return 1;
-    } else if ((vec3.exactEquals(a, oPos2) && vec3.exactEquals(b, oPos0)) || (vec3.exactEquals(b, oPos2) && vec3.exactEquals(a, oPos0))) {
-        return 2;
-    } else {
-        return null;
+    // XXX check that the check for opposite winding order edges really is not
+    // necessary (commented code). for now it seems to work perfectly fine
+    if (vec3.exactEquals(a, oPos0)) {
+        /*if (vec3.exactEquals(b, oPos1)) {
+            return 0;
+        } else*/ if (vec3.exactEquals(b, oPos2)) {
+            return 2;
+        }
+    } else if (vec3.exactEquals(a, oPos1)) {
+        /*if (vec3.exactEquals(b, oPos2)) {
+            return 1;
+        } else*/ if (vec3.exactEquals(b, oPos0)) {
+            return 0;
+        }
+    } else if (vec3.exactEquals(a, oPos2)) {
+        /*if (vec3.exactEquals(b, oPos0)) {
+            return 2;
+        } else*/ if (vec3.exactEquals(b, oPos1)) {
+            return 1;
+        }
     }
+
+    return null;
 }
 
 function connectTriangles(ti: number, triangles: Array<Triangle>, visitedTriangles: BitArray) {
@@ -190,6 +203,24 @@ export class ManifoldBuilder {
         if (!visitedTriangles.isAllSet()) {
             throw new Error('Could not connect all triangles; maybe the surface is not fully connected, or the surface is not trivially manifold?');
         }
+    }
+
+    addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>): Triangle;
+    addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, uv0: Readonly<vec2>, uv1: Readonly<vec2>, uv2: Readonly<vec2>): Triangle;
+    addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, uv0?: Readonly<vec2>, uv1?: Readonly<vec2>, uv2?: Readonly<vec2>): Triangle {
+        const triangle = new Triangle();
+        triangle.setPosition(0, pos0);
+        triangle.setPosition(1, pos1);
+        triangle.setPosition(2, pos2);
+
+        if (uv0) {
+            triangle.setUV(0, uv0);
+            triangle.setUV(1, uv1 as vec2);
+            triangle.setUV(2, uv2 as vec2);
+        }
+
+        this.triangles.push(triangle);
+        return triangle;
     }
 
     addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>): Triangle;
@@ -581,6 +612,129 @@ export class ManifoldBuilder {
                 }
 
                 triangle.vertexData[offset] = u;
+            }
+        }
+    }
+
+    private smoothenVertexNormal(hardNormals: Array<vec3>, dotThreshold: number, triangle: Triangle, vertexIdx: number) {
+        // don't do anything if normal is already set
+        if (triangle.hasNormals(vertexIdx)) {
+            return;
+        }
+
+        // get vertex star
+        const vertexStar = triangle.getVertexStar(vertexIdx);
+
+        // group vertex star by angle (triangles with close normals are grouped
+        // together)
+        let groups = new Array<Array<[triangle: Triangle, vertexIndex: number]>>();
+
+        for (const vsPair of vertexStar) {
+            // check which groups this triangle belongs to
+            const groupCount = groups.length;
+            const otherTriangle = vsPair[0];
+            const newNormal = hardNormals[otherTriangle.helper];
+            const belongsTo = new Array<number>();
+
+            for (let g = 0; g < groupCount; g++) {
+                const group = groups[g];
+
+                for (const [groupTri, _groupVertex] of group) {
+                    if (vec3.dot(hardNormals[groupTri.helper], newNormal) > dotThreshold) {
+                        belongsTo.push(g);
+                        break;
+                    }
+                }
+            }
+
+            // if the triangle belongs to a single group, add it to the group.
+            // if the triangle belongs to multiple groups, merge the groups and
+            // add it to the merged group. if the triangle doesn't belong to any
+            // group, make a new group
+            switch (belongsTo.length) {
+                case 0:
+                    groups.push([vsPair]);
+                    break;
+                case 1:
+                    groups[belongsTo[0]].push(vsPair);
+                    break;
+                default:
+                {
+                    const newGroups = new Array<Array<[triangle: Triangle, vertexIndex: number]>>();
+                    const mergedGroup = new Array<[triangle: Triangle, vertexIndex: number]>();
+
+                    for (const g of belongsTo) {
+                        mergedGroup.push(...groups[g]);
+                    }
+
+                    for (let g = 0; g < groupCount; g++) {
+                        if (!belongsTo.includes(g)) {
+                            newGroups.push(groups[g]);
+                        }
+                    }
+
+                    newGroups.push(mergedGroup);
+                    groups = newGroups;
+                }
+            }
+        }
+
+        // calculate smooth normal of each group
+        // TODO use numerically stable mean
+        for (const group of groups) {
+            const smoothNormal = vec3.create();
+
+            for (const [otherTriangle, _otherVertex] of group) {
+                vec3.add(smoothNormal, smoothNormal, hardNormals[otherTriangle.helper]);
+            }
+
+            vec3.normalize(smoothNormal, smoothNormal);
+
+            for (const [otherTriangle, otherVertex] of group) {
+                otherTriangle.setNormal(otherVertex, smoothNormal);
+            }
+        }
+    }
+
+    /**
+     * Applies smooth normals to all vertices that have no normals set (0,0,0).
+     * Smooth normals are calculated for each vertex by getting all triangles
+     * connected to the vertex (the vertex star), and making smoothing groups
+     * by checking the angle between all of those triangles. Triangles that have
+     * similar angles will contribute to the average normal.
+     *
+     * @param maxAngle Maximum angle, in radians, between 2 triangles for them to be considered part of the same smoothing group for a vertex
+     * @param resetNormals If true, then all vertex normals will be reset to (0,0,0) before applying the modifier
+     */
+    addSmoothNormals(maxAngle: number, resetNormals = true) {
+        // convert angle to dot product threshold
+        const dotThreshold = Math.cos(Math.max(Math.min(maxAngle, Math.PI), 0));
+
+        // reset normals if needed
+        if (resetNormals) {
+            const zero = vec3.create();
+            for (const triangle of this.triangles) {
+                for (let e = 0; e < 3; e++) {
+                    triangle.setNormal(e, zero);
+                }
+            }
+        }
+
+        // pre-calculate hard normals (used for averaging)
+        const triCount = this.triangles.length;
+        const hardNormals = new Array<vec3>(triCount);
+        for (let t = 0; t < triCount; t++) {
+            hardNormals[t] = this.triangles[t].getFaceNormal();
+        }
+
+        // set triangle helpers so that the triangles can be mapped to their
+        // pre-calculated hard normals
+        this.setTriangleHelpers();
+
+        // smooth each vertex
+        for (const triangle of this.triangles) {
+            for (let v = 0; v < 3; v++) {
+                this.smoothenVertexNormal(hardNormals, dotThreshold, triangle, v);
             }
         }
     }

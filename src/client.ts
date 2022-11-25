@@ -27,4 +27,6 @@ export * from './client/PrismPyramidOptions';
 export * from './client/PyramidMesh';
 export * from './client/RectangularCuboidMesh';
 export * from './client/SmoothNormalsOptions';
+export * from './client/SolidOfRevolutionMesh';
+export * from './client/TorusMesh';
 export * from './client/UVSphereMesh';

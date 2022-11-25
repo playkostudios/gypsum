@@ -1,6 +1,7 @@
 import { vec3, mat4, quat } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
+import { normalFromTriangle } from './normal-from-triangle';
 
 const THIRD = 1 / 3;
 
@@ -112,6 +113,13 @@ export class Triangle {
         return this.bitData >>> 6;
     }
 
+    set materialID(newMaterialID: number) {
+        // clear material ID bits
+        this.bitData &= 0b111111;
+        // set new material ID
+        this.bitData |= newMaterialID << 6;
+    }
+
     getConnectedEdge(edgeIndex: number): [number, Triangle] | null {
         validateEdgeIndex(edgeIndex);
 
@@ -200,6 +208,15 @@ export class Triangle {
         const offset = 8 * vertexIndex + 6;
         this.vertexData[offset] = newUV[0];
         this.vertexData[offset + 1] = newUV[1];
+    }
+
+    hasNormals(vertexIndex: number) {
+        const offset = 8 * vertexIndex + 3;
+        return this.vertexData[offset] && this.vertexData[offset + 1] && this.vertexData[offset + 2];
+    }
+
+    getFaceNormal(): vec3 {
+        return normalFromTriangle(this.vertexData, this.getPosition(1), this.getPosition(2), vec3.create());
     }
 
     /**
