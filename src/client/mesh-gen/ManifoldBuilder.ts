@@ -425,7 +425,43 @@ export class ManifoldBuilder {
         return [mesh, material];
     }
 
+    private checkConnected(triangle: Triangle, reached: BitArray): void {
+        if (reached.get(triangle.helper)) {
+            return;
+        }
+
+        reached.set(triangle.helper, true);
+
+        const otherA = triangle.getConnectedEdge(0);
+        if (otherA) {
+            this.checkConnected(otherA[1], reached);
+        }
+
+        const otherB = triangle.getConnectedEdge(1);
+        if (otherB) {
+            this.checkConnected(otherB[1], reached);
+        }
+
+        const otherC = triangle.getConnectedEdge(2);
+        if (otherC) {
+            this.checkConnected(otherC[1], reached);
+        }
+    }
+
+    get isConnected(): boolean {
+        this.setTriangleHelpers();
+        const reached = new BitArray(this.triangles.length);
+        this.checkConnected(this.triangles[0], reached);
+        return reached.isAllSet();
+    }
+
     finalize(materialMap: Map<number, WL.Material>): [ submeshes: Array<Submesh>, manifoldMesh: Mesh, submeshMap: SubmeshMap ] {
+        // verify that mesh if fully connected. this doesn't mean that the mesh
+        // is a manifold
+        if (!this.isConnected) {
+            throw new Error('Mesh is not connected');
+        }
+
         // group all triangles together by their materials
         const groupedTris = new Map<WL.Material | null, Array<Triangle>>();
 

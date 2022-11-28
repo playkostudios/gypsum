@@ -14,7 +14,7 @@ type WorkerTuple = [worker: Worker, jobCount: number];
 type WorkerArray = Array<WorkerTuple>;
 type JobResult = MeshArr | boolean | number | Box | Properties | Curvature;
 
-function getFromBary(vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor) {
+function getFromBary(vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor): [aVec: Array<number>, bVec: Array<number>, cVec: Array<number>] {
     const aOrigVal = origAccessor.get(a);
     const bOrigVal = origAccessor.get(b);
     const cOrigVal = origAccessor.get(c);

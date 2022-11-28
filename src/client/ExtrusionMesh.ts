@@ -148,6 +148,9 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         }
 
         // make segment triangles
+        // XXX note that, despite the polyline being given in CCW order,
+        // triangles in each segment are added in CW order because of the
+        // transformation applied to the polyline
         const hasSmoothNormals = options?.smoothNormals ?? false;
         const invExtrusionLen = 1 / extrusionLength;
         let segEndLen = 0, segStartV = -1, segEndV = vStart;
@@ -228,9 +231,48 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
             }
         }
 
+        // connect triangles in segments, and between segments
+        const segmentTriCount = loopLen * 2;
+        for (let s = 0; s < segmentCount; s++) {
+            const segOffset = s * segmentTriCount;
+
+            for (let l = 0; l < segmentTriCount; l += 2) {
+                // connect triangles in same quad
+                const quadTriAOffset = segOffset + l;
+                const quadTriBOffset = quadTriAOffset + 1;
+                const triA = builder.triangles[quadTriAOffset];
+                const triB = builder.triangles[quadTriBOffset];
+                triA.connectEdge(2, 0, triB);
+
+                // connect this quad with next quad on same segment (next quad
+                // is to the left of this quad due to CW order)
+                const nQuadTriBOffset = segOffset + (l + 3) % segmentTriCount;
+                triA.connectEdge(1, 2, builder.triangles[nQuadTriBOffset]);
+
+                // connect this quad with quad from previous segment
+                if (s > 0) {
+                    const pSegQuadTriBOffset = quadTriBOffset - segmentTriCount;
+                    triA.connectEdge(0, 1, builder.triangles[pSegQuadTriBOffset]);
+                }
+            }
+        }
+
+        // connect bases or segments in loop
+        if (loops) {
+            const lastSegOffset = (segmentCount - 1) * segmentTriCount;
+
+            for (let l = 0; l < segmentTriCount; l += 2) {
+                // connect triangles between the loop end and start
+                builder.triangles[l].connectEdge(0, 1, builder.triangles[lastSegOffset + l + 1]);
+            }
+        } else {
+            throw new Error('not implemented yet');
+        }
+
         // connect triangles
         // TODO properly do this without auto-connect
-        builder.autoConnectEdges(); // TODO remove
+        // console.warn("AUTO");
+        // builder.autoConnectEdges(); // TODO remove
 
         // add smooth normals
         if (hasSmoothNormals) {
