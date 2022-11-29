@@ -4,6 +4,8 @@ import type { vec2 } from 'gl-matrix';
 import { normalFromTriangle } from './normal-from-triangle';
 
 const THIRD = 1 / 3;
+const tmp0 = vec3.create();
+const tmp1 = vec3.create();
 
 function validateEdgeIndex(edgeIndex: number) {
     if ([0, 1, 2].indexOf(edgeIndex) === -1) {
@@ -375,5 +377,12 @@ export class Triangle {
         vec3.add(mid, mid, this.getPosition(1));
         vec3.add(mid, mid, this.getPosition(2));
         return vec3.scale(mid, mid, THIRD);
+    }
+
+    getSurfaceArea(): number {
+        const ab = vec3.sub(tmp0, this.getPosition(1), this.vertexData);
+        const ac = vec3.sub(tmp1, this.getPosition(2), this.vertexData);
+        vec3.cross(tmp0, ab, ac);
+        return vec3.length(tmp0) / 2;
     }
 }

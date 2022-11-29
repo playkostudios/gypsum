@@ -713,7 +713,7 @@ export class ManifoldBuilder {
         }
     }
 
-    private smoothenVertexNormal(hardNormals: Array<vec3>, dotThreshold: number, triangle: Triangle, vertexIdx: number) {
+    private smoothenVertexNormal(hardNormals: Array<vec3>, surfaceAreas: Array<number>, dotThreshold: number, triangle: Triangle, vertexIdx: number) {
         // don't do anything if normal is already set
         if (triangle.hasNormals(vertexIdx)) {
             return;
@@ -777,12 +777,17 @@ export class ManifoldBuilder {
         }
 
         // calculate smooth normal of each group
-        // TODO use numerically stable mean
         for (const group of groups) {
             const smoothNormal = vec3.create();
 
             for (const [otherTriangle, _otherVertex] of group) {
-                vec3.add(smoothNormal, smoothNormal, hardNormals[otherTriangle.helper]);
+                // XXX weighted normals are used so that bevelled geometry isn't
+                // ugly. note that normals are weighted by triangle surface area
+                // but not by corner angle. this means that there are still
+                // artifacts in low-poly cylinders. see:
+                // http://www.bytehazard.com/articles/vertnorm.html
+                const i = otherTriangle.helper;
+                vec3.scaleAndAdd(smoothNormal, smoothNormal, hardNormals[i], surfaceAreas[i]);
             }
 
             vec3.normalize(smoothNormal, smoothNormal);
@@ -817,11 +822,14 @@ export class ManifoldBuilder {
             }
         }
 
-        // pre-calculate hard normals (used for averaging)
+        // pre-calculate hard normals (used for averaging) and surface area
         const triCount = this.triangles.length;
         const hardNormals = new Array<vec3>(triCount);
+        const surfaceAreas = new Array<number>(triCount);
         for (let t = 0; t < triCount; t++) {
-            hardNormals[t] = this.triangles[t].getFaceNormal();
+            const tri = this.triangles[t];
+            hardNormals[t] = tri.getFaceNormal();
+            surfaceAreas[t] = tri.getSurfaceArea();
         }
 
         // set triangle helpers so that the triangles can be mapped to their
@@ -831,7 +839,7 @@ export class ManifoldBuilder {
         // smooth each vertex
         for (const triangle of this.triangles) {
             for (let v = 0; v < 3; v++) {
-                this.smoothenVertexNormal(hardNormals, dotThreshold, triangle, v);
+                this.smoothenVertexNormal(hardNormals, surfaceAreas, dotThreshold, triangle, v);
             }
         }
     }
