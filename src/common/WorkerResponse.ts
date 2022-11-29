@@ -1,5 +1,7 @@
+import type { StrippedMesh } from './StrippedMesh';
+
 export type WorkerIDMap = Array<[newID: number, originalID: number]>;
-export type WorkerResult = [mesh: Mesh, meshRelation: MeshRelation, idMap: WorkerIDMap] | boolean | number | Box | Properties | Curvature;
+export type WorkerResult = [strippedMesh: StrippedMesh, meshRelation: MeshRelation, idMap: WorkerIDMap] | boolean | number | Box | Properties | Curvature;
 export type WorkerResponse = {
     type: 'created',
 } | {

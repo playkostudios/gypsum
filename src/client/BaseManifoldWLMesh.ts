@@ -1,8 +1,10 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="../../types/globals.d.ts" />
 
-import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
 import VertexHasher from './mesh-gen/VertexHasher';
+
+import type { StrippedMesh } from '../common/StrippedMesh';
+import { DynamicArray } from './mesh-gen/DynamicArray';
 
 const MAX_INDEX = 0xFFFFFFFF;
 
@@ -27,9 +29,9 @@ export abstract class BaseManifoldWLMesh {
      * be modified here as well, possibly corrupting the mesh. to avoid issues
      * with this, do a deep clone of the inputs
      */
-    constructor(protected submeshes: Array<Submesh> = [], protected premadeManifoldMesh?: Mesh, protected submeshMap?: SubmeshMap) {}
+    constructor(protected submeshes: Array<Submesh> = [], protected premadeManifoldMesh?: StrippedMesh, protected submeshMap?: SubmeshMap) {}
 
-    get manifoldMesh(): Mesh {
+    get manifoldMesh(): StrippedMesh {
         if (!this.premadeManifoldMesh) {
             const wleMeshes = new Array<WL.Mesh>(this.submeshes.length);
 
@@ -81,58 +83,10 @@ export abstract class BaseManifoldWLMesh {
         ];
     }
 
-    static manifoldToWLE(mesh: Mesh): WL.Mesh {
-        // XXX only for debugging, hence the inneficient non-indexed vertices
-        // (works with MeshVisualizer)
-        const triCount = mesh.triVerts.length;
-        const indexCount = triCount * 3;
-        const indexData = new Uint32Array(indexCount);
-
-        for (let i = 0; i < indexCount; i++) {
-            indexData[i] = i;
-        }
-
-        const wleMesh = new WL.Mesh({ indexData, indexType: WL.MeshIndexType.UnsignedInt, vertexCount: indexCount });
-
-        const positions = wleMesh.attribute(WL.MeshAttribute.Position);
-        const normals = wleMesh.attribute(WL.MeshAttribute.Normal);
-
-        let j = 0;
-        for (let i = 0; i < triCount; i++) {
-            const tri = mesh.triVerts[i];
-
-            const a = tri[0];
-            const b = tri[1];
-            const c = tri[2];
-            const aPos = mesh.vertPos[a];
-            const bPos = mesh.vertPos[b];
-            const cPos = mesh.vertPos[c];
-
-            if (normals) {
-                if (mesh.vertNormal) {
-                    normals.set(j, mesh.vertNormal[a]);
-                    normals.set(j + 1, mesh.vertNormal[b]);
-                    normals.set(j + 2, mesh.vertNormal[c]);
-                } else {
-                    const normal = normalFromTriangle(aPos, bPos, cPos);
-                    normals.set(j, normal);
-                    normals.set(j + 1, normal);
-                    normals.set(j + 2, normal);
-                }
-            }
-
-            positions.set(j++, aPos);
-            positions.set(j++, bPos);
-            positions.set(j++, cPos);
-        }
-
-        return wleMesh;
-    }
-
-    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>): [submeshMap: SubmeshMap, manifoldMesh: Mesh];
-    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap: true): [submeshMap: SubmeshMap, manifoldMesh: Mesh];
-    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap: false): Mesh;
-    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap = true): Mesh | [submeshMap: SubmeshMap, manifoldMesh: Mesh] {
+    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>): [submeshMap: SubmeshMap, manifoldMesh: StrippedMesh];
+    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap: true): [submeshMap: SubmeshMap, manifoldMesh: StrippedMesh];
+    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap: false): StrippedMesh;
+    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap = true): StrippedMesh | [submeshMap: SubmeshMap, manifoldMesh: StrippedMesh] {
         if (!Array.isArray(wleMeshes)) {
             wleMeshes = [wleMeshes];
         }
@@ -143,11 +97,12 @@ export abstract class BaseManifoldWLMesh {
         // validate vertex count
         let totalVertexCount = 0;
         let maxSubmeshTriCount = 0;
+        let indexCount = 0;
 
         for (const wleMesh of wleMeshes) {
             const packedVertexCount = wleMesh.vertexCount;
             const indexData = wleMesh.indexData;
-            const indexCount = indexData === null ? packedVertexCount : indexData.length;
+            indexCount = indexData === null ? packedVertexCount : indexData.length;
 
             if (indexCount % 3 !== 0) {
                 throw new Error(`Mesh has an invalid index count (${indexCount}). Must be a multiple of 3`);
@@ -157,11 +112,9 @@ export abstract class BaseManifoldWLMesh {
             maxSubmeshTriCount = Math.max(maxSubmeshTriCount, indexCount / 3);
         }
 
+        const triVerts = new Uint32Array(totalVertexCount);
+        const vertPos = new DynamicArray(Float32Array);
         const totalTriCount = totalVertexCount / 3;
-        const mesh = {
-            vertPos: new Array<Vec3>(),
-            triVerts: new Array<Vec3>(totalTriCount)
-        }
         const hasher = new VertexHasher();
         const submeshMap = genSubmeshMap ? BaseManifoldWLMesh.makeSubmeshMapBuffer(totalTriCount, maxSubmeshTriCount, wleMeshes.length - 1) : null;
         let jm = 0;
@@ -181,23 +134,24 @@ export abstract class BaseManifoldWLMesh {
                 const pos = positions.get(i);
 
                 if (hasher.isUnique(pos)) {
-                    mergedIndices.push(mesh.vertPos.length);
-                    mesh.vertPos.push(pos);
+                    mergedIndices.push(vertPos.length / 3);
+                    const offset = vertPos.length;
+                    vertPos.expandCapacity_guarded(vertPos.length + 3);
+                    vertPos.copy_guarded(offset, pos);
                 } else {
                     const [x, y, z] = pos;
                     let k = 0;
-                    for (; k < mesh.vertPos.length; k++) {
-                        const [ox, oy, oz] = mesh.vertPos[k];
-                        if (ox === x && oy === y && oz === z) {
+                    for (; k < vertPos.length; k += 3) {
+                        if (vertPos.get_guarded(k) === x && vertPos.get_guarded(k + 1) === y && vertPos.get_guarded(k + 2) === z) {
                             break;
                         }
                     }
 
-                    if (k === mesh.vertPos.length) {
-                        mergedIndices.push(mesh.vertPos.length);
-                        mesh.vertPos.push(pos);
-                    } else {
-                        mergedIndices.push(k);
+                    mergedIndices.push(k / 3);
+
+                    if (k === vertPos.length) {
+                        vertPos.expandCapacity_guarded(k + 3);
+                        vertPos.copy_guarded(k, pos);
                     }
                 }
             }
@@ -206,11 +160,9 @@ export abstract class BaseManifoldWLMesh {
             let tri = 0;
             if (indexData === null) {
                 for (let i = 0; i < vertexCount;) {
-                    mesh.triVerts[jm++] = [
-                        mergedIndices[i++],
-                        mergedIndices[i++],
-                        mergedIndices[i++]
-                    ];
+                    triVerts[jm++] = mergedIndices[i++];
+                    triVerts[jm++] = mergedIndices[i++];
+                    triVerts[jm++] = mergedIndices[i++];
 
                     if (submeshMap) {
                         submeshMap[js++] = submeshIdx;
@@ -219,11 +171,9 @@ export abstract class BaseManifoldWLMesh {
                 }
             } else {
                 for (let i = 0; i < vertexCount;) {
-                    mesh.triVerts[jm++] = [
-                        mergedIndices[indexData[i++]],
-                        mergedIndices[indexData[i++]],
-                        mergedIndices[indexData[i++]]
-                    ];
+                    triVerts[jm++] = mergedIndices[indexData[i++]];
+                    triVerts[jm++] = mergedIndices[indexData[i++]];
+                    triVerts[jm++] = mergedIndices[indexData[i++]];
 
                     if (submeshMap) {
                         submeshMap[js++] = submeshIdx;
@@ -233,9 +183,11 @@ export abstract class BaseManifoldWLMesh {
             }
         }
 
-        if (jm !== mesh.triVerts.length) {
+        if (jm !== triVerts.length) {
             throw new Error('Unexpected manifold triangle count');
         }
+
+        const mesh = <StrippedMesh>{ vertPos: vertPos.finalize(), triVerts };
 
         if (submeshMap) {
             if (js !== submeshMap.length) {

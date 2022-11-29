@@ -2,6 +2,8 @@
 /// <reference path="../types/globals.d.ts" />
 
 import { iterateOpTree } from './common/iterate-operation-tree';
+
+import type { StrippedMesh } from './common/StrippedMesh';
 import type { WorkerRequest, WorkerOperation } from './common/WorkerRequest';
 import type { WorkerResponse, WorkerResult, WorkerIDMap } from './common/WorkerResponse';
 
@@ -20,17 +22,32 @@ const boolOpMap: Record<string, 'union' | 'difference' | 'intersection'> = {
     intersection: 'intersection',
 };
 
-function evaluateOpTree(tree: WorkerOperation): WorkerResult {
+function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>): WorkerResult {
     const manifold = manifoldModule as ManifoldStatic;
     const stack = new Array<Manifold>();
     let result: WorkerResult | undefined = undefined;
     const idMap: WorkerIDMap = [];
 
-    iterateOpTree(tree, (_context, _key, [meshID, mesh]) => {
+    iterateOpTree(tree, (_context, _key, [meshID, meshObj]) => {
         // mesh
         // logWorker(console.debug, 'Adding mesh as manifold to stack');
 
-        const meshManif = new manifold.Manifold(mesh);
+        const mesh = new manifold.Mesh();
+        mesh.vertPos = meshObj.vertPos;
+        mesh.triVerts = meshObj.triVerts;
+
+        // TODO make properties array with actual property data so manifold can
+        // decide which triangles to merge
+        const indexCount = meshObj.triVerts.length;
+        const triProperties = new Uint32Array(indexCount);
+        const properties = new Float32Array(indexCount);
+        const propertyTolerance = new Float32Array([1e-5]);
+        for (let i = 0; i < indexCount; i++) {
+          triProperties[i] = i;
+          properties[i] = i;
+        }
+
+        const meshManif = new manifold.Manifold(mesh, triProperties, properties, propertyTolerance);
         idMap.push([meshManif.originalID(), meshID]);
         stack.push(meshManif);
     }, (_context, _key, node) => {
@@ -218,7 +235,16 @@ function evaluateOpTree(tree: WorkerOperation): WorkerResult {
 
     if (result === undefined) {
         if (stack.length === 1) {
-            return [ stack[0].getMesh(), stack[0].getMeshRelation(), idMap ];
+            const top = stack[0];
+            const outMesh = top.getMesh();
+            transfer.push(outMesh.triVerts.buffer);
+            transfer.push(outMesh.vertPos.buffer);
+
+            return [
+                <StrippedMesh>{
+                    triVerts: outMesh.triVerts, vertPos: outMesh.vertPos
+                }, top.getMeshRelation(), idMap
+            ];
         } else {
             throw new Error(`Unexpected number of manifolds in stack (${stack.length}) after evaluation`);
         }
@@ -276,12 +302,14 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
             logWorker(console.debug, `Job ${message.data.jobID} started`);
 
             try {
+                const transfer = new Array<Transferable>();
+                const result = evaluateOpTree(message.data.operation, transfer);
                 postMessage(<WorkerResponse>{
                     type: 'result',
                     success: true,
                     jobID: message.data.jobID,
-                    result: evaluateOpTree(message.data.operation),
-                });
+                    result,
+                }, transfer);
             } catch(error) {
                 logWorker(console.debug, `Job ${message.data.jobID} failed`);
                 logWorker(console.error, error);

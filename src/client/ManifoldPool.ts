@@ -8,6 +8,8 @@ import { vec3 } from 'gl-matrix';
 import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
 
 import type { WorkerRequest } from '../common/WorkerRequest';
+import type { OpTreeCtx } from '../common/iterate-operation-tree';
+import type { StrippedMesh } from '../common/StrippedMesh';
 
 type MeshArr = Array<[mesh: WL.Mesh, material: WL.Material | null]>;
 type WorkerTuple = [worker: Worker, jobCount: number];
@@ -56,7 +58,7 @@ export class ManifoldPool {
         this.libraryPath = libraryPath;
     }
 
-    private toManifoldMesh(wleMesh: BaseManifoldWLMesh | WL.Mesh): Mesh {
+    private toManifoldMesh(wleMesh: BaseManifoldWLMesh | WL.Mesh): StrippedMesh {
         if (wleMesh instanceof BaseManifoldWLMesh) {
             return wleMesh.manifoldMesh;
         } else if(wleMesh instanceof WL.Mesh) {
@@ -66,9 +68,9 @@ export class ManifoldPool {
         }
     }
 
-    private meshToWLEArr(mesh: Mesh, meshRelation: MeshRelation, meshIDMap: Map<number, BaseManifoldWLMesh | WL.Mesh>): MeshArr {
+    private meshToWLEArr(mesh: StrippedMesh, meshRelation: MeshRelation, meshIDMap: Map<number, BaseManifoldWLMesh | WL.Mesh>): MeshArr {
         // validate triangle count
-        const triCount = mesh.triVerts.length;
+        const triCount = mesh.triVerts.length / 3;
 
         if (triCount === 0) {
             return [];
@@ -168,12 +170,16 @@ export class ManifoldPool {
 
                 for (let i = 0; i < vaTriCount; i++, j2 += 6, j3 += 9, j4 += 12) {
                     const [triIdx, origTriIdx] = va[i];
-                    const triIndices = mesh.triVerts[triIdx];
+                    const triIdxOffset = triIdx * 3;
+                    const triIndices = mesh.triVerts.slice(triIdxOffset, triIdxOffset + 3);
                     const triBary = meshRelation.triBary[triIdx];
 
-                    const aPosNew = mesh.vertPos[triIndices[0]];
-                    const bPosNew = mesh.vertPos[triIndices[1]];
-                    const cPosNew = mesh.vertPos[triIndices[2]];
+                    const posOffset0 = triIndices[0] * 3;
+                    const posOffset1 = triIndices[1] * 3;
+                    const posOffset2 = triIndices[2] * 3;
+                    const aPosNew = mesh.vertPos.slice(posOffset0, posOffset0 + 3);
+                    const bPosNew = mesh.vertPos.slice(posOffset1, posOffset1 + 3);
+                    const cPosNew = mesh.vertPos.slice(posOffset2, posOffset2 + 3);
 
                     if (hasExtra && origMesh) {
                         const aBaryIdx = triBary.vertBary[0];
@@ -425,14 +431,15 @@ export class ManifoldPool {
         }
 
         let nextMeshID = 0;
-        const meshIDMap = new Map<number, Mesh>();
+        const transfer = new Array<Transferable>();
         const origMap = new Array<BaseManifoldWLMesh | WL.Mesh>();
-        iterateOpTree(operation, (context, key, mesh) => {
+        iterateOpTree<BaseManifoldWLMesh | WL.Mesh>(operation, (context: OpTreeCtx<BaseManifoldWLMesh | WL.Mesh>, key: number | string, mesh: BaseManifoldWLMesh | WL.Mesh) => {
             // mesh
             const converted = this.toManifoldMesh(mesh);
-            meshIDMap.set(nextMeshID, mesh);
+            transfer.push(converted.triVerts.buffer, converted.vertPos.buffer);
             context[key] = [nextMeshID++, converted];
             origMap.push(mesh);
+            transfer
         });
 
         const best = this.getBestWorker();
@@ -443,7 +450,7 @@ export class ManifoldPool {
             this.jobs.set(jobID, [resolve, reject, origMap]);
             best[0].postMessage(<WorkerRequest>{
                 type: 'operation', jobID, operation
-            });
+            }, transfer);
         });
     }
 }

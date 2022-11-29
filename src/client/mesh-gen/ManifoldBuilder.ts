@@ -4,9 +4,10 @@ import { Triangle } from './Triangle';
 import { vec3, mat4 } from 'gl-matrix';
 import { BaseManifoldWLMesh, Submesh, SubmeshMap } from '../BaseManifoldWLMesh';
 import VertexHasher from './VertexHasher';
+import { normalFromTriangle } from './normal-from-triangle';
 
 import type { vec2, quat } from 'gl-matrix';
-import { normalFromTriangle } from './normal-from-triangle';
+import type { StrippedMesh } from '../../common/StrippedMesh';
 
 const MAT4_IDENTITY = mat4.create();
 const TAU_INV = 1 / (Math.PI * 2);
@@ -455,7 +456,7 @@ export class ManifoldBuilder {
         return reached.isAllSet();
     }
 
-    finalize(materialMap: Map<number, WL.Material>): [ submeshes: Array<Submesh>, manifoldMesh: Mesh, submeshMap: SubmeshMap ] {
+    finalize(materialMap: Map<number, WL.Material>): [ submeshes: Array<Submesh>, manifoldMesh: StrippedMesh, submeshMap: SubmeshMap ] {
         // verify that mesh if fully connected. this doesn't mean that the mesh
         // is a manifold
         if (!this.isConnected) {
@@ -533,19 +534,10 @@ export class ManifoldBuilder {
             }
         }
 
-        const finalPositions = positions.finalize();
-
-        // TODO use newer manifold api
-        const triVerts = new Array(triCount);
-        const posCount = finalPositions.length / 3;
-        const vertPos = new Array(posCount);
-        const manifoldMesh = <Mesh>{ triVerts, vertPos };
-        for (let i = 0, j = 0; i < triCount;) {
-            triVerts[i++] = [indices[j++], indices[j++], indices[j++]];
-        }
-        for (let i = 0, j = 0; i < posCount;) {
-            vertPos[i++] = [finalPositions[j++], finalPositions[j++], finalPositions[j++]];
-        }
+        const manifoldMesh = <StrippedMesh>{
+            triVerts: indices,
+            vertPos: positions.finalize()
+        };
 
         return [submeshes, manifoldMesh, submeshMap];
     }

@@ -269,11 +269,6 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
             throw new Error('not implemented yet');
         }
 
-        // connect triangles
-        // TODO properly do this without auto-connect
-        // console.warn("AUTO");
-        // builder.autoConnectEdges(); // TODO remove
-
         // add smooth normals
         if (hasSmoothNormals) {
             // 0.9 radians (approx. PI / 3.5) is close to 45 degrees

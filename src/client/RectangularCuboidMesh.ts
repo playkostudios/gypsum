@@ -2,6 +2,7 @@ import { BaseManifoldWLMesh, SubmeshMap } from './BaseManifoldWLMesh';
 import { vec3 } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
+import { StrippedMesh } from '../common/StrippedMesh';
 
 export type CuboidFaceUVs = [tl: vec2, bl: vec2, br: vec2, tr: vec2];
 export type CuboidFaceUVPosRatio = number;
@@ -32,7 +33,7 @@ function makeUVs(uSpan: number, vSpan: number): [ tl: vec2, bl: vec2, br: vec2, 
     return [ [0, vSpan], [0, 0], [uSpan, 0], [uSpan, vSpan] ];
 }
 
-function makeMesh(quad: Quad, vertPos: Array<Vec3>, normal: vec3, uvs: CuboidFaceUVs | CuboidFaceUVPosRatio | undefined, uSpan: number, vSpan: number, wlMeshOpts: { vertexCount: number, indexData: Uint8Array, indexType: WL.MeshIndexType }): WL.Mesh {
+function makeMesh(quad: Quad, vertPos: Float32Array, normal: vec3, uvs: CuboidFaceUVs | CuboidFaceUVPosRatio | undefined, uSpan: number, vSpan: number, wlMeshOpts: { vertexCount: number, indexData: Uint8Array, indexType: WL.MeshIndexType }): WL.Mesh {
     // make mesh
     const mesh = new WL.Mesh(wlMeshOpts);
 
@@ -59,12 +60,14 @@ function makeMesh(quad: Quad, vertPos: Array<Vec3>, normal: vec3, uvs: CuboidFac
     }
 
     // populate mesh vertex data
-    positions.set(0, [
-        ...vertPos[quad[0]],
-        ...vertPos[quad[1]],
-        ...vertPos[quad[2]],
-        ...vertPos[quad[3]]
-    ]);
+    const quad0Offset = quad[0] * 3;
+    positions.set(0, vertPos.slice(quad0Offset, quad0Offset + 3));
+    const quad1Offset = quad[1] * 3;
+    positions.set(1, vertPos.slice(quad1Offset, quad1Offset + 3));
+    const quad2Offset = quad[2] * 3;
+    positions.set(2, vertPos.slice(quad2Offset, quad2Offset + 3));
+    const quad3Offset = quad[3] * 3;
+    positions.set(3, vertPos.slice(quad3Offset, quad3Offset + 3));
 
     if (normals) {
         normals.set(0, normal);
@@ -85,14 +88,18 @@ function makeMesh(quad: Quad, vertPos: Array<Vec3>, normal: vec3, uvs: CuboidFac
     return mesh;
 }
 
-function trisFromQuads(triVerts: Array<Vec3>, quadIndices: Array<Quad>) {
+function trisFromQuads(triVerts: Uint32Array, quadIndices: Array<Quad>) {
     // bottom-left tri, then top-right tri
     // triVerts is assumed to have pre-allocated enough size
     const quadCount = quadIndices.length;
     for (let i = 0, j = 0; i < quadCount; i++) {
         const quad = quadIndices[i];
-        triVerts[j++] = [quad[0], quad[1], quad[2]];
-        triVerts[j++] = [quad[0], quad[2], quad[3]];
+        triVerts[j++] = quad[0];
+        triVerts[j++] = quad[1];
+        triVerts[j++] = quad[2];
+        triVerts[j++] = quad[0];
+        triVerts[j++] = quad[2];
+        triVerts[j++] = quad[3];
     }
 }
 
@@ -122,16 +129,16 @@ export class RectangularCuboidMesh extends BaseManifoldWLMesh {
         const back = center ? (-depth / 2) : 0;
         const front = center ? (depth / 2) : depth;
 
-        const vertPos: Array<Vec3> = [
-            [ left, down, back ],
-            [ right, down, back ],
-            [ left, up, back ],
-            [ right, up, back ],
-            [ left, down, front ],
-            [ right, down, front ],
-            [ left, up, front ],
-            [ right, up, front ],
-        ];
+        const vertPos = new Float32Array([
+            left, down, back,
+            right, down, back,
+            left, up, back,
+            right, up, back,
+            left, down, front,
+            right, down, front,
+            left, up, front,
+            right, up, front,
+        ]);
 
         // manifold indices for each face in CCW order
         const faceIndices: Array<Quad> = [
@@ -143,10 +150,10 @@ export class RectangularCuboidMesh extends BaseManifoldWLMesh {
             [ 6, 4, 5, 7 ], // front face
         ]
 
-        const triVerts = new Array<Vec3>(12);
+        const triVerts = new Uint32Array(12);
         trisFromQuads(triVerts, faceIndices);
 
-        const manifoldMesh = <Mesh>{ triVerts, vertPos };
+        const manifoldMesh = <StrippedMesh>{ triVerts, vertPos };
 
         // make submeshes
         const wlMeshOpts = { vertexCount: 4, indexData, indexType };
