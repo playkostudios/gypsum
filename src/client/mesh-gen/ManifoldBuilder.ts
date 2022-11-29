@@ -1,12 +1,12 @@
 import { DynamicArray } from './DynamicArray';
 import { BitArray } from './BitArray';
 import { Triangle } from './Triangle';
-import { vec3, mat4 } from 'gl-matrix';
+import { vec2, vec3, mat4 } from 'gl-matrix';
 import { BaseManifoldWLMesh, Submesh, SubmeshMap } from '../BaseManifoldWLMesh';
 import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';
 
-import type { vec2, quat } from 'gl-matrix';
+import type { quat } from 'gl-matrix';
 import type { StrippedMesh } from '../../common/StrippedMesh';
 
 const MAT4_IDENTITY = mat4.create();
@@ -335,6 +335,76 @@ export class ManifoldBuilder {
 
         this.triangles.push(triangle);
         return triangle;
+    }
+
+    addSubdivQuad(tlPos: vec3, trPos: vec3, blPos: vec3, brPos: vec3, subDivisions = 1, tlUV?: vec2, trUV?: vec2, blUV?: vec2, brUV?: vec2): void {
+        const subDivisionsP1 = subDivisions + 1;
+        const subQuads = subDivisionsP1 * subDivisionsP1;
+
+        // pre-calculate all positions (and uvs)
+        const positions = new Array<vec3>(subQuads);
+        let uvs: null | Array<vec2> = null;
+
+        if (tlUV) {
+            // assume other uv coordinates are supplied
+            uvs = new Array<vec2>(subQuads);
+        }
+
+        for (let j = 0; j <= subDivisions; j++) {
+            // j goes from top to bottom
+            const j0 = (subDivisions - j) / subDivisions;
+            const j1 = j / subDivisions;
+            const stride = subDivisions * j;
+
+            for (let i = 0; i <= subDivisions; i++) {
+                // i goes from left to right
+                const i0 = (subDivisions - i) / subDivisions;
+                const i1 = i / subDivisions;
+
+                // do bilinear interpolation for position
+                const pos = vec3.scale(vec3.create(), tlPos, i0 * j0);
+                vec3.scaleAndAdd(pos, pos, trPos, i1 * j0);
+                vec3.scaleAndAdd(pos, pos, blPos, i0 * j1);
+                vec3.scaleAndAdd(pos, pos, brPos, i1 * j1);
+                positions[stride + i] = pos;
+
+                if (uvs) {
+                    // do bilinear interpolation for uvs
+                    const uv = vec2.scale(vec2.create(), tlUV as vec2, i0 * j0);
+                    vec2.scaleAndAdd(uv, uv, trUV as vec2, i1 * j0);
+                    vec2.scaleAndAdd(uv, uv, blUV as vec2, i0 * j1);
+                    vec2.scaleAndAdd(uv, uv, brUV as vec2, i1 * j1);
+                    uvs[stride + i] = uv;
+                }
+            }
+        }
+
+        // pre-calculate quad normal
+        const normal = normalFromTriangle(tlPos, blPos, trPos, vec3.create());
+
+        // make triangles
+        for (let j = 0; j < subDivisions; j++) {
+            const stride = subDivisions * j;
+
+            for (let i = 0; i < subDivisions; i++) {
+                const o00 = stride + i;
+                const o10 = o00 + 1;
+                const o01 = o00 + subDivisions;
+                const o11 = o01 + 1;
+
+                const tlTri = this.addTriangle(positions[o00], positions[o01], positions[o10], normal, normal, normal);
+                const brTri = this.addTriangle(positions[o10], positions[o01], positions[o11], normal, normal, normal);
+
+                if (uvs) {
+                    tlTri.setUV(0, uvs[o00]);
+                    tlTri.setUV(1, uvs[o01]);
+                    tlTri.setUV(2, uvs[o10]);
+                    brTri.setPosition(0, positions[o10]);
+                    brTri.setPosition(1, positions[o01]);
+                    brTri.setPosition(2, positions[o11]);
+                }
+            }
+        }
     }
 
     subDivide4(): void {
