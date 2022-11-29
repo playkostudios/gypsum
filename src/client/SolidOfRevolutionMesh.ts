@@ -1,7 +1,7 @@
 import { vec2, vec3 } from 'gl-matrix';
 import { ExtrusionMesh } from './ExtrusionMesh';
 
-import type { CurveFrames } from './rmf/curve-frame';
+import type { CurveFrames } from './curves/curve-frame';
 
 const TAU = Math.PI * 2;
 

@@ -4,7 +4,7 @@
 import { ExtrusionMesh } from './ExtrusionMesh';
 
 import type { vec2, vec3 } from 'gl-matrix';
-import type { CurveFrame } from './rmf/curve-frame';
+import type { CurveFrame } from './curves/curve-frame';
 import type { ExtrusionOptions } from './ExtrusionMesh';
 
 export class LinearExtrusionMesh extends ExtrusionMesh {

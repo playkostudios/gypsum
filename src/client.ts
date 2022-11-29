@@ -4,8 +4,10 @@ export * from './client/polylines/rectangle-polyline';
 export * from './client/polylines/regular-polyline';
 export * from './client/polylines/star-polyline';
 
-export * from './client/rmf/curve-frame';
-export * from './client/rmf/make-rotation-minimizing-frames';
+export * from './client/curves/curve-frame';
+export * from './client/curves/extend-curve-frames';
+export * from './client/curves/fix-tangent-list';
+export * from './client/curves/make-rotation-minimizing-frames';
 
 export * from './client/BaseManifoldWLMesh';
 export * from './client/BasePrismoidPyramidMesh';

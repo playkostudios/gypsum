@@ -52,7 +52,7 @@ export function makeIcosahedronBuilder(): ManifoldBuilder {
     builder.addTriangle(ICO_V[11], ICO_V[10], ICO_V[9 ], BM_UV, TR_UV, TL_UV);
     builder.addTriangle(ICO_V[11], ICO_V[6 ], ICO_V[10], BM_UV, TR_UV, TL_UV);
 
-    builder.autoConnectEdges();
+    builder.autoConnectAllEdges();
 
     return builder;
 }

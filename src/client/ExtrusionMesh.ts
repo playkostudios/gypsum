@@ -4,8 +4,11 @@
 import { mat4, vec2, vec3 } from 'gl-matrix';
 import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
 import triangulate2DPolygon from './triangulation/triangulate-2d-polygon';
-import type { CurveFrames } from './rmf/curve-frame';
 import { ManifoldBuilder } from './mesh-gen/ManifoldBuilder';
+import { Triangle } from './mesh-gen/Triangle';
+
+import type { CurveFrames } from './curves/curve-frame';
+import type { EdgeList } from './mesh-gen/ManifoldBuilder';
 
 export interface ExtrusionMaterialOptions {
     startMaterial?: WL.Material;
@@ -192,7 +195,10 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         }
 
         // add bases
+        let startBaseTris: Array<Triangle> | null = null, endBaseTris: Array<Triangle> | null = null;
         if (!loops) {
+            startBaseTris = [], endBaseTris = [];
+
             // triangulate polyline
             const triangulatedBase = triangulate2DPolygon(polyline);
             const triangulatedBaseLen = triangulatedBase.length;
@@ -213,6 +219,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
                     startBaseUVs[aIdx], startBaseUVs[bIdx], startBaseUVs[cIdx],
                 );
                 newTri.materialID = 1;
+                startBaseTris.push(newTri);
             }
 
             // end base
@@ -228,6 +235,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
                     endBaseUVs[aIdx], endBaseUVs[bIdx], endBaseUVs[cIdx],
                 );
                 newTri.materialID = 2;
+                endBaseTris.push(newTri);
             }
         }
 
@@ -258,15 +266,30 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         }
 
         // connect bases or segments in loop
+        const lastSegOffset = (segmentCount - 1) * segmentTriCount;
         if (loops) {
-            const lastSegOffset = (segmentCount - 1) * segmentTriCount;
-
             for (let l = 0; l < segmentTriCount; l += 2) {
                 // connect triangles between the loop end and start
                 builder.triangles[l].connectEdge(0, 1, builder.triangles[lastSegOffset + l + 1]);
             }
         } else {
-            throw new Error('not implemented yet');
+            // auto-connect bases
+            const startBase = startBaseTris as Array<Triangle>;
+            const endBase = endBaseTris as Array<Triangle>;
+            builder.autoConnectSubset(startBase);
+            builder.autoConnectSubset(endBase);
+
+            // auto-connect edges between bases and segments
+            const startEdges: EdgeList = new Array(loopLen);
+            const endEdges: EdgeList = new Array(loopLen);
+
+            for (let i = 0; i < loopLen; i++) {
+                startEdges[i] = [builder.triangles[i * 2], 0];
+                endEdges[i] = [builder.triangles[lastSegOffset + i * 2 + 1], 1];
+            }
+
+            builder.autoConnectEdges(startEdges, startBase);
+            builder.autoConnectEdges(endEdges, endBase);
         }
 
         // add smooth normals

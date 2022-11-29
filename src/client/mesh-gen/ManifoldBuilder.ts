@@ -12,6 +12,8 @@ import type { StrippedMesh } from '../../common/StrippedMesh';
 const MAT4_IDENTITY = mat4.create();
 const TAU_INV = 1 / (Math.PI * 2);
 
+export type EdgeList = Array<[triangle: Triangle, edgeIdx: number]>;
+
 function getMatchingEdge(a: vec3, b: vec3, oPos0: vec3, oPos1: vec3, oPos2: vec3): number | null {
     // XXX check that the check for opposite winding order edges really is not
     // necessary (commented code). for now it seems to work perfectly fine
@@ -177,11 +179,11 @@ export class ManifoldBuilder {
     triangles = new Array<Triangle>();
 
     /**
-     * Auto-connect edges by checking the vertex positions of each triangle.
+     * Auto-connect all edges by checking the vertex positions of each triangle.
      * This can fail if the input is not manifold, or there are 2 or more
      * disconnected surfaces.
      */
-    autoConnectEdges(): void {
+    autoConnectAllEdges(): void {
         const triCount = this.triangles.length;
         if (triCount === 0) {
             return;
@@ -203,6 +205,73 @@ export class ManifoldBuilder {
         // there is only 1 manifold
         if (!visitedTriangles.isAllSet()) {
             throw new Error('Could not connect all triangles; maybe the surface is not fully connected, or the surface is not trivially manifold?');
+        }
+    }
+
+    /**
+     * Similar to {@link autoConnectAllEdges}, but only auto-connects a subset
+     * of the mesh, given as a list of Triangles.
+     */
+    autoConnectSubset(triangles: Array<Triangle>): void {
+        const triCount = this.triangles.length;
+        if (triCount === 0) {
+            return;
+        }
+
+        const visitedTriangles = new BitArray(triCount);
+        connectTriangles(0, triangles, visitedTriangles);
+    }
+
+    /**
+     * Similar to {@link autoConnectSubset}, but only auto-connects a select set
+     * of edges. Edges will not replace already connected triangles. If an edge
+     * fails to auto-connect, then an error will be thrown.
+     */
+    autoConnectEdges(edges: EdgeList, connectableTriangles: Array<Triangle>): void {
+        for (const [triangle, edgeIdx] of edges) {
+            if (triangle.getConnectedEdge(edgeIdx)) {
+                continue; // edge already connected
+            }
+
+            let a: vec3, b: vec3;
+            switch (edgeIdx) {
+                case 0:
+                    a = triangle.getPosition(0);
+                    b = triangle.getPosition(1);
+                    break;
+                case 1:
+                    a = triangle.getPosition(1);
+                    b = triangle.getPosition(2);
+                    break;
+                case 2:
+                    a = triangle.getPosition(2);
+                    b = triangle.getPosition(0);
+                    break;
+                default:
+                    throw new Error(`Invalid edge index (${edgeIdx})`);
+            }
+
+            let disconnected = true;
+            for (const otherTriangle of connectableTriangles) {
+                if (triangle === otherTriangle) {
+                    continue;
+                }
+
+                const pos0 = otherTriangle.getPosition(0);
+                const pos1 = otherTriangle.getPosition(1);
+                const pos2 = otherTriangle.getPosition(2);
+                const match = getMatchingEdge(a, b, pos0, pos1, pos2);
+
+                if (match !== null) {
+                    otherTriangle.connectEdge(match, edgeIdx, triangle);
+                    disconnected = false;
+                    break;
+                }
+            }
+
+            if (disconnected) {
+                throw new Error('Could not auto-connect edge');
+            }
         }
     }
 
