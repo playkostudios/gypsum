@@ -120,10 +120,16 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         const segmentCount = pointCount - 1;
         const firstFrame = curveFrames[0];
         const lastFrame = curveFrames[segmentCount];
-        const loops = vec3.exactEquals(curvePositions[0], curvePositions[segmentCount])
+        let loops = vec3.exactEquals(curvePositions[0], curvePositions[segmentCount])
             && vec3.exactEquals(firstFrame[0], lastFrame[0])
             && vec3.exactEquals(firstFrame[1], lastFrame[1])
             && vec3.exactEquals(firstFrame[2], lastFrame[2]);
+
+        // XXX don't loop if start and end base scales don't match
+        // TODO a special case for this will need to be added in the future
+        if (curveScales && curveScales[0] !== curveScales[segmentCount]) {
+            loops = false;
+        }
 
         // pre-calculate segment positions. vertex positions for manifold are
         // populated this way. also pre-calculate extrusion length
