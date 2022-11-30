@@ -22,7 +22,6 @@ export * from './client/IcosphereMesh';
 export * from './client/LinearExtrusionMesh';
 export * from './client/ManifoldPool';
 export * from './client/ManifoldWLMesh';
-export * from './client/MappedSubDivCubeMesh';
 export * from './client/PrismMesh';
 export * from './client/PrismoidMesh';
 export * from './client/PrismPyramidOptions';

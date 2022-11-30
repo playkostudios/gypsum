@@ -1,33 +1,35 @@
-import { MappedSubDivCubeMesh } from './MappedSubDivCubeMesh';
-import { vec3 } from 'gl-matrix';
+import { makeCuboidBuilder } from './mesh-gen/make-cuboid-builder';
+import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
 
 import type { RadialOptions } from './RadialOptions';
 import type { vec2 } from 'gl-matrix';
 
+const NO_UVS: [vec2, vec2, vec2, vec2] = [[0,0],[0,0],[0,0],[0,0]];
+
 export interface UVSphereOptions extends RadialOptions {
-    poleSubDivisions?: number;
+    material?: WL.Material;
 }
 
-export class UVSphereMesh extends MappedSubDivCubeMesh {
+export class UVSphereMesh extends BaseManifoldWLMesh {
     constructor(options?: UVSphereOptions) {
         const subDivs = options?.subDivisions ?? 12;
-        super(true, subDivs, options?.poleSubDivisions ?? subDivs, options?.radius ?? 0.5);
-    }
+        const radius = options?.radius ?? 0.5;
+        const diameter = radius * 2;
 
-    protected override mapVertexEquirect(pos: vec3, normal: vec3 | null, texCoord: vec2 | null, radius: number, isFirstHalf: boolean | null) {
-        vec3.normalize(pos, pos);
+        const builder = makeCuboidBuilder(
+            subDivs, diameter, diameter, diameter, true,
+            NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS,
+        );
 
-        if (normal) {
-            vec3.copy(normal, pos);
+        builder.normalize();
+        builder.makeEquirectUVs();
+
+        const material = options?.material ?? null;
+        const materialMap = new Map<number, WL.Material>();
+        for (let i = 0; i < 6; i++) {
+            materialMap.set(i, material);
         }
-        if (texCoord) {
-            MappedSubDivCubeMesh.mapEquirectUVs(pos, texCoord, isFirstHalf);
-        }
 
-        vec3.scale(pos, pos, radius);
-    }
-
-    protected override mapVertexBox(_pos: vec3, _normal: vec3 | null, _radius: number): void {
-        throw new Error('Box mapping is not supported by UV spheres');
+        super(...builder.finalize(materialMap));
     }
 }

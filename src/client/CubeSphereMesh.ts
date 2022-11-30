@@ -1,75 +1,98 @@
-import { MappedSubDivCubeMesh } from './MappedSubDivCubeMesh';
+import { makeCuboidBuilder } from './mesh-gen/make-cuboid-builder';
+import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
 import { vec3 } from 'gl-matrix';
 
+import type { CuboidFaceUVPosRatio, CuboidFaceUVs } from './mesh-gen/make-cuboid-builder';
 import type { RadialOptions } from './RadialOptions';
 import type { vec2 } from 'gl-matrix';
+import type { ManifoldBuilder } from './mesh-gen/ManifoldBuilder';
 
 const THIRD = 1 / 3;
+const NO_UVS: [vec2, vec2, vec2, vec2] = [[0,0],[0,0],[0,0],[0,0]];
 
 type CubeSphereOptions = RadialOptions & ({
     equirectangular: true;
-    poleSubDivisions?: number;
 } | {
     equirectangular?: false;
+    leftUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+    rightUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+    downUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+    upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+    backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+    frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+}) & {
+    material?: WL.Material;
     leftMaterial?: WL.Material;
     rightMaterial?: WL.Material;
     downMaterial?: WL.Material;
     upMaterial?: WL.Material;
     backMaterial?: WL.Material;
     frontMaterial?: WL.Material;
-});
+};
 
-function mapCubeToSphere(pos: vec3) {
+function mapCubeToSphere(x: number, y: number, z: number): vec3 {
     // XXX algorithm expects inputs to be in the range -1:1, not -0.5:0.5
-    vec3.scale(pos, pos, 2);
-    const xSqr = pos[0] * pos[0];
-    const ySqr = pos[1] * pos[1];
-    const zSqr = pos[2] * pos[2];
+    x *= 2;
+    y *= 2;
+    z *= 2;
 
-    pos[0] *= Math.sqrt(1 - 0.5 * (ySqr + zSqr) + ySqr * zSqr * THIRD);
-    pos[1] *= Math.sqrt(1 - 0.5 * (zSqr + xSqr) + zSqr * xSqr * THIRD);
-    pos[2] *= Math.sqrt(1 - 0.5 * (xSqr + ySqr) + xSqr * ySqr * THIRD);
+    const xSqr = x * x;
+    const ySqr = y * y;
+    const zSqr = z * z;
+
+    x *= Math.sqrt(1 - 0.5 * (ySqr + zSqr) + ySqr * zSqr * THIRD);
+    y *= Math.sqrt(1 - 0.5 * (zSqr + xSqr) + zSqr * xSqr * THIRD);
+    z *= Math.sqrt(1 - 0.5 * (xSqr + ySqr) + xSqr * ySqr * THIRD);
+
+    return [x, y, z];
 }
 
 export { CubeSphereOptions };
 
-export class CubeSphereMesh extends MappedSubDivCubeMesh {
+export class CubeSphereMesh extends BaseManifoldWLMesh {
     constructor(options?: CubeSphereOptions) {
         const subDivs = options?.subDivisions ?? 12;
         const radius = options?.radius ?? 0.5;
+        const diameter = radius * 2;
 
-        if (options?.equirectangular) {
-            super(true, subDivs, options?.poleSubDivisions ?? subDivs, radius);
+        let materialMap: Map<number, WL.Material>;
+        if (options?.material) {
+            materialMap = new Map();
+            for (let i = 0; i < 6; i++) {
+                materialMap.set(i, options.material);
+            }
         } else {
-            super(
-                false, subDivs, 0, radius,
-                options?.leftMaterial, options?.rightMaterial,
-                options?.downMaterial, options?.upMaterial,
-                options?.backMaterial, options?.frontMaterial
+            materialMap = new Map([
+                [ 0, options?.leftMaterial ?? null ],
+                [ 1, options?.rightMaterial ?? null ],
+                [ 2, options?.downMaterial ?? null ],
+                [ 3, options?.upMaterial ?? null ],
+                [ 4, options?.backMaterial ?? null ],
+                [ 5, options?.frontMaterial ?? null ],
+            ]);
+        }
+
+        let builder: ManifoldBuilder;
+        if (options?.equirectangular) {
+            builder = makeCuboidBuilder(
+                subDivs, diameter, diameter, diameter, true,
+                NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS,
+            );
+        } else {
+            builder = makeCuboidBuilder(
+                subDivs, diameter, diameter, diameter, true,
+                options?.leftUVs, options?.rightUVs, options?.downUVs,
+                options?.upUVs, options?.backUVs, options?.frontUVs,
             );
         }
-    }
 
-    protected override mapVertexEquirect(pos: vec3, normal: vec3 | null, texCoord: vec2 | null, radius: number, isFirstHalf: boolean | null) {
-        mapCubeToSphere(pos);
+        builder.warpPositions(mapCubeToSphere);
+        builder.normalize();
 
-        if (normal) {
-            vec3.copy(normal, pos);
-        }
-        if (texCoord) {
-            MappedSubDivCubeMesh.mapEquirectUVs(pos, texCoord, isFirstHalf);
+        if (options?.equirectangular) {
+            builder.makeEquirectUVs();
         }
 
-        vec3.scale(pos, pos, radius);
-    }
-
-    protected override mapVertexBox(pos: vec3, normal: vec3 | null, radius: number): void {
-        mapCubeToSphere(pos);
-
-        if (normal) {
-            vec3.copy(normal, pos);
-        }
-
-        vec3.scale(pos, pos, radius);
+        super(...builder.finalize(materialMap));
     }
 }

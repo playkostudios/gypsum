@@ -4,7 +4,7 @@
 // not using uvs because having 0 as an input ruins murmurhash. now everything
 // is just xor'ed together
 export default class VertexHasher {
-    buckets = new Map<number, Float32Array[]>;
+    buckets = new Map<number, [Array<Float32Array>, Array<number>]>;
     readonly byteLength: number;
 
     constructor(public readonly floatCount = 3) {
@@ -21,39 +21,47 @@ export default class VertexHasher {
         return h;
     }
 
-    isUnique(vertexData: Float32Array, offset = 0) {
+    getAuxIdx(vertexData: Float32Array, auxIdx = -1, offset = 0): null | number {
         const byteOffset = vertexData.byteOffset + offset * 4;
         const hash = this.getHash(vertexData.buffer, byteOffset);
-        let arr = this.buckets.get(hash);
+        let bucket = this.buckets.get(hash);
 
-        if (arr) {
-            for (const other of arr) {
+        if (bucket) {
+            const bucketVA = bucket[0];
+            const bucketSize = bucketVA.length;
+
+            for (let i = 0; i < bucketSize; i++) {
+                const otherVertexData = bucketVA[i];
                 let equal = true;
-                // console.log(vertexData, other);
-                for (let i = 0; i < this.floatCount; i++) {
-                    if (vertexData[offset + i] !== other[i]) {
+                for (let j = 0; j < this.floatCount; j++) {
+                    if (vertexData[offset + j] !== otherVertexData[j]) {
                         equal = false;
                         break;
                     }
                 }
 
                 if (equal) {
-                    return false;
+                    return bucket[1][i];
                 }
             }
         } else {
-            arr = [];
-            this.buckets.set(hash, arr);
+            bucket = [[], []];
+            this.buckets.set(hash, bucket);
         }
 
         if(offset === 0) {
-            arr.push(vertexData);
+            bucket[0].push(vertexData);
         } else {
             const clonedData = new Float32Array(vertexData.buffer, byteOffset, this.floatCount);
-            arr.push(clonedData);
+            bucket[0].push(clonedData);
         }
 
-        return true;
+        bucket[1].push(auxIdx);
+        return null;
+    }
+
+    isUnique(vertexData: Float32Array, offset = 0): boolean {
+        return this.getAuxIdx(vertexData, -1, offset) === null;
     }
 
     clear() {

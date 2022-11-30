@@ -14,118 +14,6 @@ const TAU_INV = 1 / (Math.PI * 2);
 
 export type EdgeList = Array<[triangle: Triangle, edgeIdx: number]>;
 
-function getMatchingEdge(a: vec3, b: vec3, oPos0: vec3, oPos1: vec3, oPos2: vec3): number | null {
-    // XXX check that the check for opposite winding order edges really is not
-    // necessary (commented code). for now it seems to work perfectly fine
-    if (vec3.exactEquals(a, oPos0)) {
-        /*if (vec3.exactEquals(b, oPos1)) {
-            return 0;
-        } else*/ if (vec3.exactEquals(b, oPos2)) {
-            return 2;
-        }
-    } else if (vec3.exactEquals(a, oPos1)) {
-        /*if (vec3.exactEquals(b, oPos2)) {
-            return 1;
-        } else*/ if (vec3.exactEquals(b, oPos0)) {
-            return 0;
-        }
-    } else if (vec3.exactEquals(a, oPos2)) {
-        /*if (vec3.exactEquals(b, oPos0)) {
-            return 2;
-        } else*/ if (vec3.exactEquals(b, oPos1)) {
-            return 1;
-        }
-    }
-
-    return null;
-}
-
-function connectTriangles(ti: number, triangles: Array<Triangle>, visitedTriangles: BitArray) {
-    // ignore triangle if already visited
-    if (visitedTriangles.get(ti)) {
-        return;
-    }
-
-    // mark this triangle as visited
-    visitedTriangles.set(ti, true);
-
-    // check which edges need connections
-    const triangle = triangles[ti];
-    const missingEdge0 = triangle.getConnectedEdge(0) === null;
-    const missingEdge1 = triangle.getConnectedEdge(1) === null;
-    const missingEdge2 = triangle.getConnectedEdge(2) === null;
-    let edgesLeft = 0;
-
-    if (missingEdge0) {
-        edgesLeft++;
-    }
-    if (missingEdge1) {
-        edgesLeft++;
-    }
-    if (missingEdge2) {
-        edgesLeft++;
-    }
-
-    // no edges need connections, skip triangle
-    if (edgesLeft === 0) {
-        return;
-    }
-
-    // some edges need connecting. get positions of each vertex and try
-    // connecting to unvisited triangles
-    const pos0 = triangle.getPosition(0);
-    const pos1 = triangle.getPosition(1);
-    const pos2 = triangle.getPosition(2);
-
-    const triCount = triangles.length;
-    const visitQueue: Array<number> = [];
-    const edgeHelpers: Array<[missing: boolean, a: vec3, b: vec3]> = [
-        [ missingEdge0, pos0, pos1 ],
-        [ missingEdge1, pos1, pos2 ],
-        [ missingEdge2, pos2, pos0 ],
-    ];
-
-    for (let oti = 0; oti < triCount; oti++) {
-        // ignore triangles that have already been visited
-        if (visitedTriangles.get(oti)) {
-            continue;
-        }
-
-        // connect if edge positions match
-        const otherTriangle = triangles[oti];
-        const oPos0 = otherTriangle.getPosition(0);
-        const oPos1 = otherTriangle.getPosition(1);
-        const oPos2 = otherTriangle.getPosition(2);
-
-        for (let edgeIdx = 0; edgeIdx < 3; edgeIdx++) {
-            const edgeHelper = edgeHelpers[edgeIdx];
-            const [ missing, a, b ] = edgeHelper;
-            if (!missing) {
-                continue;
-            }
-
-            const match = getMatchingEdge(a, b, oPos0, oPos1, oPos2);
-            if (match !== null) {
-                edgeHelper[0] = false;
-                otherTriangle.connectEdge(match, edgeIdx, triangle);
-                visitQueue.push(oti);
-                if (--edgesLeft === 0) {
-                    break;
-                }
-            }
-        }
-
-        if (edgesLeft === 0) {
-            break;
-        }
-    }
-
-    // visit triangles that were connected
-    for (const oti of visitQueue) {
-        connectTriangles(oti, triangles, visitedTriangles);
-    }
-}
-
 function getVertexMid(a: Float32Array, b: Float32Array): Float32Array {
     const result = new Float32Array(8);
 
@@ -178,54 +66,121 @@ export class ManifoldBuilder {
      */
     triangles = new Array<Triangle>();
 
-    /**
-     * Auto-connect all edges by checking the vertex positions of each triangle.
-     * This can fail if the input is not manifold, or there are 2 or more
-     * disconnected surfaces.
-     */
-    autoConnectAllEdges(): void {
-        const triCount = this.triangles.length;
-        if (triCount === 0) {
-            return;
-        }
+    get numTri(): number {
+        return this.triangles.length;
+    }
 
-        // disconnect all edges
+    /** Disconnects all edges in each triangle of this manifold builder. */
+    disconnectAllEdges(): void {
         for (const triangle of this.triangles) {
             let i = 0;
             while (i < 3) {
                 triangle.disconnectEdge(i++);
             }
         }
-
-        // recursively connect all triangles, starting from the first one
-        const visitedTriangles = new BitArray(triCount);
-        connectTriangles(0, this.triangles, visitedTriangles);
-
-        // validate that all triangles have been visited. this makes sure that
-        // there is only 1 manifold
-        if (!visitedTriangles.isAllSet()) {
-            throw new Error('Could not connect all triangles; maybe the surface is not fully connected, or the surface is not trivially manifold?');
-        }
     }
 
     /**
-     * Similar to {@link autoConnectAllEdges}, but only auto-connects a subset
-     * of the mesh, given as a list of Triangles.
+     * Calls {@link autoConnectAllEdgesOfSubset} with all the triangles in this
+     * builder.
      */
-    autoConnectSubset(triangles: Array<Triangle>): void {
-        const triCount = this.triangles.length;
+    autoConnectAllEdges(): void {
+        this.autoConnectAllEdgesOfSubset(this.triangles);
+    }
+
+    /**
+     * Auto-connect edges of a subset of the mesh by checking the vertex
+     * positions of each triangle in the subset. Already connected edges will
+     * not be reconnected to other edges.
+     */
+    autoConnectAllEdgesOfSubset(triangles: Array<Triangle>): void {
+        const triCount = triangles.length;
         if (triCount === 0) {
             return;
         }
 
-        const visitedTriangles = new BitArray(triCount);
-        connectTriangles(0, triangles, visitedTriangles);
+        for (let ti = 0; ti < triCount; ti++) {
+            // check which edges need connections
+            const triangle = triangles[ti];
+            const missingEdge0 = !triangle.isEdgeConnected(0);
+            const missingEdge1 = !triangle.isEdgeConnected(1);
+            const missingEdge2 = !triangle.isEdgeConnected(2);
+            let edgesLeft = 0;
+
+            if (missingEdge0) {
+                edgesLeft++;
+            }
+            if (missingEdge1) {
+                edgesLeft++;
+            }
+            if (missingEdge2) {
+                edgesLeft++;
+            }
+
+            // no edges need connections, skip triangle
+            if (edgesLeft === 0) {
+                continue;
+            }
+
+            // some edges need connecting. get positions of each vertex and try
+            // connecting to unvisited triangles
+            const edgeHelpers: Array<[missing: boolean, a: number, b: number]> = [
+                [ missingEdge0, 0, 1 ],
+                [ missingEdge1, 1, 2 ],
+                [ missingEdge2, 2, 0 ],
+            ];
+
+            for (let oti = ti + 1; oti < triCount; oti++) {
+                // ignore if other triangle is already connected
+                const otherTriangle = this.triangles[oti];
+                const oMissingEdge0 = !otherTriangle.isEdgeConnected(0);
+                const oMissingEdge1 = !otherTriangle.isEdgeConnected(1);
+                const oMissingEdge2 = !otherTriangle.isEdgeConnected(2);
+                let oEdgesLeft = 0;
+
+                if (oMissingEdge0) {
+                    oEdgesLeft++;
+                }
+                if (oMissingEdge1) {
+                    oEdgesLeft++;
+                }
+                if (oMissingEdge2) {
+                    oEdgesLeft++;
+                }
+
+                if (oEdgesLeft === 0) {
+                    continue;
+                }
+
+                // connect if edge positions match
+                for (let edgeIdx = 0; edgeIdx < 3; edgeIdx++) {
+                    const edgeHelper = edgeHelpers[edgeIdx];
+                    const [ missing, a, b ] = edgeHelper;
+                    if (!missing) {
+                        continue;
+                    }
+
+                    const match = triangle.getMatchingEdge(a, b, otherTriangle);
+                    if (match !== null) {
+                        edgeHelper[0] = false;
+                        otherTriangle.connectEdge(match, edgeIdx, triangle);
+                        if (--edgesLeft === 0) {
+                            break;
+                        }
+                    }
+                }
+
+                if (edgesLeft === 0) {
+                    break;
+                }
+            }
+        }
     }
 
     /**
-     * Similar to {@link autoConnectSubset}, but only auto-connects a select set
-     * of edges. Edges will not replace already connected triangles. If an edge
-     * fails to auto-connect, then an error will be thrown.
+     * Similar to {@link autoConnectAllEdgesOfSubset}, but only auto-connects a
+     * select set of edges. Edges will not replace already connected triangles.
+     * If an edge fails to auto-connect, then an error will be thrown.
      */
     autoConnectEdges(edges: EdgeList, connectableTriangles: Array<Triangle>): void {
         for (const [triangle, edgeIdx] of edges) {
@@ -233,23 +188,7 @@ export class ManifoldBuilder {
                 continue; // edge already connected
             }
 
-            let a: vec3, b: vec3;
-            switch (edgeIdx) {
-                case 0:
-                    a = triangle.getPosition(0);
-                    b = triangle.getPosition(1);
-                    break;
-                case 1:
-                    a = triangle.getPosition(1);
-                    b = triangle.getPosition(2);
-                    break;
-                case 2:
-                    a = triangle.getPosition(2);
-                    b = triangle.getPosition(0);
-                    break;
-                default:
-                    throw new Error(`Invalid edge index (${edgeIdx})`);
-            }
+            const a = edgeIdx, b = (edgeIdx === 2) ? 0 : (edgeIdx + 1);
 
             let disconnected = true;
             for (const otherTriangle of connectableTriangles) {
@@ -257,11 +196,7 @@ export class ManifoldBuilder {
                     continue;
                 }
 
-                const pos0 = otherTriangle.getPosition(0);
-                const pos1 = otherTriangle.getPosition(1);
-                const pos2 = otherTriangle.getPosition(2);
-                const match = getMatchingEdge(a, b, pos0, pos1, pos2);
-
+                const match = triangle.getMatchingEdge(a, b, otherTriangle);
                 if (match !== null) {
                     otherTriangle.connectEdge(match, edgeIdx, triangle);
                     disconnected = false;
@@ -275,6 +210,9 @@ export class ManifoldBuilder {
         }
     }
 
+    /**
+     * Similar to {@link addTriangle}, but normals are not set (kept as 0,0,0).
+     */
     addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>): Triangle;
     addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, uv0: Readonly<vec2>, uv1: Readonly<vec2>, uv2: Readonly<vec2>): Triangle;
     addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, uv0?: Readonly<vec2>, uv1?: Readonly<vec2>, uv2?: Readonly<vec2>): Triangle {
@@ -289,10 +227,15 @@ export class ManifoldBuilder {
             triangle.setUV(2, uv2 as vec2);
         }
 
+        triangle.helper = this.numTri;
         this.triangles.push(triangle);
         return triangle;
     }
 
+    /**
+     * Pushes a new triangle to the end of the {@link triangles} array. Helpers
+     * are set to their index on the triangles array.
+     */
     addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>): Triangle;
     addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, normal0: Readonly<vec3>, normal1: Readonly<vec3>, normal2: Readonly<vec3>): Triangle;
     addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, uv0: Readonly<vec2>, uv1: Readonly<vec2>, uv2: Readonly<vec2>): Triangle;
@@ -333,13 +276,25 @@ export class ManifoldBuilder {
             triangle.setNormal(2, temp);
         }
 
+        triangle.helper = this.numTri;
         this.triangles.push(triangle);
         return triangle;
     }
 
-    addSubdivQuad(tlPos: vec3, trPos: vec3, blPos: vec3, brPos: vec3, subDivisions = 1, tlUV?: vec2, trUV?: vec2, blUV?: vec2, brUV?: vec2): void {
+    /**
+     * Add triangles that make up a sub-divided quad. Adding a quad with 1
+     * sub-division will create 2 new triangles, while adding a quad with 2
+     * sub-divisions will create 8 triangles (4 sub-quads, with 2 triangles
+     * each).
+     *
+     * All edges in generated triangles will be connected, except the border
+     * edges; new triangles will not be connected to triangles already present
+     * in the builder.
+     */
+    addSubdivQuad(tlPos: vec3, trPos: vec3, blPos: vec3, brPos: vec3, materialID: number, subDivisions = 1, tlUV?: vec2, trUV?: vec2, blUV?: vec2, brUV?: vec2): void {
         const subDivisionsP1 = subDivisions + 1;
         const subQuads = subDivisionsP1 * subDivisionsP1;
+        const triStride = subDivisions * 2;
 
         // pre-calculate all positions (and uvs)
         const positions = new Array<vec3>(subQuads);
@@ -354,7 +309,7 @@ export class ManifoldBuilder {
             // j goes from top to bottom
             const j0 = (subDivisions - j) / subDivisions;
             const j1 = j / subDivisions;
-            const stride = subDivisions * j;
+            const jOffset = subDivisionsP1 * j;
 
             for (let i = 0; i <= subDivisions; i++) {
                 // i goes from left to right
@@ -366,7 +321,7 @@ export class ManifoldBuilder {
                 vec3.scaleAndAdd(pos, pos, trPos, i1 * j0);
                 vec3.scaleAndAdd(pos, pos, blPos, i0 * j1);
                 vec3.scaleAndAdd(pos, pos, brPos, i1 * j1);
-                positions[stride + i] = pos;
+                positions[jOffset + i] = pos;
 
                 if (uvs) {
                     // do bilinear interpolation for uvs
@@ -374,7 +329,7 @@ export class ManifoldBuilder {
                     vec2.scaleAndAdd(uv, uv, trUV as vec2, i1 * j0);
                     vec2.scaleAndAdd(uv, uv, blUV as vec2, i0 * j1);
                     vec2.scaleAndAdd(uv, uv, brUV as vec2, i1 * j1);
-                    uvs[stride + i] = uv;
+                    uvs[jOffset + i] = uv;
                 }
             }
         }
@@ -383,25 +338,100 @@ export class ManifoldBuilder {
         const normal = normalFromTriangle(tlPos, blPos, trPos, vec3.create());
 
         // make triangles
-        for (let j = 0; j < subDivisions; j++) {
-            const stride = subDivisions * j;
-
+        const startIdx = this.numTri;
+        for (let j = 0, jOffset = 0; j < subDivisions; j++, jOffset += subDivisionsP1) {
             for (let i = 0; i < subDivisions; i++) {
-                const o00 = stride + i;
+                const o00 = jOffset + i;
                 const o10 = o00 + 1;
-                const o01 = o00 + subDivisions;
+                const o01 = o00 + subDivisionsP1;
                 const o11 = o01 + 1;
 
                 const tlTri = this.addTriangle(positions[o00], positions[o01], positions[o10], normal, normal, normal);
                 const brTri = this.addTriangle(positions[o10], positions[o01], positions[o11], normal, normal, normal);
+                tlTri.materialID = materialID;
+                brTri.materialID = materialID;
 
                 if (uvs) {
                     tlTri.setUV(0, uvs[o00]);
                     tlTri.setUV(1, uvs[o01]);
                     tlTri.setUV(2, uvs[o10]);
-                    brTri.setPosition(0, positions[o10]);
-                    brTri.setPosition(1, positions[o01]);
-                    brTri.setPosition(2, positions[o11]);
+                    brTri.setUV(0, uvs[o10]);
+                    brTri.setUV(1, uvs[o01]);
+                    brTri.setUV(2, uvs[o11]);
+                }
+
+                // connect both triangles
+                tlTri.connectEdge(1, 0, brTri);
+            }
+        }
+
+        // connect triangles between subdivision lines
+        const subDivisionsM1 = subDivisions - 1;
+        for (let j = 0, jOffset = startIdx; j < subDivisions; j++) {
+            for (let i = 0; i < subDivisions; i++, jOffset += 2) {
+                const tlOffset = jOffset;
+                const brOffset = tlOffset + 1;
+                const brTri = this.triangles[brOffset];
+
+                if (j < subDivisionsM1) {
+                    // not last sub-division, can connect vertically
+                    brTri.connectEdge(1, 2, this.triangles[tlOffset + triStride]);
+                }
+
+                if (i < subDivisionsM1) {
+                    // not last sub-division, can connect horizontally
+                    brTri.connectEdge(2, 0, this.triangles[brOffset + 1]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Similar to {@link addSubdivQuad}, but also records edges and triangles to
+     * given lists so that they can be used with {@link autoConnectEdges}.
+     *
+     * @param edgeList The list of edges that will be connected to the list of triangles. Edges will be appended to this list if the edgeMask is set to a non-zero value.
+     * @param connectableTriangles The list of triangles that will be connected to the list of edges. Triangles will be appended to this list if the connectableTriMask is set to a non-zero value.
+     * @param edgeMask A 4-bit bitmask with the edges that will be added to the list of edges. The bits, from most significant to least significant, are: left edge, right edge, top edge, bottom edge.
+     * @param connectableTriMask A 4-bit bitmask with the triangles that will be added to the list of connectable triangles. The bits, from most significant to least significant, are: left edge triangles, right edge triangles, top edge triangles, bottom edge triangles.
+     */
+    addSubdivQuadWithEdges(edgeList: EdgeList, connectableTriangles: Array<Triangle>, edgeMask: number, connectableTriMask: number, tlPos: vec3, trPos: vec3, blPos: vec3, brPos: vec3, materialID: number, subDivisions = 1, tlUV?: vec2, trUV?: vec2, blUV?: vec2, brUV?: vec2): void {
+        if ((edgeMask & connectableTriMask) > 0) {
+            console.warn('edgeMask and connectableTriMask have bits set in both masks. Lists generated will not be usable by autoConnectEdges, unless both lists are used in different calls');
+        }
+
+        // make quad
+        const triOffset = this.numTri;
+        this.addSubdivQuad(tlPos, trPos, blPos, brPos, materialID, subDivisions, tlUV, trUV, blUV, brUV);
+
+        // append to lists
+        const triStride = subDivisions * 2;
+        const triCount = triStride * subDivisions;
+        // XXX helper variables for left, right, top and bottom edges logic.
+        // contains the bit to compare for each bitmask, the edge index, the
+        // triangle index increment for each iteration, the loop start value,
+        // and the loop end value
+        const rTriOffset = triOffset + triStride - 1;
+        const bTriOffset = triOffset + triStride * (subDivisions - 1) + 1;
+        const helpers: Array<[bitmaskMask: number, edgeIdx: number, triInc: number, triStart: number, triEnd: number]> = [
+            [ 0b1000, 0, triStride, triOffset, triOffset + triCount ],
+            [ 0b0100, 2, triStride, rTriOffset, rTriOffset + triCount ],
+            [ 0b0010, 2, 2, triOffset, triOffset + triStride ],
+            [ 0b0001, 1, 2, bTriOffset, bTriOffset + triStride ],
+        ];
+
+        for (const [bitmaskMask, edgeIdx, triInc, triStart, triEnd] of helpers) {
+            const needsEdge = (edgeMask & bitmaskMask) > 0;
+            const needsTri = (connectableTriMask & bitmaskMask) > 0;
+            if (needsEdge || needsTri) {
+                for (let i = triStart; i < triEnd; i += triInc) {
+                    const tri = this.triangles[i];
+                    if (needsEdge) {
+                        edgeList.push([tri, edgeIdx]);
+                    }
+                    if (needsTri) {
+                        connectableTriangles.push(tri);
+                    }
                 }
             }
         }
@@ -414,7 +444,7 @@ export class ManifoldBuilder {
         // 1: bottom left triangle (0-1 mid, 1, 1-2 mid)
         // 2: bottom right triangle (2-0 mid, 1-2 mid, 2)
         // 3: middle triangle (1-2 mid, 2-0 mid, 0-1 mid)
-        const triCount = this.triangles.length;
+        const triCount = this.numTri;
         const newTriangles = new Array<Triangle>(triCount * 4);
 
         for (let t = 0, i = 0; t < triCount; t++) {
@@ -439,18 +469,20 @@ export class ManifoldBuilder {
             mTri.connectEdge(1, 1, tTri);
             mTri.connectEdge(2, 2, blTri);
 
-            // save triangles
+            // set helpers and save triangles
+            tTri.helper = i;
             newTriangles[i++] = tTri;
+            blTri.helper = i;
             newTriangles[i++] = blTri;
+            brTri.helper = i;
             newTriangles[i++] = brTri;
+            mTri.helper = i;
             newTriangles[i++] = mTri;
         }
 
         // connect triangles according to original shared edges
         // XXX there are a lot of redundant operations, but i feel like trying
         // to reduce them would be more expensive than keeping it as is
-        this.setTriangleHelpers();
-
         for (let t = 0, i = 0; t < triCount; t++, i += 4) {
             const origTri = this.triangles[t];
 
@@ -507,36 +539,25 @@ export class ManifoldBuilder {
                 const u = triangle.vertexData[offsetCopy++];
                 const v = triangle.vertexData[offsetCopy];
 
-                if (hasher.isUnique(triangle.vertexData, offset)) {
-                    // console.log('UNIQUE');
-                    positions.pushBack_guarded(x);
-                    positions.pushBack_guarded(y);
-                    positions.pushBack_guarded(z);
+                const auxIdx = hasher.getAuxIdx(triangle.vertexData, nextIdx, offset);
+                if (auxIdx === null) {
+                    positions.expandCapacity(positions.length + 3);
+                    positions.pushBack(x);
+                    positions.pushBack(y);
+                    positions.pushBack(z);
 
-                    normals.pushBack_guarded(nx);
-                    normals.pushBack_guarded(ny);
-                    normals.pushBack_guarded(nz);
+                    normals.expandCapacity(normals.length + 3);
+                    normals.pushBack(nx);
+                    normals.pushBack(ny);
+                    normals.pushBack(nz);
 
-                    texCoords.pushBack_guarded(u);
-                    texCoords.pushBack_guarded(v);
+                    texCoords.expandCapacity(texCoords.length + 2);
+                    texCoords.pushBack(u);
+                    texCoords.pushBack(v);
 
                     indexData[iOffset++] = nextIdx++;
                 } else {
-                    // console.log('NOT UNIQUE');
-                    let j = 0;
-                    for (let k2 = 0, k3 = 0; j < nextIdx; j++, k2 += 2, k3 += 3) {
-                        if (positions.get_guarded(k3) === x && positions.get_guarded(k3 + 1) === y && positions.get_guarded(k3 + 2) === z &&
-                            normals.get_guarded(k3) === nx && normals.get_guarded(k3 + 1) === ny && normals.get_guarded(k3 + 2) === nz &&
-                            texCoords.get_guarded(k2) === u && texCoords.get_guarded(k2 + 1) === v) {
-                            break;
-                        }
-                    }
-
-                    if (j === nextIdx) {
-                        throw new Error('Vertex was hashed, but not found in list of vertices');
-                    }
-
-                    indexData[iOffset++] = j;
+                    indexData[iOffset++] = auxIdx;
                 }
             }
         }
@@ -565,37 +586,45 @@ export class ManifoldBuilder {
         return [mesh, material];
     }
 
-    private checkConnected(triangle: Triangle, reached: BitArray): void {
-        if (reached.get(triangle.helper)) {
-            return;
-        }
-
-        reached.set(triangle.helper, true);
-
-        const otherA = triangle.getConnectedEdge(0);
-        if (otherA) {
-            this.checkConnected(otherA[1], reached);
-        }
-
-        const otherB = triangle.getConnectedEdge(1);
-        if (otherB) {
-            this.checkConnected(otherB[1], reached);
-        }
-
-        const otherC = triangle.getConnectedEdge(2);
-        if (otherC) {
-            this.checkConnected(otherC[1], reached);
-        }
-    }
-
     get isConnected(): boolean {
-        this.setTriangleHelpers();
-        const reached = new BitArray(this.triangles.length);
-        this.checkConnected(this.triangles[0], reached);
-        return reached.isAllSet();
+        const visited = new BitArray(this.numTri);
+        const queue: Array<number> = [0];
+        while (queue.length > 0) {
+            const next = queue.pop() as number;
+
+            if (visited.getAndSet(next, true)) {
+                continue;
+            }
+
+            const nextTri = this.triangles[next];
+
+            const otherA = nextTri.getConnectedEdge(0);
+            if (otherA) {
+                queue.push(otherA[1].helper);
+            }
+
+            const otherB = nextTri.getConnectedEdge(1);
+            if (otherB) {
+                queue.push(otherB[1].helper);
+            }
+
+            const otherC = nextTri.getConnectedEdge(2);
+            if (otherC) {
+                queue.push(otherC[1].helper);
+            }
+        }
+
+        return visited.isAllSet();
     }
 
-    finalize(materialMap: Map<number, WL.Material>): [ submeshes: Array<Submesh>, manifoldMesh: StrippedMesh, submeshMap: SubmeshMap ] {
+    /**
+     * Create a list of Wonderland Engine meshes and a manifold from the current
+     * list of triangles. Helpers are expected to be set. If not, make sure to
+     * call {@link setTriangleHelpers}.
+     *
+     * @param materialMap Maps each material index to a Wonderland Engine material. Triangles with different material will be put in separate meshes, but in the same manifold. A null material is equivalent to the material being missing in the material map. Materials missing from the material map will use null as the material so they can be replaced later with a fallback material.
+     */
+    finalize(materialMap: Map<number, WL.Material | null>): [ submeshes: Array<Submesh>, manifoldMesh: StrippedMesh, submeshMap: SubmeshMap ] {
         // verify that mesh if fully connected. this doesn't mean that the mesh
         // is a manifold
         if (!this.isConnected) {
@@ -626,11 +655,10 @@ export class ManifoldBuilder {
         }
 
         // turn groups into submeshes
-        const triCount = this.triangles.length;
+        const triCount = this.numTri;
         const submeshes = new Array<Submesh>();
         const submeshMap: SubmeshMap = BaseManifoldWLMesh.makeSubmeshMapBuffer(triCount, maxSubmeshTriCount, groupedTris.size - 1);
         let submeshIdx = 0;
-        this.setTriangleHelpers();
 
         for (const material of sortedMaterials) {
             const triangles = groupedTris.get(material) as Array<Triangle>;
@@ -643,8 +671,6 @@ export class ManifoldBuilder {
         const indices = new Uint32Array(triCount * 3);
         const INVALID_INDEX = 0xFFFFFFFF; // max uint32
         indices.fill(INVALID_INDEX);
-
-        this.setTriangleHelpers();
 
         // get positions for each triangle
         for (let t = 0; t < triCount; t++) {
@@ -660,10 +686,11 @@ export class ManifoldBuilder {
 
                 // no shared position yet, make a new position
                 index = nextPosition++;
-                const vertPos = triangle.getPosition(vi);
-                positions.pushBack_guarded(vertPos[0]);
-                positions.pushBack_guarded(vertPos[1]);
-                positions.pushBack_guarded(vertPos[2]);
+                const i = 8 * vi;
+                positions.expandCapacity(positions.length + 3);
+                positions.pushBack(triangle.vertexData[i]);
+                positions.pushBack(triangle.vertexData[i + 1]);
+                positions.pushBack(triangle.vertexData[i + 2]);
 
                 // set all positions in vertex star
                 const vertexStar = triangle.getVertexStar(vi);
@@ -736,7 +763,7 @@ export class ManifoldBuilder {
      * helper variable of each triangle.
      */
     setTriangleHelpers(): void {
-        const triCount = this.triangles.length;
+        const triCount = this.numTri;
         for (let i = 0; i < triCount; i++) {
             this.triangles[i].helper = i;
         }
@@ -873,7 +900,9 @@ export class ManifoldBuilder {
      * Smooth normals are calculated for each vertex by getting all triangles
      * connected to the vertex (the vertex star), and making smoothing groups
      * by checking the angle between all of those triangles. Triangles that have
-     * similar angles will contribute to the average normal.
+     * similar angles will contribute to the average normal. Triangles are
+     * expected to have their helpers set. If not, make sure to call
+     * {@link setTriangleHelpers}.
      *
      * @param maxAngle Maximum angle, in radians, between 2 triangles for them to be considered part of the same smoothing group for a vertex
      * @param resetNormals If true, then all vertex normals will be reset to (0,0,0) before applying the modifier
@@ -893,7 +922,7 @@ export class ManifoldBuilder {
         }
 
         // pre-calculate hard normals (used for averaging) and surface area
-        const triCount = this.triangles.length;
+        const triCount = this.numTri;
         const hardNormals = new Array<vec3>(triCount);
         const surfaceAreas = new Array<number>(triCount);
         for (let t = 0; t < triCount; t++) {
@@ -902,14 +931,31 @@ export class ManifoldBuilder {
             surfaceAreas[t] = tri.getSurfaceArea();
         }
 
-        // set triangle helpers so that the triangles can be mapped to their
-        // pre-calculated hard normals
-        this.setTriangleHelpers();
-
         // smooth each vertex
         for (const triangle of this.triangles) {
             for (let v = 0; v < 3; v++) {
                 this.smoothenVertexNormal(hardNormals, surfaceAreas, dotThreshold, triangle, v);
+            }
+        }
+    }
+
+    /**
+     * Modify all positions on the mesh by a given function. Other vertex
+     * attributes are not modified.
+     */
+    warpPositions(transformer: (x: number, y: number, z: number) => vec3): void {
+        const voMax = 16;
+
+        for (const triangle of this.triangles) {
+            for (let vo = 0; vo <= voMax; vo += 8) {
+                const newPos = transformer(
+                    triangle.vertexData[vo], triangle.vertexData[vo + 1],
+                    triangle.vertexData[vo + 2]
+                );
+
+                triangle.vertexData[vo] = newPos[0];
+                triangle.vertexData[vo + 1] = newPos[1];
+                triangle.vertexData[vo + 2] = newPos[2];
             }
         }
     }

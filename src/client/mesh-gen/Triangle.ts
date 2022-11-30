@@ -1,8 +1,11 @@
 import { vec3, mat4, quat } from 'gl-matrix';
+import { normalFromTriangle } from './normal-from-triangle';
+import { Tuple } from '../misc/Tuple';
+import { NumRange } from '../misc/NumRange';
 
 import type { vec2 } from 'gl-matrix';
-import { normalFromTriangle } from './normal-from-triangle';
 
+const EPS = 1e-7;
 const THIRD = 1 / 3;
 const tmp0 = vec3.create();
 const tmp1 = vec3.create();
@@ -120,6 +123,10 @@ export class Triangle {
         this.bitData &= 0b111111;
         // set new material ID
         this.bitData |= newMaterialID << 6;
+    }
+
+    isEdgeConnected(edgeIndex: number): boolean {
+        return ((this.bitData >>> (edgeIndex << 1)) & 0b11) !== 3;
     }
 
     getConnectedEdge(edgeIndex: number): [number, Triangle] | null {
@@ -384,5 +391,49 @@ export class Triangle {
         const ac = vec3.sub(tmp1, this.getPosition(2), this.vertexData);
         vec3.cross(tmp0, ab, ac);
         return vec3.length(tmp0) / 2;
+    }
+
+    get connectedTriangles(): Tuple<Triangle, NumRange<0, 3>> {
+        const out: Array<Triangle> = [];
+
+        if (this.edgeTriangle0) {
+            out.push(this.edgeTriangle0);
+        }
+        if (this.edgeTriangle1) {
+            out.push(this.edgeTriangle1);
+        }
+        if (this.edgeTriangle2) {
+            out.push(this.edgeTriangle2);
+        }
+
+        return out as Tuple<Triangle, NumRange<0, 3>>;
+    }
+
+    positionMatches(vertexIndex: number, otherVertexIndex: number, otherTriangle: Triangle): boolean {
+        const i = 8 * vertexIndex;
+        const j = 8 * otherVertexIndex;
+
+        return Math.abs(this.vertexData[i] - otherTriangle.vertexData[j]) < EPS
+            && Math.abs(this.vertexData[i + 1] - otherTriangle.vertexData[j + 1]) < EPS
+            && Math.abs(this.vertexData[i + 2] - otherTriangle.vertexData[j + 2]) < EPS;
+    }
+
+    getMatchingEdge(aVertexIndex: number, bVertexIndex: number, otherTriangle: Triangle): number | null {
+        // XXX edges of triangles with opposite winding order are skipped
+        if (this.positionMatches(aVertexIndex, 0, otherTriangle)) {
+            if (this.positionMatches(bVertexIndex, 2, otherTriangle)) {
+                return 2;
+            }
+        } else if (this.positionMatches(aVertexIndex, 1, otherTriangle)) {
+            if (this.positionMatches(bVertexIndex, 0, otherTriangle)) {
+                return 0;
+            }
+        } else if (this.positionMatches(aVertexIndex, 2, otherTriangle)) {
+            if (this.positionMatches(bVertexIndex, 1, otherTriangle)) {
+                return 1;
+            }
+        }
+
+        return null;
     }
 }

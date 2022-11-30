@@ -120,10 +120,10 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         const segmentCount = pointCount - 1;
         const firstFrame = curveFrames[0];
         const lastFrame = curveFrames[segmentCount];
-        let loops = vec3.exactEquals(curvePositions[0], curvePositions[segmentCount])
-            && vec3.exactEquals(firstFrame[0], lastFrame[0])
-            && vec3.exactEquals(firstFrame[1], lastFrame[1])
-            && vec3.exactEquals(firstFrame[2], lastFrame[2]);
+        let loops = vec3.equals(curvePositions[0], curvePositions[segmentCount])
+            && vec3.equals(firstFrame[0], lastFrame[0])
+            && vec3.equals(firstFrame[1], lastFrame[1])
+            && vec3.equals(firstFrame[2], lastFrame[2]);
 
         // XXX don't loop if start and end base scales don't match
         // TODO a special case for this will need to be added in the future
@@ -282,8 +282,8 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
             // auto-connect bases
             const startBase = startBaseTris as Array<Triangle>;
             const endBase = endBaseTris as Array<Triangle>;
-            builder.autoConnectSubset(startBase);
-            builder.autoConnectSubset(endBase);
+            builder.autoConnectAllEdgesOfSubset(startBase);
+            builder.autoConnectAllEdgesOfSubset(endBase);
 
             // auto-connect edges between bases and segments
             const startEdges: EdgeList = new Array(loopLen);
