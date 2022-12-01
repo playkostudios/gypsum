@@ -1,7 +1,7 @@
 import { DynamicArray } from './DynamicArray';
 import { BitArray } from './BitArray';
-import { Triangle } from './Triangle';
-import { vec2, vec3, mat4 } from 'gl-matrix';
+import { Triangle, VERTEX_STRIDE, VERTEX_TOTAL } from './Triangle';
+import { vec2, vec3, mat4, mat3 } from 'gl-matrix';
 import { BaseManifoldWLMesh, Submesh, SubmeshMap } from '../BaseManifoldWLMesh';
 import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';
@@ -9,6 +9,7 @@ import { normalFromTriangle } from './normal-from-triangle';
 import type { quat } from 'gl-matrix';
 import type { StrippedMesh } from '../../common/StrippedMesh';
 
+const MAT3_IDENTITY = mat3.create();
 const MAT4_IDENTITY = mat4.create();
 const TAU_INV = 1 / (Math.PI * 2);
 
@@ -519,7 +520,7 @@ export class ManifoldBuilder {
         const normals = new DynamicArray(Float32Array);
         const texCoords = new DynamicArray(Float32Array);
 
-        const hasher = new VertexHasher(8);
+        const hasher = new VertexHasher(VERTEX_STRIDE);
         let nextIdx = 0;
 
         for (let t = 0, iOffset = 0; t < triCount; t++) {
@@ -531,7 +532,7 @@ export class ManifoldBuilder {
                 submeshMap[smOffset + 1] = t;
             }
 
-            for (let i = 0, offset = 0; i < 3; i++, offset += 8) {
+            for (let i = 0, offset = 0; i < 3; i++, offset += VERTEX_STRIDE) {
                 let offsetCopy = offset;
                 const x = triangle.vertexData[offsetCopy++];
                 const y = triangle.vertexData[offsetCopy++];
@@ -540,7 +541,12 @@ export class ManifoldBuilder {
                 const ny = triangle.vertexData[offsetCopy++];
                 const nz = triangle.vertexData[offsetCopy++];
                 const u = triangle.vertexData[offsetCopy++];
-                const v = triangle.vertexData[offsetCopy];
+                const v = triangle.vertexData[offsetCopy++];
+                const tx = triangle.vertexData[offsetCopy++];
+                const ty = triangle.vertexData[offsetCopy++];
+                const tz = triangle.vertexData[offsetCopy++];
+                const tw = triangle.vertexData[offsetCopy];
+                // TODO set tangents
 
                 const auxIdx = hasher.getAuxIdx(triangle.vertexData, nextIdx, offset);
                 if (auxIdx === null) {
@@ -761,23 +767,27 @@ export class ManifoldBuilder {
         }
     }
 
-    rotate(rotation: quat): void {
+    rotate(rotation: quat, rotateNormal = true, rotateTangent = true): void {
         if (rotation[0] === 0 && rotation[1] === 0 && rotation[2] === 0 && rotation[3] === 1) {
             return;
         }
 
         for (const triangle of this.triangles) {
-            triangle.rotate(rotation);
+            triangle.rotate(rotation, rotateNormal, rotateTangent);
         }
     }
 
-    transform(matrix: mat4): void {
-        if (mat4.exactEquals(matrix, MAT4_IDENTITY)) {
+    transform(matrix: mat4, normalMatrix?: mat3, transformNormal = true, transformTangent = true): void {
+        if (mat4.exactEquals(matrix, MAT4_IDENTITY) && (!normalMatrix || mat3.exactEquals(normalMatrix, MAT3_IDENTITY))) {
             return;
         }
 
+        if (!normalMatrix && (transformNormal || transformTangent)) {
+            normalMatrix = mat3.normalFromMat4(mat3.create(), matrix);
+        }
+
         for (const triangle of this.triangles) {
-            triangle.transform(matrix);
+            triangle.transform(matrix, normalMatrix, transformNormal, transformTangent);
         }
     }
 
@@ -806,7 +816,7 @@ export class ManifoldBuilder {
         for (const triangle of this.triangles) {
             // check if on first or second half of sphere (along yaw)
             let isFirstHalf = false;
-            for (let offset = 0, i = 0; offset < 24; offset += 8, i++) {
+            for (let offset = 0, i = 0; offset < VERTEX_TOTAL; offset += VERTEX_STRIDE, i++) {
                 // calculate yaw and pitch from normalized position
                 const dx = triangle.vertexData[offset];
                 const dy = triangle.vertexData[offset + 1];
@@ -822,7 +832,7 @@ export class ManifoldBuilder {
             }
 
             // correctly handle wrap-around point
-            for (let offset = 6, i = 0; offset < 24; offset += 8, i++) {
+            for (let offset = 6, i = 0; offset < VERTEX_TOTAL; offset += VERTEX_STRIDE, i++) {
                 let u = uList[i];
                 if (isFirstHalf && u > 0.75) {
                     u -= 1;
@@ -967,10 +977,8 @@ export class ManifoldBuilder {
      * attributes are not modified.
      */
     warpPositions(transformer: (x: number, y: number, z: number) => vec3): void {
-        const voMax = 16;
-
         for (const triangle of this.triangles) {
-            for (let vo = 0; vo <= voMax; vo += 8) {
+            for (let vo = 0; vo < VERTEX_TOTAL; vo += VERTEX_STRIDE) {
                 const newPos = transformer(
                     triangle.vertexData[vo], triangle.vertexData[vo + 1],
                     triangle.vertexData[vo + 2]

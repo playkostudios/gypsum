@@ -1,13 +1,27 @@
+export * from './client/curves/curve-frame';
+export * from './client/curves/extend-curve-frames';
+export * from './client/curves/fix-tangent-list';
+export * from './client/curves/make-rotation-minimizing-frames';
+
+export * from './client/mesh-gen/ManifoldBuilder';
+export * from './client/mesh-gen/normal-from-triangle';
+export * from './client/mesh-gen/Triangle';
+
+export * from './client/misc/EPS';
+
 export * from './client/polylines/circle-polyline';
 export * from './client/polylines/cube-polyline';
 export * from './client/polylines/rectangle-polyline';
 export * from './client/polylines/regular-polyline';
 export * from './client/polylines/star-polyline';
 
-export * from './client/curves/curve-frame';
-export * from './client/curves/extend-curve-frames';
-export * from './client/curves/fix-tangent-list';
-export * from './client/curves/make-rotation-minimizing-frames';
+export * from './client/triangulation/is-clockwise-2d-polygon';
+export * from './client/triangulation/is-clockwise-2d-triangle';
+export * from './client/triangulation/partition-2d-polygon';
+export * from './client/triangulation/sort-2d-indices';
+export * from './client/triangulation/split-2d-polygon';
+export * from './client/triangulation/triangulate-2d-polygon';
+export * from './client/triangulation/triangulate-monotone-2d-polygon';
 
 export * from './client/BaseManifoldWLMesh';
 export * from './client/BasePrismoidPyramidMesh';

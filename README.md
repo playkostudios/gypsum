@@ -47,4 +47,5 @@ This project depends on:
 - [Wonderland Engine](https://wonderlandengine.com/)
 
 This project reuses procedural mesh generation code from the
-[OctreeCSG-ea library](https://github.com/playkostudios/OctreeCSG-ea).
+[OctreeCSG-ea library](https://github.com/playkostudios/OctreeCSG-ea), which is
+a fork of the [OctreeCSG library](https://github.com/giladdarshan/OctreeCSG).

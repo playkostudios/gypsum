@@ -1,4 +1,4 @@
-import { vec3, mat4, quat } from 'gl-matrix';
+import { vec3, vec4, mat4, quat, mat3 } from 'gl-matrix';
 import { normalFromTriangle } from './normal-from-triangle';
 import { Tuple } from '../misc/Tuple';
 import { NumRange } from '../misc/NumRange';
@@ -9,6 +9,10 @@ import type { vec2 } from 'gl-matrix';
 const THIRD = 1 / 3;
 const tmp0 = vec3.create();
 const tmp1 = vec3.create();
+export const VERTEX_STRIDE = 12;
+export const VERTEX_TOTAL = VERTEX_STRIDE * 3;
+export const VERTEX_1 = VERTEX_STRIDE;
+export const VERTEX_2 = VERTEX_STRIDE * 2;
 
 function validateEdgeIndex(edgeIndex: number) {
     if ([0, 1, 2].indexOf(edgeIndex) === -1) {
@@ -68,12 +72,15 @@ export class Triangle {
      * - float 0-2: vertex 0's position
      * - float 3-5: vertex 0's normal
      * - float 6-7: vertex 0's UV (unused if no uvs)
-     * - float 8-10: vertex 1's position
-     * - float 11-13: vertex 1's normal
-     * - float 14-15: vertex 1's UV
-     * - float 16-18: vertex 2's position
-     * - float 19-21: vertex 2's normal
-     * - float 22-23: vertex 2's UV
+     * - float 8-11: vertex 0's tangent (unused if no tangents)
+     * - float 12-15: vertex 1's position
+     * - float 16-18: vertex 1's normal
+     * - float 19-20: vertex 1's UV
+     * - float 21-24: vertex 1's tangent
+     * - float 25-27: vertex 2's position
+     * - float 28-30: vertex 2's normal
+     * - float 31-32: vertex 2's UV
+     * - float 33-36: vertex 2's tangent
      */
     readonly vertexData: Float32Array;
 
@@ -86,15 +93,15 @@ export class Triangle {
         if (vertexData) {
             this.vertexData = vertexData;
         } else {
-            this.vertexData = new Float32Array(24);
+            this.vertexData = new Float32Array(VERTEX_TOTAL);
         }
     }
 
     static fromVertices(vert0: Float32Array, vert1: Float32Array, vert2: Float32Array): Triangle {
-        const vertexData = new Float32Array(24);
+        const vertexData = new Float32Array(VERTEX_TOTAL);
         vertexData.set(vert0);
-        vertexData.set(vert1, 8);
-        vertexData.set(vert2, 16);
+        vertexData.set(vert1, VERTEX_1);
+        vertexData.set(vert2, VERTEX_2);
         return new Triangle(vertexData);
     }
 
@@ -180,47 +187,60 @@ export class Triangle {
     }
 
     getPosition(vertexIndex: number): vec3 {
-        const offset = 8 * vertexIndex;
+        const offset = VERTEX_STRIDE * vertexIndex;
         return this.vertexData.slice(offset, offset + 3);
     }
 
     getNormal(vertexIndex: number): vec3 {
-        const offset = 8 * vertexIndex + 3;
+        const offset = VERTEX_STRIDE * vertexIndex + 3;
         return this.vertexData.slice(offset, offset + 3);
     }
 
     getUV(vertexIndex: number): vec2 {
-        const offset = 8 * vertexIndex + 6;
+        const offset = VERTEX_STRIDE * vertexIndex + 6;
         return this.vertexData.slice(offset, offset + 2);
     }
 
+    getTangent(vertexIndex: number): vec4 {
+        const offset = VERTEX_STRIDE * vertexIndex + 8;
+        return this.vertexData.slice(offset, offset + 4);
+    }
+
     getVertex(vertexIndex: number): Float32Array {
-        const offset = 8 * vertexIndex;
-        return this.vertexData.slice(offset, offset + 8);
+        const offset = VERTEX_STRIDE * vertexIndex;
+        return this.vertexData.slice(offset, offset + VERTEX_STRIDE);
     }
 
     setPosition(vertexIndex: number, newPosition: Readonly<vec3>) {
-        const offset = 8 * vertexIndex;
+        const offset = VERTEX_STRIDE * vertexIndex;
         this.vertexData[offset] = newPosition[0];
         this.vertexData[offset + 1] = newPosition[1];
         this.vertexData[offset + 2] = newPosition[2];
     }
 
     setNormal(vertexIndex: number, newNormal: Readonly<vec3>) {
-        const offset = 8 * vertexIndex + 3;
+        const offset = VERTEX_STRIDE * vertexIndex + 3;
         this.vertexData[offset] = newNormal[0];
         this.vertexData[offset + 1] = newNormal[1];
         this.vertexData[offset + 2] = newNormal[2];
     }
 
     setUV(vertexIndex: number, newUV: Readonly<vec2>) {
-        const offset = 8 * vertexIndex + 6;
+        const offset = VERTEX_STRIDE * vertexIndex + 6;
         this.vertexData[offset] = newUV[0];
         this.vertexData[offset + 1] = newUV[1];
     }
 
+    setTangent(vertexIndex: number, newTangent: Readonly<vec4>) {
+        const offset = VERTEX_STRIDE * vertexIndex + 8;
+        this.vertexData[offset] = newTangent[0];
+        this.vertexData[offset + 1] = newTangent[1];
+        this.vertexData[offset + 2] = newTangent[2];
+        this.vertexData[offset + 3] = newTangent[3];
+    }
+
     hasNormals(vertexIndex: number) {
-        const offset = 8 * vertexIndex + 3;
+        const offset = VERTEX_STRIDE * vertexIndex + 3;
         return this.vertexData[offset] && this.vertexData[offset + 1] && this.vertexData[offset + 2];
     }
 
@@ -233,7 +253,7 @@ export class Triangle {
      * to the position. Useful for spherifying a mesh.
      */
     normalize() {
-        for (let i = 0; i < 24; i += 8) {
+        for (let i = 0; i < VERTEX_TOTAL; i += VERTEX_STRIDE) {
             // normalize positions
             let x = this.vertexData[i];
             let y = this.vertexData[i + 1];
@@ -254,7 +274,7 @@ export class Triangle {
     }
 
     getVertexOffset(vertexIndex: number): number {
-        return 8 * vertexIndex;
+        return VERTEX_STRIDE * vertexIndex;
     }
 
     getVertexStar(vertexIndex: number): VertexStar {
@@ -324,42 +344,31 @@ export class Triangle {
     }
 
     translate(offset: vec3): void {
-        this.vertexData[0] += offset[0];
-        this.vertexData[1] += offset[1];
-        this.vertexData[2] += offset[2];
-        this.vertexData[8] += offset[0];
-        this.vertexData[9] += offset[1];
-        this.vertexData[10] += offset[2];
-        this.vertexData[16] += offset[0];
-        this.vertexData[17] += offset[1];
-        this.vertexData[18] += offset[2];
+        for (let o = 0; o < VERTEX_TOTAL; o += VERTEX_STRIDE) {
+            this.vertexData[o    ] += offset[0];
+            this.vertexData[o + 1] += offset[1];
+            this.vertexData[o + 2] += offset[2];
+        }
     }
 
     scale(factor: vec3): void {
-        this.vertexData[0] *= factor[0];
-        this.vertexData[1] *= factor[1];
-        this.vertexData[2] *= factor[2];
-        this.vertexData[8] *= factor[0];
-        this.vertexData[9] *= factor[1];
-        this.vertexData[10] *= factor[2];
-        this.vertexData[16] *= factor[0];
-        this.vertexData[17] *= factor[1];
-        this.vertexData[18] *= factor[2];
+        for (let o = 0; o < VERTEX_TOTAL; o += VERTEX_STRIDE) {
+            this.vertexData[o    ] *= factor[0];
+            this.vertexData[o + 1] *= factor[1];
+            this.vertexData[o + 2] *= factor[2];
+        }
     }
 
     uniformScale(factor: number): void {
-        this.vertexData[0] *= factor;
-        this.vertexData[1] *= factor;
-        this.vertexData[2] *= factor;
-        this.vertexData[8] *= factor;
-        this.vertexData[9] *= factor;
-        this.vertexData[10] *= factor;
-        this.vertexData[16] *= factor;
-        this.vertexData[17] *= factor;
-        this.vertexData[18] *= factor;
+        for (let o = 0; o < VERTEX_TOTAL; o += VERTEX_STRIDE) {
+            this.vertexData[o    ] *= factor;
+            this.vertexData[o + 1] *= factor;
+            this.vertexData[o + 2] *= factor;
+        }
     }
 
-    rotate(rotation: quat): void {
+    rotate(rotation: quat, rotateNormal = true, rotateTangent = true): void {
+        // rotate position
         vec3.transformQuat(this.vertexData, this.vertexData, rotation);
         const pos1 = this.getPosition(1);
         vec3.transformQuat(pos1, pos1, rotation);
@@ -367,9 +376,41 @@ export class Triangle {
         const pos2 = this.getPosition(2);
         vec3.transformQuat(pos2, pos2, rotation);
         this.setPosition(2, pos2);
+
+        if (rotateNormal) {
+            // rotate normal
+            const norm0 = this.getNormal(0);
+            vec3.transformQuat(norm0, norm0, rotation);
+            this.setNormal(0, norm0);
+            const norm1 = this.getNormal(1);
+            vec3.transformQuat(norm1, norm1, rotation);
+            this.setNormal(1, norm1);
+            const norm2 = this.getNormal(2);
+            vec3.transformQuat(norm2, norm2, rotation);
+            this.setNormal(2, norm2);
+        }
+
+        if (rotateTangent) {
+            // rotate tangent
+            const tang0 = this.getTangent(0);
+            vec4.transformQuat(tang0, tang0, rotation);
+            this.setTangent(0, tang0);
+            const tang1 = this.getTangent(1);
+            vec4.transformQuat(tang1, tang1, rotation);
+            this.setTangent(1, tang1);
+            const tang2 = this.getTangent(2);
+            vec4.transformQuat(tang2, tang2, rotation);
+            this.setTangent(2, tang2);
+        }
     }
 
-    transform(matrix: mat4): void {
+    /**
+     * Transform vertices by a given transformation matrix. By default, normals
+     * and tangents are also transformed. If they are transformed, then a
+     * normal matrix needs to be supplied, otherwise they are not transformed.
+     */
+    transform(matrix: mat4, normalMatrix?: mat3, transformNormal = true, transformTangent = true): void {
+        // transform position
         vec3.transformMat4(this.vertexData, this.vertexData, matrix);
         const pos1 = this.getPosition(1);
         vec3.transformMat4(pos1, pos1, matrix);
@@ -377,6 +418,34 @@ export class Triangle {
         const pos2 = this.getPosition(2);
         vec3.transformMat4(pos2, pos2, matrix);
         this.setPosition(2, pos2);
+
+        if (transformNormal && normalMatrix) {
+            // transform normal
+            const norm0 = this.getNormal(0);
+            vec3.transformMat3(norm0, norm0, normalMatrix);
+            this.setPosition(0, norm0);
+            const norm1 = this.getNormal(1);
+            vec3.transformMat3(norm1, norm1, normalMatrix);
+            this.setPosition(1, norm1);
+            const norm2 = this.getNormal(2);
+            vec3.transformMat3(norm2, norm2, normalMatrix);
+            this.setPosition(2, norm2);
+        }
+
+        if (transformTangent && normalMatrix) {
+            // transform tangent
+            // TODO test if this is correct. can we pretend that the tangent is
+            // a vec3 and keep the same w value?
+            const tang0 = this.getTangent(0);
+            vec3.transformMat3(tang0 as vec3, tang0 as vec3, normalMatrix);
+            this.setTangent(0, tang0);
+            const tang1 = this.getTangent(1);
+            vec3.transformMat3(tang1 as vec3, tang1 as vec3, normalMatrix);
+            this.setTangent(1, tang1);
+            const tang2 = this.getTangent(2);
+            vec3.transformMat3(tang2 as vec3, tang2 as vec3, normalMatrix);
+            this.setTangent(2, tang2);
+        }
     }
 
     getMidpoint(): vec3 {
