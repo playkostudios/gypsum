@@ -569,21 +569,26 @@ export class ManifoldBuilder {
         const vertexCount = positions.length / 3;
         const mesh = new WL.Mesh({ vertexCount, indexData, indexType });
 
-        // upload vertex data
-        const positionsAttr = mesh.attribute(WL.MeshAttribute.Position);
-        if (!positionsAttr) {
-            throw new Error('Could not get position mesh attribute accessor');
-        }
-        positionsAttr.set(0, positions.finalize());
+        try {
+            // upload vertex data
+            const positionsAttr = mesh.attribute(WL.MeshAttribute.Position);
+            if (!positionsAttr) {
+                throw new Error('Could not get position mesh attribute accessor');
+            }
+            positionsAttr.set(0, positions.finalize());
 
-        const normalsAttr = mesh.attribute(WL.MeshAttribute.Normal);
-        if (normalsAttr) {
-            normalsAttr.set(0, normals.finalize());
-        }
+            const normalsAttr = mesh.attribute(WL.MeshAttribute.Normal);
+            if (normalsAttr) {
+                normalsAttr.set(0, normals.finalize());
+            }
 
-        const texCoordsAttr = mesh.attribute(WL.MeshAttribute.TextureCoordinate);
-        if (texCoordsAttr) {
-            texCoordsAttr.set(0, texCoords.finalize());
+            const texCoordsAttr = mesh.attribute(WL.MeshAttribute.TextureCoordinate);
+            if (texCoordsAttr) {
+                texCoordsAttr.set(0, texCoords.finalize());
+            }
+        } catch(e) {
+            mesh.destroy();
+            throw e;
         }
 
         return [mesh, material];
@@ -634,86 +639,96 @@ export class ManifoldBuilder {
     finalize(materialMap: Map<number, WL.Material | null>, generateManifold?: true): [ submeshes: Array<Submesh>, manifoldMesh: StrippedMesh, submeshMap: SubmeshMap ];
     finalize(materialMap: Map<number, WL.Material | null>, generateManifold: false): [ submeshes: Array<Submesh>, manifoldMesh: null, submeshMap: null ];
     finalize(materialMap: Map<number, WL.Material | null>, generateManifold = true): [ submeshes: Array<Submesh>, manifoldMesh: StrippedMesh | null, submeshMap: SubmeshMap | null ] {
-        // group all triangles together by their materials
-        const groupedTris = new Map<WL.Material | null, Array<Triangle>>();
-
-        for (const triangle of this.triangles) {
-            const materialID = triangle.materialID;
-            const material = materialMap.get(materialID) ?? null;
-            const submesh = groupedTris.get(material);
-            if (submesh) {
-                submesh.push(triangle);
-            } else {
-                groupedTris.set(material, [triangle]);
-            }
-        }
-
-        // sort materials by ascending material ID
-        const sortedMaterials = sortMaterials(groupedTris.keys(), materialMap);
-
-        // count maximum triangle count for each group
-        let maxSubmeshTriCount = 0;
-        for (const triangles of groupedTris.values()) {
-            maxSubmeshTriCount = Math.max(maxSubmeshTriCount, triangles.length);
-        }
-
-        // turn groups into submeshes
-        const triCount = this.numTri;
         const submeshes = new Array<Submesh>();
-        const submeshMap: SubmeshMap | null = generateManifold ? BaseManifoldWLMesh.makeSubmeshMapBuffer(triCount, maxSubmeshTriCount, groupedTris.size - 1) : null;
-        let submeshIdx = 0;
 
-        for (const material of sortedMaterials) {
-            const triangles = groupedTris.get(material) as Array<Triangle>;
-            submeshes.push(this.finalizeSubmesh(material, triangles, submeshMap, submeshIdx++));
-        }
+        try {
+            // group all triangles together by their materials
+            const groupedTris = new Map<WL.Material | null, Array<Triangle>>();
 
-        // stop without generating manifold if manifold is not wanted
-        if (!generateManifold) {
-            return [ submeshes, null, null ];
-        }
-
-        // prepare manifold mesh data arrays
-        const positions = new DynamicArray(Float32Array);
-        let nextPosition = 0;
-        const indices = new Uint32Array(triCount * 3);
-        const INVALID_INDEX = 0xFFFFFFFF; // max uint32
-        indices.fill(INVALID_INDEX);
-
-        // get positions for each triangle
-        for (let t = 0; t < triCount; t++) {
-            const indexOffset = t * 3;
-            const triangle = this.triangles[t];
-
-            for (let vi = 0; vi < 3; vi++) {
-                let index = indices[indexOffset + vi];
-
-                if (index !== INVALID_INDEX) {
-                    continue; // vertex already has shared position
-                }
-
-                // no shared position yet, make a new position
-                index = nextPosition++;
-                const i = 8 * vi;
-                positions.expandCapacity(positions.length + 3);
-                positions.pushBack(triangle.vertexData[i]);
-                positions.pushBack(triangle.vertexData[i + 1]);
-                positions.pushBack(triangle.vertexData[i + 2]);
-
-                // set all positions in vertex star
-                const vertexStar = triangle.getVertexStar(vi);
-                for (const [otherTriangle, ovi] of vertexStar) {
-                    indices[otherTriangle.helper * 3 + ovi] = index;
+            for (const triangle of this.triangles) {
+                const materialID = triangle.materialID;
+                const material = materialMap.get(materialID) ?? null;
+                const submesh = groupedTris.get(material);
+                if (submesh) {
+                    submesh.push(triangle);
+                } else {
+                    groupedTris.set(material, [triangle]);
                 }
             }
+
+            // sort materials by ascending material ID
+            const sortedMaterials = sortMaterials(groupedTris.keys(), materialMap);
+
+            // count maximum triangle count for each group
+            let maxSubmeshTriCount = 0;
+            for (const triangles of groupedTris.values()) {
+                maxSubmeshTriCount = Math.max(maxSubmeshTriCount, triangles.length);
+            }
+
+            // turn groups into submeshes
+            const triCount = this.numTri;
+            const submeshMap: SubmeshMap | null = generateManifold ? BaseManifoldWLMesh.makeSubmeshMapBuffer(triCount, maxSubmeshTriCount, groupedTris.size - 1) : null;
+            let submeshIdx = 0;
+
+            for (const material of sortedMaterials) {
+                const triangles = groupedTris.get(material) as Array<Triangle>;
+                submeshes.push(this.finalizeSubmesh(material, triangles, submeshMap, submeshIdx++));
+            }
+
+            // stop without generating manifold if manifold is not wanted
+            if (!generateManifold) {
+                return [ submeshes, null, null ];
+            }
+
+            // prepare manifold mesh data arrays
+            const positions = new DynamicArray(Float32Array);
+            let nextPosition = 0;
+            const indices = new Uint32Array(triCount * 3);
+            const INVALID_INDEX = 0xFFFFFFFF; // max uint32
+            indices.fill(INVALID_INDEX);
+
+            // get positions for each triangle
+            for (let t = 0; t < triCount; t++) {
+                const indexOffset = t * 3;
+                const triangle = this.triangles[t];
+
+                for (let vi = 0; vi < 3; vi++) {
+                    let index = indices[indexOffset + vi];
+
+                    if (index !== INVALID_INDEX) {
+                        continue; // vertex already has shared position
+                    }
+
+                    // no shared position yet, make a new position
+                    index = nextPosition++;
+                    const i = 8 * vi;
+                    positions.expandCapacity(positions.length + 3);
+                    positions.pushBack(triangle.vertexData[i]);
+                    positions.pushBack(triangle.vertexData[i + 1]);
+                    positions.pushBack(triangle.vertexData[i + 2]);
+
+                    // set all positions in vertex star
+                    const vertexStar = triangle.getVertexStar(vi);
+                    for (const [otherTriangle, ovi] of vertexStar) {
+                        indices[otherTriangle.helper * 3 + ovi] = index;
+                    }
+                }
+            }
+
+            const manifoldMesh = <StrippedMesh>{
+                triVerts: indices,
+                vertPos: positions.finalize()
+            };
+
+            return [ submeshes, manifoldMesh, submeshMap ];
+        } catch(e) {
+            // free up meshes
+            for (const [mesh, _material] of submeshes) {
+                mesh.destroy();
+            }
+
+            throw e;
         }
-
-        const manifoldMesh = <StrippedMesh>{
-            triVerts: indices,
-            vertPos: positions.finalize()
-        };
-
-        return [ submeshes, manifoldMesh, submeshMap ];
     }
 
     translate(offset: vec3): void {

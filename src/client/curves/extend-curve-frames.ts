@@ -1,4 +1,5 @@
 import { vec3 } from 'gl-matrix';
+import { EPS } from '../misc/EPS';
 import { CurveFrames } from './curve-frame';
 
 /**
@@ -8,9 +9,9 @@ import { CurveFrames } from './curve-frame';
  * valid, make sure to call {@link fixTangentList} to the input lists. Frames
  * and positions lists must match in length.
  *
- * @param extension How many units of length the start and end will be extended out. Defaults to 1e-5
+ * @param extension How many units of length the start and end will be extended out. Defaults to 1e-7
  */
-export function extendCurveFrames(frames: CurveFrames, positions: Array<vec3>, extension = 1e-5): [frames: CurveFrames, positions: Array<vec3>] {
+export function extendCurveFrames(frames: CurveFrames, positions: Array<vec3>, extension = EPS): [frames: CurveFrames, positions: Array<vec3>] {
     // validate inputs
     const frameCount = frames.length;
     if (frameCount === 0) {

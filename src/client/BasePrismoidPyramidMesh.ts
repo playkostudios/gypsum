@@ -172,11 +172,14 @@ export class BasePrismoidPyramidMesh extends BaseManifoldWLMesh {
                 const bIdx = triangulatedBase[i++];
                 const cIdx = triangulatedBase[i++];
 
-                baseTris.push(builder.addTriangle(
+                const baseTri = builder.addTriangle(
                     basePos[aIdx], basePos[bIdx], basePos[cIdx],
                     baseNormal, baseNormal, baseNormal,
                     baseUVs[aIdx], baseUVs[bIdx], baseUVs[cIdx],
-                ));
+                );
+                baseTri.materialID = 1;
+
+                baseTris.push(baseTri);
             }
 
             // auto-connect base triangles

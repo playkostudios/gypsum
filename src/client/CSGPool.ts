@@ -15,6 +15,7 @@ type MeshArr = Array<[mesh: WL.Mesh, material: WL.Material | null]>;
 type WorkerTuple = [worker: Worker, jobCount: number];
 type WorkerArray = Array<WorkerTuple>;
 type JobResult = MeshArr | boolean | number | Box | Properties | Curvature;
+type JobTuple = [resolve: (value: JobResult) => void, reject: (reason: unknown) => void, origMeshes: Array<BaseManifoldWLMesh | WL.Mesh>, workerID: number];
 
 function getFromBary(vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor): [aVec: Array<number>, bVec: Array<number>, cVec: Array<number>] {
     const aOrigVal = origAccessor.get(a);
@@ -42,13 +43,14 @@ function setFromBary(i: number, vecSize: number, a: number, b: number, c: number
     buffer.set(cVec, i);
 }
 
-export class ManifoldPool {
+export class CSGPool {
     private wantedWorkerCount: number;
     private workerPath: string;
     private libraryPath: string;
     private workers: WorkerArray | null = null;
     private nextJobID = 0;
-    private jobs = new Map<number, [resolve: (value: JobResult) => void, reject: (reason: unknown) => void, origMeshes: Array<BaseManifoldWLMesh | WL.Mesh>]>();
+    private jobs = new Map<number, JobTuple>();
+    private disposed = false;
 
     constructor(workerCount: number | null = null, workerPath = 'manifold-wle.worker.min.js', libraryPath = 'manifold.js') {
         this.wantedWorkerCount = Math.max(
@@ -56,6 +58,19 @@ export class ManifoldPool {
         );
         this.workerPath = workerPath;
         this.libraryPath = libraryPath;
+    }
+
+    private terminateWorkers() {
+        if (this.workers) {
+            for (const [worker, _jobCount] of this.workers) {
+                worker.postMessage({ type: 'terminate' });
+            }
+        }
+    }
+
+    dispose() {
+        this.terminateWorkers();
+        this.disposed = true;
     }
 
     private toManifoldMesh(wleMesh: BaseManifoldWLMesh | WL.Mesh): StrippedMesh {
@@ -326,7 +341,7 @@ export class ManifoldPool {
                             libraryPath: this.libraryPath
                         });
                     } else {
-                        // TODO
+                        console.warn('Unexpected "created" message from worker. Ignored');
                     }
                     break;
                 case 'ready':
@@ -335,32 +350,60 @@ export class ManifoldPool {
                         resolve();
                         (this.workers as WorkerArray).push([worker, 0]);
                     } else {
-                        // TODO
+                        console.warn('Unexpected "ready" message from worker. Ignored');
                     }
                     break;
                 case 'terminated':
-                    // TODO handle already dispatched jobs
+                {
+                    // remove worker
+                    let workerID: number | null = null;
                     if (this.workers) {
                         for (const [i, [otherWorker, _jobCount]] of this.workers.entries()) {
                             if (otherWorker === worker) {
                                 this.workers.splice(i, 1);
+                                workerID = i;
                                 break;
                             }
                         }
                     }
 
+                    // reject already dispatched jobs. if a job is assigned to
+                    // a worker with an id higher than this worker's, then
+                    // decrement the id to correct it
+                    const rejectedJobs: Array<number> = [];
+                    for (const [jobID, job] of this.jobs) {
+                        const jobWorkerID = job[3];
+
+                        if (workerID === jobWorkerID) {
+                            rejectedJobs.unshift(jobID);
+                        } else if (workerID !== null && workerID < jobWorkerID) {
+                            job[3]--;
+                        }
+                    }
+
+                    for (const jobID of rejectedJobs) {
+                        (this.jobs.get(jobID) as JobTuple)[1](
+                            new Error('Worker terminated before job could finish')
+                        );
+                        this.jobs.delete(jobID);
+                    }
+
                     worker.terminate();
                     reject();
                     break;
+                }
                 case 'result':
                 {
-                    const job = this.jobs.get(event.data.jobID);
+                    const jobID = event.data.jobID;
+                    const job = this.jobs.get(jobID);
                     if (!job) {
                         console.warn(`Ignored invalid job ID (${event.data.jobID})`);
                         break;
                     }
 
-                    const [jobResolve, jobReject, origMap] = job;
+                    this.jobs.delete(jobID);
+
+                    const [jobResolve, jobReject, origMap, _jobWorkerID] = job;
                     if (event.data.success) {
                         const result = event.data.result;
 
@@ -392,6 +435,10 @@ export class ManifoldPool {
     }
 
     private async initialize(): Promise<void> {
+        if (this.disposed) {
+            throw new Error('Disposed CSGPools cannot be initialized');
+        }
+
         this.workers = [];
         const promises = new Array<Promise<unknown>>();
 
@@ -404,53 +451,83 @@ export class ManifoldPool {
         if (this.workers.length === 0) {
             throw new Error('No worker was successfuly created');
         }
+
+        if (this.disposed) {
+            this.terminateWorkers();
+            throw new Error('CSGPool was disposed while it was being initialized');
+        }
     }
 
-    private getBestWorker(): WorkerTuple {
+    private getBestWorker(): [bestWorkerIdx: number, bestWorker: WorkerTuple] {
         const workers = this.workers as WorkerArray;
+        let bestWorkerIdx = 0;
         let bestWorker = workers[0];
 
         for (let i = 1; i < workers.length; i++) {
             const thisWorker = workers[i];
 
             if (thisWorker[1] < bestWorker[1]) {
+                bestWorkerIdx = i;
                 bestWorker = thisWorker;
             }
         }
 
-        return bestWorker;
+        return [bestWorkerIdx, bestWorker];
     }
 
     async dispatch(operation: CSGOperation<BaseManifoldWLMesh | WL.Mesh>): Promise<JobResult> {
-        if (!this.workers) {
-            await this.initialize();
+        try {
+            if (this.disposed) {
+                throw new Error('Cannot dispatch jobs to a disposed CSGPool');
+            }
+
+            if (!this.workers) {
+                await this.initialize();
+            }
+
+            if ((this.workers as WorkerArray).length === 0) {
+                throw new Error('All workers failed to initialize');
+            }
+        } catch(e) {
+            iterateOpTree<BaseManifoldWLMesh | WL.Mesh>(operation, (_context: OpTreeCtx<BaseManifoldWLMesh | WL.Mesh>, _key: number | string, mesh: BaseManifoldWLMesh | WL.Mesh) => {
+                if (mesh instanceof BaseManifoldWLMesh && mesh.autoDispose) {
+                    mesh.dispose();
+                }
+            });
+
+            throw e;
         }
 
-        if ((this.workers as WorkerArray).length === 0) {
-            throw new Error('All workers failed to initialize');
-        }
-
-        let nextMeshID = 0;
-        const transfer = new Array<Transferable>();
         const origMap = new Array<BaseManifoldWLMesh | WL.Mesh>();
-        iterateOpTree<BaseManifoldWLMesh | WL.Mesh>(operation, (context: OpTreeCtx<BaseManifoldWLMesh | WL.Mesh>, key: number | string, mesh: BaseManifoldWLMesh | WL.Mesh) => {
-            // mesh
-            const converted = this.toManifoldMesh(mesh);
-            transfer.push(converted.triVerts.buffer, converted.vertPos.buffer);
-            context[key] = [nextMeshID++, converted];
-            origMap.push(mesh);
-            transfer
-        });
 
-        const best = this.getBestWorker();
-        best[1]++;
-        const jobID = this.nextJobID++;
+        try {
+            let nextMeshID = 0;
+            const transfer = new Array<Transferable>();
+            iterateOpTree<BaseManifoldWLMesh | WL.Mesh>(operation, (context: OpTreeCtx<BaseManifoldWLMesh | WL.Mesh>, key: number | string, mesh: BaseManifoldWLMesh | WL.Mesh) => {
+                // mesh
+                const converted = this.toManifoldMesh(mesh);
+                transfer.push(converted.triVerts.buffer, converted.vertPos.buffer);
+                context[key] = [nextMeshID++, converted];
+                origMap.push(mesh);
+                transfer
+            });
 
-        return await new Promise((resolve, reject) => {
-            this.jobs.set(jobID, [resolve, reject, origMap]);
-            best[0].postMessage(<WorkerRequest>{
-                type: 'operation', jobID, operation
-            }, transfer);
-        });
+            const [bestIdx, best] = this.getBestWorker();
+            best[1]++;
+            const jobID = this.nextJobID++;
+
+            return await new Promise((resolve, reject) => {
+                this.jobs.set(jobID, [resolve, reject, origMap, bestIdx]);
+                best[0].postMessage(<WorkerRequest>{
+                    type: 'operation', jobID, operation
+                }, transfer);
+            });
+        } finally {
+            for (const mesh of origMap) {
+                if (mesh instanceof BaseManifoldWLMesh && mesh.autoDispose) {
+                    mesh.dispose();
+                }
+            }
+        }
     }
 }

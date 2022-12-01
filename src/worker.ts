@@ -22,7 +22,7 @@ const boolOpMap: Record<string, 'union' | 'difference' | 'intersection'> = {
     intersection: 'intersection',
 };
 
-function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>): WorkerResult {
+function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, allocatedManifolds: Array<Manifold>): WorkerResult {
     const manifold = manifoldModule as ManifoldStatic;
     const stack = new Array<Manifold>();
     let result: WorkerResult | undefined = undefined;
@@ -48,38 +48,44 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>): W
         }
 
         const meshManif = new manifold.Manifold(mesh, triProperties, properties, propertyTolerance);
+        allocatedManifolds.push(meshManif);
         idMap.push([meshManif.originalID(), meshID]);
         stack.push(meshManif);
     }, (_context, _key, node) => {
         // primitive
         // logWorker(console.debug, `Adding primitive (${node.primitive}) to stack`);
+        let primitiveManifold: Manifold;
 
         switch (node.primitive) {
             case 'cube':
-                stack.push(manifold.cube(
+                primitiveManifold = manifold.cube(
                     node.size, node.center
-                ));
+                );
                 break;
             case 'cylinder':
-                stack.push(manifold.cylinder(
+                primitiveManifold = manifold.cylinder(
                     node.height, node.radiusLow, node.radiusHigh,
                     node.circularSegments, node.center
-                ));
+                );
                 break;
             case 'sphere':
-                stack.push(manifold.sphere(
+                primitiveManifold = manifold.sphere(
                     node.radius, node.circularSegments
-                ));
+                );
                 break;
             case 'tetrahedron':
-                stack.push(manifold.tetrahedron());
+                primitiveManifold = manifold.tetrahedron();
                 break;
             default:
                 throw new Error(`Unknown primitive: ${(node as {primitive: string}).primitive}`);
         }
+
+        allocatedManifolds.push(primitiveManifold);
+        stack.push(primitiveManifold);
     }, (_context, _key, node) => {
         // operation
         // logWorker(console.debug, `Starting operation (${node.operation})...`);
+        let res: Manifold;
 
         switch (node.operation) {
             case 'add':
@@ -105,7 +111,7 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>): W
                         manifolds.push(next);
                     }
 
-                    stack.push(opFunc(manifolds));
+                    res = opFunc(manifolds);
                 } else {
                     // logWorker(console.debug, 'Popping 2 manifolds, pushing 1');
 
@@ -113,12 +119,11 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>): W
                         throw new Error(`Expected at least 2 manifolds in the stack, got ${stack.length}`);
                     }
 
-                    stack.push(opFunc(
+                    res = opFunc(
                         stack.pop() as Manifold,
                         stack.pop() as Manifold
-                    ));
+                    );
                 }
-
                 break;
             }
             case 'translate':
@@ -134,8 +139,6 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>): W
                 }
 
                 const top = stack.pop() as Manifold;
-                let res: Manifold;
-
                 switch(node.operation) {
                     case 'translate':
                         res = top.translate(node.offset);
@@ -156,23 +159,22 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>): W
                         res = top.asOriginal();
                 }
 
-                stack.push(res);
                 break;
             }
             case 'extrude':
                 // logWorker(console.debug, 'Pushing 1 manifold');
 
-                stack.push(manifold.extrude(
+                res = manifold.extrude(
                     node.crossSection, node.height, node.nDivisions,
                     node.twistDegrees, node.scaleTop
-                ));
+                );
                 break;
             case 'revolve':
                 // logWorker(console.debug, 'Pushing 1 manifold');
 
-                stack.push(manifold.revolve(
+                res = manifold.revolve(
                     node.crossSection, node.circularSegments
-                ));
+                );
                 break;
             default: {
                 // XXX fighting the type system again...
@@ -184,6 +186,9 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>): W
                 }
             }
         }
+
+        allocatedManifolds.push(res);
+        stack.push(res);
 
         // logWorker(console.debug, 'Operation finished');
     }, (_context, _key, root) => {
@@ -270,7 +275,7 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
                     manifoldModule.setup();
                     logWorker(console.debug, `Module setup finished`);
                 } catch(error) {
-                    // TODO clean up module properly
+                    // XXX not sure what else can be done to clean up
                     manifoldModule = null;
                     logWorker(console.debug, 'Initialization failed');
                     logWorker(console.error, error);
@@ -283,7 +288,7 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
             postMessage(<WorkerResponse>{ type: 'ready' });
             return;
         case 'terminate':
-            // TODO clean up module properly
+            // XXX not sure what else can be done to clean up
             manifoldModule = null;
             logWorker(console.debug, 'Terminated');
             postMessage(<WorkerResponse>{ type: 'terminated' });
@@ -300,16 +305,19 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
             }
 
             logWorker(console.debug, `Job ${message.data.jobID} started`);
+            const allocatedManifolds = new Array<Manifold>();
 
             try {
                 const transfer = new Array<Transferable>();
-                const result = evaluateOpTree(message.data.operation, transfer);
+                const result = evaluateOpTree(message.data.operation, transfer, allocatedManifolds);
                 postMessage(<WorkerResponse>{
                     type: 'result',
                     success: true,
                     jobID: message.data.jobID,
                     result,
                 }, transfer);
+
+                logWorker(console.debug, `Job ${message.data.jobID} finished`);
             } catch(error) {
                 logWorker(console.debug, `Job ${message.data.jobID} failed`);
                 logWorker(console.error, error);
@@ -319,10 +327,13 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
                     jobID: message.data.jobID,
                     error,
                 });
-                return;
             }
 
-            logWorker(console.debug, `Job ${message.data.jobID} finished`);
+            // free allocated manifold objects
+            for (const manifold of allocatedManifolds) {
+                manifold.delete();
+            }
+
             return;
         }
         default: {

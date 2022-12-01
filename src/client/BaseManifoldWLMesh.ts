@@ -25,6 +25,13 @@ export type Submesh = [mesh: WL.Mesh, material: WL.Material];
 
 export abstract class BaseManifoldWLMesh {
     /**
+     * If this flag is set, then {@link dispose} will be called after a CSG
+     * operation is done. It's recommended to call {@link mark} instead of
+     * setting this manually, since the method is chainable.
+     */
+    autoDispose = false;
+
+    /**
      * WARNING: the submeshes array and the manifold mesh will have their
      * ownership tranferred to this object. if you modify them later, they will
      * be modified here as well, possibly corrupting the mesh. to avoid issues
@@ -226,5 +233,28 @@ export abstract class BaseManifoldWLMesh {
         } else {
             throw new Error(`Maximum index exceeded (${MAX_INDEX})`);
         }
+    }
+
+    /**
+     * Destroy the Wonderland Engine meshes stored in this object. Note that if
+     * the submeshes are reused elsewhere, then this will destroy those too.
+     */
+    dispose(): void {
+        for (const [mesh, _material] of this.submeshes) {
+            mesh.destroy();
+        }
+
+        this.submeshes.splice(0, this.submeshes.length);
+        this.premadeManifoldMesh = null;
+        this.submeshMap = null;
+    }
+
+    /**
+     * Sets {@link autoDispose} to true (marks as auto-disposable). Chainable
+     * method.
+     */
+    mark(): this {
+        this.autoDispose = true;
+        return this;
     }
 }
