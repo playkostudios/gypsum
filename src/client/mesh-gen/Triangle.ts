@@ -2,10 +2,10 @@ import { vec3, mat4, quat } from 'gl-matrix';
 import { normalFromTriangle } from './normal-from-triangle';
 import { Tuple } from '../misc/Tuple';
 import { NumRange } from '../misc/NumRange';
+import { EPS } from '../misc/EPS';
 
 import type { vec2 } from 'gl-matrix';
 
-const EPS = 1e-7;
 const THIRD = 1 / 3;
 const tmp0 = vec3.create();
 const tmp1 = vec3.create();

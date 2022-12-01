@@ -14,6 +14,7 @@ export class ConeMesh extends PyramidMesh {
             makeCirclePolyline(options?.radius ?? 0.5, false, options?.subDivisions ?? 12),
             {
                 smoothNormals: true,
+                maxSmoothAngle: Math.PI, // default to 180 maximum angle; we want the sides to be smooth no matter what
                 ...options,
             }
         );

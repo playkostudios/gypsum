@@ -61,7 +61,7 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
     }
 
     set length(newLength: number) {
-        this.resizeCapacity(newLength);
+        this.expandCapacity(newLength);
         this._length = newLength;
     }
 
@@ -210,7 +210,12 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
 
     copy_guarded(offset: number, values: ArrayLike<TypedArrayValue<TypedArrayCtorType>>): void {
         this.assertValid();
-        this.assertValidIndex(offset + values.length);
+
+        const valLen = values.length;
+        if (valLen > 0) {
+            this.assertValidIndex(offset + valLen - 1);
+        }
+
         this.copy(offset, values);
     }
 

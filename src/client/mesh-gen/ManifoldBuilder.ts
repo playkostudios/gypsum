@@ -132,7 +132,7 @@ export class ManifoldBuilder {
 
             for (let oti = ti + 1; oti < triCount; oti++) {
                 // ignore if other triangle is already connected
-                const otherTriangle = this.triangles[oti];
+                const otherTriangle = triangles[oti];
                 const oMissingEdge0 = !otherTriangle.isEdgeConnected(0);
                 const oMissingEdge1 = !otherTriangle.isEdgeConnected(1);
                 const oMissingEdge2 = !otherTriangle.isEdgeConnected(2);
@@ -509,7 +509,7 @@ export class ManifoldBuilder {
         }
     }
 
-    private finalizeSubmesh(material: WL.Material, triangles: Array<Triangle>, submeshMap: SubmeshMap, submeshIdx: number): Submesh {
+    private finalizeSubmesh(material: WL.Material, triangles: Array<Triangle>, submeshMap: SubmeshMap | null, submeshIdx: number): Submesh {
         // make index and vertex data in advance
         const triCount = triangles.length;
         // XXX this assumes the worst case; that no vertices are merged
@@ -525,8 +525,11 @@ export class ManifoldBuilder {
         for (let t = 0, iOffset = 0; t < triCount; t++) {
             const triangle = triangles[t];
             const smOffset = triangle.helper * 2;
-            submeshMap[smOffset] = submeshIdx;
-            submeshMap[smOffset + 1] = t;
+
+            if (submeshMap) {
+                submeshMap[smOffset] = submeshIdx;
+                submeshMap[smOffset + 1] = t;
+            }
 
             for (let i = 0, offset = 0; i < 3; i++, offset += 8) {
                 let offsetCopy = offset;
@@ -622,15 +625,15 @@ export class ManifoldBuilder {
      * list of triangles. Helpers are expected to be set. If not, make sure to
      * call {@link setTriangleHelpers}.
      *
+     * Output meshes are optimised by merging vertices with the same vertex
+     * data, via indexing.
+     *
      * @param materialMap Maps each material index to a Wonderland Engine material. Triangles with different material will be put in separate meshes, but in the same manifold. A null material is equivalent to the material being missing in the material map. Materials missing from the material map will use null as the material so they can be replaced later with a fallback material.
+     * @param generateManifold True by default. If true, a manifold and a submesh map will also be generated, otherwise, these will be null. Note than if a manifold is generated, then the triangles must form a 2-manifold surface, but if a manifold is not generated, then even a triangle soup is supported.
      */
-    finalize(materialMap: Map<number, WL.Material | null>): [ submeshes: Array<Submesh>, manifoldMesh: StrippedMesh, submeshMap: SubmeshMap ] {
-        // verify that mesh if fully connected. this doesn't mean that the mesh
-        // is a manifold
-        if (!this.isConnected) {
-            throw new Error('Mesh is not connected');
-        }
-
+    finalize(materialMap: Map<number, WL.Material | null>, generateManifold?: true): [ submeshes: Array<Submesh>, manifoldMesh: StrippedMesh, submeshMap: SubmeshMap ];
+    finalize(materialMap: Map<number, WL.Material | null>, generateManifold: false): [ submeshes: Array<Submesh>, manifoldMesh: null, submeshMap: null ];
+    finalize(materialMap: Map<number, WL.Material | null>, generateManifold = true): [ submeshes: Array<Submesh>, manifoldMesh: StrippedMesh | null, submeshMap: SubmeshMap | null ] {
         // group all triangles together by their materials
         const groupedTris = new Map<WL.Material | null, Array<Triangle>>();
 
@@ -657,12 +660,17 @@ export class ManifoldBuilder {
         // turn groups into submeshes
         const triCount = this.numTri;
         const submeshes = new Array<Submesh>();
-        const submeshMap: SubmeshMap = BaseManifoldWLMesh.makeSubmeshMapBuffer(triCount, maxSubmeshTriCount, groupedTris.size - 1);
+        const submeshMap: SubmeshMap | null = generateManifold ? BaseManifoldWLMesh.makeSubmeshMapBuffer(triCount, maxSubmeshTriCount, groupedTris.size - 1) : null;
         let submeshIdx = 0;
 
         for (const material of sortedMaterials) {
             const triangles = groupedTris.get(material) as Array<Triangle>;
             submeshes.push(this.finalizeSubmesh(material, triangles, submeshMap, submeshIdx++));
+        }
+
+        // stop without generating manifold if manifold is not wanted
+        if (!generateManifold) {
+            return [ submeshes, null, null ];
         }
 
         // prepare manifold mesh data arrays
@@ -705,7 +713,7 @@ export class ManifoldBuilder {
             vertPos: positions.finalize()
         };
 
-        return [submeshes, manifoldMesh, submeshMap];
+        return [ submeshes, manifoldMesh, submeshMap ];
     }
 
     translate(offset: vec3): void {

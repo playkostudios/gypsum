@@ -2,9 +2,10 @@
 /// <reference path="../../types/globals.d.ts" />
 
 import VertexHasher from './mesh-gen/VertexHasher';
+import { DynamicArray } from './mesh-gen/DynamicArray';
+import { EPS } from './misc/EPS';
 
 import type { StrippedMesh } from '../common/StrippedMesh';
-import { DynamicArray } from './mesh-gen/DynamicArray';
 
 const MAX_INDEX = 0xFFFFFFFF;
 
@@ -29,7 +30,7 @@ export abstract class BaseManifoldWLMesh {
      * be modified here as well, possibly corrupting the mesh. to avoid issues
      * with this, do a deep clone of the inputs
      */
-    constructor(protected submeshes: Array<Submesh> = [], protected premadeManifoldMesh?: StrippedMesh, protected submeshMap?: SubmeshMap) {}
+    constructor(protected submeshes: Array<Submesh> = [], protected premadeManifoldMesh: StrippedMesh | null = null, protected submeshMap: SubmeshMap | null = null) {}
 
     get manifoldMesh(): StrippedMesh {
         if (!this.premadeManifoldMesh) {
@@ -136,13 +137,15 @@ export abstract class BaseManifoldWLMesh {
                 if (hasher.isUnique(pos)) {
                     mergedIndices.push(vertPos.length / 3);
                     const offset = vertPos.length;
-                    vertPos.expandCapacity_guarded(vertPos.length + 3);
-                    vertPos.copy_guarded(offset, pos);
+                    vertPos.length += 3;
+                    vertPos.copy(offset, pos);
                 } else {
                     const [x, y, z] = pos;
                     let k = 0;
                     for (; k < vertPos.length; k += 3) {
-                        if (vertPos.get_guarded(k) === x && vertPos.get_guarded(k + 1) === y && vertPos.get_guarded(k + 2) === z) {
+                        if (Math.abs(vertPos.get(k) - x) < EPS
+                             && Math.abs(vertPos.get(k + 1) - y) < EPS
+                             && Math.abs(vertPos.get(k + 2) - z) < EPS) {
                             break;
                         }
                     }
@@ -150,8 +153,8 @@ export abstract class BaseManifoldWLMesh {
                     mergedIndices.push(k / 3);
 
                     if (k === vertPos.length) {
-                        vertPos.expandCapacity_guarded(k + 3);
-                        vertPos.copy_guarded(k, pos);
+                        vertPos.length += 3;
+                        vertPos.copy(k, pos);
                     }
                 }
             }
