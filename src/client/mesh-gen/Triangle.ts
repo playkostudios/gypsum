@@ -479,8 +479,8 @@ export class Triangle {
     }
 
     positionMatches(vertexIndex: number, otherVertexIndex: number, otherTriangle: Triangle): boolean {
-        const i = 8 * vertexIndex;
-        const j = 8 * otherVertexIndex;
+        const i = VERTEX_STRIDE * vertexIndex;
+        const j = VERTEX_STRIDE * otherVertexIndex;
 
         return Math.abs(this.vertexData[i] - otherTriangle.vertexData[j]) < EPS
             && Math.abs(this.vertexData[i + 1] - otherTriangle.vertexData[j + 1]) < EPS

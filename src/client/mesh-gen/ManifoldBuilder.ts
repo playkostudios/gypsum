@@ -16,10 +16,34 @@ const TAU_INV = 1 / (Math.PI * 2);
 export type EdgeList = Array<[triangle: Triangle, edgeIdx: number]>;
 
 function getVertexMid(a: Float32Array, b: Float32Array): Float32Array {
-    const result = new Float32Array(8);
+    const result = new Float32Array(VERTEX_STRIDE);
 
-    for (let i = 0; i < 8; i++) {
+    // get average of each vertex attribute
+    for (let i = 0; i < VERTEX_STRIDE; i++) {
         result[i] = (a[i] + b[i]) * 0.5;
+    }
+
+    // normalize normals and tangents
+    const nx = result[3];
+    const ny = result[4];
+    const nz = result[5];
+    const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz);
+    if (nLen > 0) {
+        result[3] = nx * nLen;
+        result[4] = ny * nLen;
+        result[5] = nz * nLen;
+    }
+
+    // XXX only first 3 components are normalized
+    // TODO check if this is right
+    const tx = result[8];
+    const ty = result[9];
+    const tz = result[10];
+    const tLen = Math.sqrt(tx * tx + ty * ty + tz * tz);
+    if (tLen > 0) {
+        result[8] = tx * tLen;
+        result[9] = ty * tLen;
+        result[10] = tz * tLen;
     }
 
     return result;
@@ -519,6 +543,7 @@ export class ManifoldBuilder {
         const positions = new DynamicArray(Float32Array);
         const normals = new DynamicArray(Float32Array);
         const texCoords = new DynamicArray(Float32Array);
+        const tangents = new DynamicArray(Float32Array);
 
         const hasher = new VertexHasher(VERTEX_STRIDE);
         let nextIdx = 0;
@@ -533,36 +558,29 @@ export class ManifoldBuilder {
             }
 
             for (let i = 0, offset = 0; i < 3; i++, offset += VERTEX_STRIDE) {
-                let offsetCopy = offset;
-                const x = triangle.vertexData[offsetCopy++];
-                const y = triangle.vertexData[offsetCopy++];
-                const z = triangle.vertexData[offsetCopy++];
-                const nx = triangle.vertexData[offsetCopy++];
-                const ny = triangle.vertexData[offsetCopy++];
-                const nz = triangle.vertexData[offsetCopy++];
-                const u = triangle.vertexData[offsetCopy++];
-                const v = triangle.vertexData[offsetCopy++];
-                const tx = triangle.vertexData[offsetCopy++];
-                const ty = triangle.vertexData[offsetCopy++];
-                const tz = triangle.vertexData[offsetCopy++];
-                const tw = triangle.vertexData[offsetCopy];
-                // TODO set tangents
-
                 const auxIdx = hasher.getAuxIdx(triangle.vertexData, nextIdx, offset);
                 if (auxIdx === null) {
+                    let offsetCopy = offset;
+
                     positions.expandCapacity(positions.length + 3);
-                    positions.pushBack(x);
-                    positions.pushBack(y);
-                    positions.pushBack(z);
+                    positions.pushBack(triangle.vertexData[offsetCopy++]);
+                    positions.pushBack(triangle.vertexData[offsetCopy++]);
+                    positions.pushBack(triangle.vertexData[offsetCopy++]);
 
                     normals.expandCapacity(normals.length + 3);
-                    normals.pushBack(nx);
-                    normals.pushBack(ny);
-                    normals.pushBack(nz);
+                    normals.pushBack(triangle.vertexData[offsetCopy++]);
+                    normals.pushBack(triangle.vertexData[offsetCopy++]);
+                    normals.pushBack(triangle.vertexData[offsetCopy++]);
 
                     texCoords.expandCapacity(texCoords.length + 2);
-                    texCoords.pushBack(u);
-                    texCoords.pushBack(v);
+                    texCoords.pushBack(triangle.vertexData[offsetCopy++]);
+                    texCoords.pushBack(triangle.vertexData[offsetCopy++]);
+
+                    tangents.expandCapacity(tangents.length + 4);
+                    tangents.pushBack(triangle.vertexData[offsetCopy++]);
+                    tangents.pushBack(triangle.vertexData[offsetCopy++]);
+                    tangents.pushBack(triangle.vertexData[offsetCopy++]);
+                    tangents.pushBack(triangle.vertexData[offsetCopy]);
 
                     indexData[iOffset++] = nextIdx++;
                 } else {
@@ -591,6 +609,11 @@ export class ManifoldBuilder {
             const texCoordsAttr = mesh.attribute(WL.MeshAttribute.TextureCoordinate);
             if (texCoordsAttr) {
                 texCoordsAttr.set(0, texCoords.finalize());
+            }
+
+            const tangentsAttr = mesh.attribute(WL.MeshAttribute.Tangent);
+            if (tangentsAttr) {
+                tangentsAttr.set(0, tangents.finalize());
             }
         } catch(e) {
             mesh.destroy();
@@ -707,7 +730,7 @@ export class ManifoldBuilder {
 
                     // no shared position yet, make a new position
                     index = nextPosition++;
-                    const i = 8 * vi;
+                    const i = VERTEX_STRIDE * vi;
                     positions.expandCapacity(positions.length + 3);
                     positions.pushBack(triangle.vertexData[i]);
                     positions.pushBack(triangle.vertexData[i + 1]);
