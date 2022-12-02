@@ -4,8 +4,10 @@
 import VertexHasher from './mesh-gen/VertexHasher';
 import { DynamicArray } from './mesh-gen/DynamicArray';
 import { EPS } from './misc/EPS';
+import { mat3, mat4, vec3, vec4 } from 'gl-matrix';
 
 import type { StrippedMesh } from '../common/StrippedMesh';
+import type { quat } from 'gl-matrix';
 
 const MAX_INDEX = 0xFFFFFFFF;
 
@@ -256,5 +258,90 @@ export abstract class BaseManifoldWLMesh {
     mark(): this {
         this.autoDispose = true;
         return this;
+    }
+
+    /**
+     * Transform all submeshes and the manifold by a given matrix and normal
+     * matrix.
+     */
+    transform(matrix: mat4, normalMatrix?: mat3): void {
+        if (!normalMatrix) {
+            normalMatrix = mat3.normalFromMat4(mat3.create(), matrix);
+        }
+
+        const tmp3 = vec3.create();
+        const tmp4 = vec4.create();
+
+        // transform submeshes
+        for (const [submesh, _material] of this.submeshes) {
+            const vertexCount = submesh.vertexCount;
+
+            const positions = submesh.attribute(WL.MeshAttribute.Position);
+            if (!positions) {
+                throw new Error('Could not get positions MeshAttributeAccessor');
+            }
+
+            const normals = submesh.attribute(WL.MeshAttribute.Normal);
+            const tangents = submesh.attribute(WL.MeshAttribute.Tangent);
+
+            for (let i = 0; i < vertexCount; i++) {
+                positions.get(i, tmp3)
+                vec3.transformMat4(tmp3, tmp3, matrix);
+                positions.set(i, tmp3);
+
+                if (normals) {
+                    normals.get(i, tmp3)
+                    vec3.transformMat3(tmp3, tmp3, normalMatrix);
+                    normals.set(i, tmp3);
+                }
+
+                if (tangents) {
+                    tangents.get(i, tmp4)
+                    vec3.transformMat3(tmp4 as vec3, tmp4 as vec3, normalMatrix);
+                    tangents.set(i, tmp4);
+                }
+            }
+        }
+
+        // transform premade manifold
+        if (this.premadeManifoldMesh) {
+            const vertPos = this.premadeManifoldMesh.vertPos;
+            const vertexCount = vertPos.length;
+
+            for (let i = 0; i < vertexCount;) {
+                const iStart = i;
+                tmp3[0] = vertPos[i++];
+                tmp3[1] = vertPos[i++];
+                tmp3[2] = vertPos[i++];
+
+                vec3.transformMat4(tmp3, tmp3, matrix);
+
+                vertPos[iStart] = tmp3[0];
+                vertPos[iStart + 1] = tmp3[1];
+                vertPos[iStart + 2] = tmp3[2];
+            }
+        }
+    }
+
+    /**
+     * Translate all submeshes and the manifold by a given translation vector.
+     */
+    translate(translation: vec3): void {
+        this.transform(mat4.fromTranslation(mat4.create(), translation));
+    }
+
+    /** Scale all submeshes and the manifold by a given per-axis factor. */
+    scale(factor: vec3): void {
+        this.transform(mat4.fromScaling(mat4.create(), factor));
+    }
+
+    /** Scale all submeshes and the manifold by a single factor. */
+    uniformScale(factor: number): void {
+        this.transform(mat4.fromScaling(mat4.create(), vec3.fromValues(factor, factor, factor)));
+    }
+
+    /** Rotate all submeshes and the manifold by a given quaternion. */
+    rotate(rotation: quat): void {
+        this.transform(mat4.fromQuat(mat4.create(), rotation));
     }
 }
