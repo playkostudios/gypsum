@@ -16,6 +16,8 @@ export class PyramidMesh extends BasePrismoidPyramidMesh {
             (options?.smoothNormals ?? false)
                 ? (options?.maxSmoothAngle ?? 0.9)
                 : null,
+            options?.baseMaterial ?? null,
+            options?.sideMaterial ?? null,
         );
     }
 }

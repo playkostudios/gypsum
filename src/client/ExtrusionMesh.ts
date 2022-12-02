@@ -1,7 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="../../types/globals.d.ts" />
 
-import { mat4, vec2, vec3 } from 'gl-matrix';
+import { mat4, vec2, vec3, vec4 } from 'gl-matrix';
 import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
 import triangulate2DPolygon from './triangulation/triangulate-2d-polygon';
 import { ManifoldBuilder } from './mesh-gen/ManifoldBuilder';
@@ -9,6 +9,8 @@ import { Triangle } from './mesh-gen/Triangle';
 
 import type { CurveFrames } from './curves/curve-frame';
 import type { EdgeList } from './mesh-gen/ManifoldBuilder';
+
+const RIGHT = vec3.fromValues(1, 0, 0);
 
 export interface ExtrusionMaterialOptions {
     startMaterial?: WL.Material;
@@ -136,7 +138,7 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
         const lLast = loopLen - 1;
         const loopedSegCount = loops ? segmentCount : pointCount;
         const preCalcPos = new Array<vec3>(loopLen * loopedSegCount);
-        const matrix = mat4.create();
+        const matrix = mat4.create(), startMatrix = mat4.create(), endMatrix = mat4.create();
         let extrusionLength = 0;
 
         for (let i = 0, p = 0; p < pointCount; p++) {
@@ -146,6 +148,12 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
 
             if (p < loopedSegCount) {
                 getMatrix(matrix, p, curveFrames, curvePositions, curveScales);
+
+                if (p === 0) {
+                    mat4.copy(startMatrix, matrix);
+                } else if (p === segmentCount) {
+                    mat4.copy(endMatrix, matrix);
+                }
 
                 for (let l = 0; l < loopLen; l++) {
                     const xy = polyline[lLast - l];
@@ -190,13 +198,17 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
                     jl2 = il2 + loopLen;
                 }
 
+                let blTri: Triangle, trTri: Triangle;
                 if (hasSmoothNormals) {
-                    builder.addTriangleNoNormals(preCalcPos[il1], preCalcPos[il2], preCalcPos[jl2], uvi1, uvi2, uvj2);
-                    builder.addTriangleNoNormals(preCalcPos[il1], preCalcPos[jl2], preCalcPos[jl1], uvi1, uvj2, uvj1);
+                    blTri = builder.addTriangleNoNormals(preCalcPos[il1], preCalcPos[il2], preCalcPos[jl2], uvi1, uvi2, uvj2);
+                    trTri = builder.addTriangleNoNormals(preCalcPos[il1], preCalcPos[jl2], preCalcPos[jl1], uvi1, uvj2, uvj1);
                 } else {
-                    builder.addTriangle(preCalcPos[il1], preCalcPos[il2], preCalcPos[jl2], uvi1, uvi2, uvj2);
-                    builder.addTriangle(preCalcPos[il1], preCalcPos[jl2], preCalcPos[jl1], uvi1, uvj2, uvj1);
+                    blTri = builder.addTriangle(preCalcPos[il1], preCalcPos[il2], preCalcPos[jl2], uvi1, uvi2, uvj2);
+                    trTri = builder.addTriangle(preCalcPos[il1], preCalcPos[jl2], preCalcPos[jl1], uvi1, uvj2, uvj1);
                 }
+
+                blTri.autoSetTangents(0);
+                trTri.autoSetTangents(1, true);
             }
         }
 
@@ -213,6 +225,12 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
             const endNormal = curveFrames[segmentCount][2];
             const startNormal = vec3.negate(vec3.create(), endNormal);
 
+            // make base tangents
+            const startTangent = vec4.fromValues(0, 0, 0, 1);
+            vec3.transformMat4(startTangent as vec3, RIGHT, startMatrix);
+            const endTangent = vec4.fromValues(0, 0, 0, 1);
+            vec3.transformMat4(endTangent as vec3, RIGHT, endMatrix);
+
             // start base
             for (let t = 0; t < triangulatedBaseLen;) {
                 const cIdx = triangulatedBase[t++];
@@ -224,6 +242,9 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
                     startNormal, startNormal, startNormal,
                     startBaseUVs[aIdx], startBaseUVs[bIdx], startBaseUVs[cIdx],
                 );
+                newTri.setTangent(0, startTangent);
+                newTri.setTangent(1, startTangent);
+                newTri.setTangent(2, startTangent);
                 newTri.materialID = 1;
                 startBaseTris.push(newTri);
             }
@@ -240,6 +261,9 @@ export class ExtrusionMesh extends BaseManifoldWLMesh {
                     endNormal, endNormal, endNormal,
                     endBaseUVs[aIdx], endBaseUVs[bIdx], endBaseUVs[cIdx],
                 );
+                newTri.setTangent(0, endTangent);
+                newTri.setTangent(1, endTangent);
+                newTri.setTangent(2, endTangent);
                 newTri.materialID = 2;
                 endBaseTris.push(newTri);
             }

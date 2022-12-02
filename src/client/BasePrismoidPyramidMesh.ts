@@ -1,7 +1,7 @@
 import triangulate2DPolygon from './triangulation/triangulate-2d-polygon';
 import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
 import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
-import { vec3, vec2 } from 'gl-matrix';
+import { vec3, vec2, vec4 } from 'gl-matrix';
 import { ExtrusionMesh } from './ExtrusionMesh';
 
 import type { CurveFrame } from '../client';
@@ -121,6 +121,7 @@ export class BasePrismoidPyramidMesh extends BaseManifoldWLMesh {
                     [b, a, bUV, aUV] = [a, b, aUV, bUV];
                 }
 
+                let tri: Triangle;
                 if (hasSmoothNormals) {
                     // XXX normals at bottom of triangle are set to zero so they
                     // can later be replaced by auto smooth normals
@@ -133,10 +134,12 @@ export class BasePrismoidPyramidMesh extends BaseManifoldWLMesh {
                     // need to be replaced by smoothing) will have to be used.
                     // maybe <vec3>[NaN, NaN, NaN]?
                     const triNorm = normalFromTriangle(apexPos, a, b, vec3.create());
-                    builder.addTriangle(apexPos, a, b, triNorm, ZERO_NORM, ZERO_NORM, apexTexCoords, aUV, bUV);
+                    tri = builder.addTriangle(apexPos, a, b, triNorm, ZERO_NORM, ZERO_NORM, apexTexCoords, aUV, bUV);
                 } else {
-                    builder.addTriangle(apexPos, a, b, apexTexCoords, aUV, bUV);
+                    tri = builder.addTriangle(apexPos, a, b, apexTexCoords, aUV, bUV);
                 }
+
+                tri.autoSetTangents(1);
             }
 
             // connect side triangles
@@ -165,6 +168,7 @@ export class BasePrismoidPyramidMesh extends BaseManifoldWLMesh {
 
             // add base triangles
             const baseNormal = vec3.fromValues(0, hasTopApex ? -1 : 1, 0);
+            const baseTangent = vec4.fromValues(hasTopApex ? 1 : -1, 0, 0, 1);
             const baseUVs = makeBaseUVs(polyline, polylineLen, hasTopApex);
             const baseTris: Array<Triangle> = [];
             for (let i = 0; i < triangulatedBaseLen;) {
@@ -177,6 +181,9 @@ export class BasePrismoidPyramidMesh extends BaseManifoldWLMesh {
                     baseNormal, baseNormal, baseNormal,
                     baseUVs[aIdx], baseUVs[bIdx], baseUVs[cIdx],
                 );
+                baseTri.setTangent(0, baseTangent);
+                baseTri.setTangent(1, baseTangent);
+                baseTri.setTangent(2, baseTangent);
                 baseTri.materialID = 1;
 
                 baseTris.push(baseTri);

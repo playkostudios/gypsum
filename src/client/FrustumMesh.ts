@@ -6,6 +6,8 @@ import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
 
 export interface FrustumOptions extends SmoothNormalsOptions {
     baseScale?: number;
+    baseMaterial?: WL.Material;
+    sideMaterial?: WL.Material;
 }
 
 export class FrustumMesh extends BasePrismoidPyramidMesh {
@@ -26,6 +28,8 @@ export class FrustumMesh extends BasePrismoidPyramidMesh {
             (options?.smoothNormals ?? false)
                 ? (options?.maxSmoothAngle ?? 0.9)
                 : null,
+            options?.baseMaterial ?? null,
+            options?.sideMaterial ?? null,
         );
     }
 }

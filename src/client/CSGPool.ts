@@ -156,6 +156,7 @@ export class CSGPool {
             const colors = wleMesh.attribute(WL.MeshAttribute.Color);
             // TODO joint support?
             const hasExtra: boolean = (tangents || normals || texCoords || colors);
+            let needsFlip = false;
 
             const positionBuffer = new Float32Array(vertexCount * 3);
 
@@ -234,50 +235,71 @@ export class CSGPool {
                             c = b + 1;
                         }
 
+                        // TODO handle transforms and flips properly by using
+                        // future manifold api
+                        if (tangentBuffer || normalBuffer) {
+                            const origPositions = origMesh.attribute(WL.MeshAttribute.Position);
+
+                            // get original face normal
+                            const bOrig = origPositions.get(b);
+                            const abOrig = vec3.sub(vec3.create(), bOrig, origPositions.get(a));
+                            const bcOrig = vec3.sub(vec3.create(), origPositions.get(c), bOrig);
+                            const faceOrig = vec3.cross(vec3.create(), abOrig, bcOrig);
+                            vec3.normalize(faceOrig, faceOrig);
+
+                            // get new face normal
+                            const abNew = vec3.sub(vec3.create(), bPosNew, aPosNew);
+                            const bcNew = vec3.sub(vec3.create(), cPosNew, bPosNew);
+                            const faceNew = vec3.cross(vec3.create(), abNew, bcNew);
+                            vec3.normalize(faceNew, faceNew);
+
+                            // NOTE this doesn't work if, for some bizarre
+                            // reason, vertex normals are pointing inside
+                            // the solid on purpose
+
+                            needsFlip = vec3.dot(faceOrig, faceNew) < 0;
+                        }
+
                         if (tangentBuffer) {
                             const origTangents = origMesh.attribute(WL.MeshAttribute.Tangent);
                             if (origTangents) {
-                                // TODO handle transforms and flips
-                                setFromBary(j4, 4, a, b, c, aBary, bBary, cBary, origTangents, tangentBuffer);
+                                if (needsFlip) {
+                                    const [aVec, bVec, cVec] = getFromBary(4, a, b, c, aBary, bBary, cBary, origTangents);
+
+                                    // flip tangents
+                                    vec3.negate(aVec as Vec3, aVec as Vec3);
+                                    vec3.negate(bVec as Vec3, bVec as Vec3);
+                                    vec3.negate(cVec as Vec3, cVec as Vec3);
+
+                                    // set tangents
+                                    tangentBuffer.set(aVec, j4);
+                                    tangentBuffer.set(bVec, j4 + 4);
+                                    tangentBuffer.set(cVec, j4 + 8);
+                                } else {
+                                    setFromBary(j4, 4, a, b, c, aBary, bBary, cBary, origTangents, tangentBuffer);
+                                }
                             }
                         }
 
                         if (normalBuffer) {
-                            const origPositions = origMesh.attribute(WL.MeshAttribute.Position);
                             const origNormals = origMesh.attribute(WL.MeshAttribute.Normal);
 
-                            if (origPositions && origNormals) {
-                                const [aVec, bVec, cVec] = getFromBary(3, a, b, c, aBary, bBary, cBary, origNormals);
+                            if (origNormals) {
+                                if (needsFlip) {
+                                    const [aVec, bVec, cVec] = getFromBary(3, a, b, c, aBary, bBary, cBary, origNormals);
 
-                                // get original face normal
-                                const bOrig = origPositions.get(b);
-                                const abOrig = vec3.sub(vec3.create(), bOrig, origPositions.get(a));
-                                const bcOrig = vec3.sub(vec3.create(), origPositions.get(c), bOrig);
-                                const faceOrig = vec3.cross(vec3.create(), abOrig, bcOrig);
-                                vec3.normalize(faceOrig, faceOrig);
-
-                                // get new face normal
-                                const abNew = vec3.sub(vec3.create(), bPosNew, aPosNew);
-                                const bcNew = vec3.sub(vec3.create(), cPosNew, bPosNew);
-                                const faceNew = vec3.cross(vec3.create(), abNew, bcNew);
-                                vec3.normalize(faceNew, faceNew);
-
-                                // NOTE this doesn't work if, for some bizarre
-                                // reason, vertex normals are pointing inside
-                                // the solid on purpose
-                                // TODO handle transforms and flips
-
-                                // negate normals if necessary
-                                if (vec3.dot(faceOrig, faceNew) < 0) {
+                                    // flip normals if necessary
                                     vec3.negate(aVec as Vec3, aVec as Vec3);
                                     vec3.negate(bVec as Vec3, bVec as Vec3);
                                     vec3.negate(cVec as Vec3, cVec as Vec3);
-                                }
 
-                                // set normals
-                                normalBuffer.set(aVec, j3);
-                                normalBuffer.set(bVec, j3 + 3);
-                                normalBuffer.set(cVec, j3 + 6);
+                                    // set normals
+                                    normalBuffer.set(aVec, j3);
+                                    normalBuffer.set(bVec, j3 + 3);
+                                    normalBuffer.set(cVec, j3 + 6);
+                                } else {
+                                    setFromBary(j3, 3, a, b, c, aBary, bBary, cBary, origNormals, normalBuffer);
+                                }
                             }
                         }
 

@@ -15,7 +15,7 @@ export interface IcosphereOptions extends RadialOptions {
 export class IcosphereMesh extends BaseManifoldWLMesh {
     constructor(options?: IcosphereOptions) {
         // make manifold builder populated with icosahedron triangles
-        const builder = makeIcosahedronBuilder();
+        const builder = makeIcosahedronBuilder(false);
 
         // subdivide and normalize manifold (spherify icosahedron)
         const subDivisions = options?.subDivisions ?? 2;

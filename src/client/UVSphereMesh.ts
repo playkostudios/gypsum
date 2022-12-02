@@ -17,7 +17,7 @@ export class UVSphereMesh extends BaseManifoldWLMesh {
         const diameter = radius * 2;
 
         const builder = makeCuboidBuilder(
-            subDivs, diameter, diameter, diameter, true,
+            subDivs, diameter, diameter, diameter, true, false,
             NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS,
         );
 

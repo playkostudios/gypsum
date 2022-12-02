@@ -239,6 +239,28 @@ export class Triangle {
         this.vertexData[offset + 3] = newTangent[3];
     }
 
+    autoSetTangents(edgeIndex: number, flip = false) {
+        vec3.sub(tmp0, this.getPosition((edgeIndex + 1) % 3), this.getPosition(edgeIndex));
+        vec3.normalize(tmp0, tmp0);
+
+        if (flip) {
+            vec3.negate(tmp0, tmp0);
+        }
+
+        this.vertexData[8] = tmp0[0];
+        this.vertexData[9] = tmp0[1];
+        this.vertexData[10] = tmp0[2];
+        this.vertexData[11] = 1;
+        this.vertexData[VERTEX_1 + 8] = tmp0[0];
+        this.vertexData[VERTEX_1 + 9] = tmp0[1];
+        this.vertexData[VERTEX_1 + 10] = tmp0[2];
+        this.vertexData[VERTEX_1 + 11] = 1;
+        this.vertexData[VERTEX_2 + 8] = tmp0[0];
+        this.vertexData[VERTEX_2 + 9] = tmp0[1];
+        this.vertexData[VERTEX_2 + 10] = tmp0[2];
+        this.vertexData[VERTEX_2 + 11] = 1;
+    }
+
     hasNormals(vertexIndex: number) {
         const offset = VERTEX_STRIDE * vertexIndex + 3;
         return this.vertexData[offset] && this.vertexData[offset + 1] && this.vertexData[offset + 2];
@@ -250,7 +272,8 @@ export class Triangle {
 
     /**
      * Normalize this triangle's position, in place. Normals are set to be equal
-     * to the position. Useful for spherifying a mesh.
+     * to the position, and tangents are set to go around the zenith (around +y
+     * in CCW direction/west to east). Useful for spherifying a mesh.
      */
     normalize() {
         for (let i = 0; i < VERTEX_TOTAL; i += VERTEX_STRIDE) {
@@ -270,6 +293,23 @@ export class Triangle {
             this.vertexData[i + 3] = x;
             this.vertexData[i + 4] = y;
             this.vertexData[i + 5] = z;
+
+            // set tangents. in this special case, tangents are just the normals
+            // (x,z) components rotated 90 deg CCW (z,-x). the y component is
+            // cleared and (x,z) is normalized.
+            const tLen = Math.sqrt(x * x + z * z);
+            if (tLen > 0) {
+                const tDiv = 1 / tLen;
+                this.vertexData[i + 8] = z * tDiv;
+                this.vertexData[i + 9] = 0;
+                this.vertexData[i + 10] = -x * tDiv;
+                this.vertexData[i + 11] = 1;
+            } else {
+                this.vertexData[i + 8] = 1;
+                this.vertexData[i + 9] = 0;
+                this.vertexData[i + 10] = 0;
+                this.vertexData[i + 11] = 1;
+            }
         }
     }
 

@@ -1,7 +1,7 @@
 import { DynamicArray } from './DynamicArray';
 import { BitArray } from './BitArray';
 import { Triangle, VERTEX_STRIDE, VERTEX_TOTAL } from './Triangle';
-import { vec2, vec3, mat4, mat3 } from 'gl-matrix';
+import { vec2, vec3, mat4, mat3, vec4 } from 'gl-matrix';
 import { BaseManifoldWLMesh, Submesh, SubmeshMap } from '../BaseManifoldWLMesh';
 import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';
@@ -41,9 +41,10 @@ function getVertexMid(a: Float32Array, b: Float32Array): Float32Array {
     const tz = result[10];
     const tLen = Math.sqrt(tx * tx + ty * ty + tz * tz);
     if (tLen > 0) {
-        result[8] = tx * tLen;
-        result[9] = ty * tLen;
-        result[10] = tz * tLen;
+        const tDiv = 1 / tLen;
+        result[8] = tx * tDiv;
+        result[9] = ty * tDiv;
+        result[10] = tz * tDiv;
     }
 
     return result;
@@ -315,19 +316,21 @@ export class ManifoldBuilder {
      * All edges in generated triangles will be connected, except the border
      * edges; new triangles will not be connected to triangles already present
      * in the builder.
+     *
+     * @param addTangents True by default. If true, then vertex tangents will be generated for each triangle. Tangents point from left to right, and have a w component of 1.
      */
-    addSubdivQuad(tlPos: vec3, trPos: vec3, blPos: vec3, brPos: vec3, materialID: number, subDivisions = 1, tlUV?: vec2, trUV?: vec2, blUV?: vec2, brUV?: vec2): void {
+    addSubdivQuad(tlPos: vec3, trPos: vec3, blPos: vec3, brPos: vec3, materialID: number, addTangents = true, subDivisions = 1, tlUV?: vec2, trUV?: vec2, blUV?: vec2, brUV?: vec2): void {
         const subDivisionsP1 = subDivisions + 1;
-        const subQuads = subDivisionsP1 * subDivisionsP1;
+        const pointCount = subDivisionsP1 * subDivisionsP1;
         const triStride = subDivisions * 2;
 
         // pre-calculate all positions (and uvs)
-        const positions = new Array<vec3>(subQuads);
+        const positions = new Array<vec3>(pointCount);
         let uvs: null | Array<vec2> = null;
 
         if (tlUV) {
             // assume other uv coordinates are supplied
-            uvs = new Array<vec2>(subQuads);
+            uvs = new Array<vec2>(pointCount);
         }
 
         for (let j = 0; j <= subDivisions; j++) {
@@ -359,8 +362,41 @@ export class ManifoldBuilder {
             }
         }
 
-        // pre-calculate quad normal
+        // pre-calculate quad normal and tangents
         const normal = normalFromTriangle(tlPos, blPos, trPos, vec3.create());
+        let isParallelogram = false; // only used for tangents
+        let tangents: vec4 | Array<vec4> | null = null;
+
+        if (addTangents) {
+            // if this is a parallelogram, then all points have the same
+            // tangent. check if this is a parallelogram.
+            // check left->right lines
+            const lrTop = vec3.sub(vec3.create(), trPos, tlPos);
+            const lrBot = vec3.sub(vec3.create(), brPos, blPos);
+            if (vec3.equals(lrTop, lrBot)) {
+                isParallelogram = true;
+            }
+
+            vec3.normalize(lrTop, lrTop);
+            if (isParallelogram) {
+                // quad is a parallelogram, so tangents are equal
+                tangents = vec4.fromValues(lrTop[0], lrTop[1], lrTop[2], 1);
+            } else {
+                // quad is not a parallelogram, so most tangents are different.
+                // specifically, each "height" (vertical segment) has a
+                // different tangent
+                tangents = new Array(subDivisionsP1);
+                vec3.normalize(lrBot, lrBot);
+                const tmp = vec3.create();
+
+                for (let j = 0; j <= subDivisions; j++) {
+                    // lerp top and bottom tangent
+                    vec3.lerp(tmp, lrTop, lrBot, j / subDivisions);
+                    tangents[j] = vec4.fromValues(tmp[0], tmp[1], tmp[2], 1);
+                }
+            }
+
+        }
 
         // make triangles
         const startIdx = this.numTri;
@@ -383,6 +419,25 @@ export class ManifoldBuilder {
                     brTri.setUV(0, uvs[o10]);
                     brTri.setUV(1, uvs[o01]);
                     brTri.setUV(2, uvs[o11]);
+                }
+
+                if (addTangents) {
+                    if (isParallelogram) {
+                        tlTri.setTangent(0, tangents as vec4);
+                        tlTri.setTangent(1, tangents as vec4);
+                        tlTri.setTangent(2, tangents as vec4);
+                        brTri.setTangent(0, tangents as vec4);
+                        brTri.setTangent(1, tangents as vec4);
+                        brTri.setTangent(2, tangents as vec4);
+                    } else {
+                        const tangent = (tangents as Array<vec4>)[j];
+                        tlTri.setTangent(0, tangent);
+                        tlTri.setTangent(1, tangent);
+                        tlTri.setTangent(2, tangent);
+                        brTri.setTangent(0, tangent);
+                        brTri.setTangent(1, tangent);
+                        brTri.setTangent(2, tangent);
+                    }
                 }
 
                 // connect both triangles
@@ -420,14 +475,14 @@ export class ManifoldBuilder {
      * @param edgeMask A 4-bit bitmask with the edges that will be added to the list of edges. The bits, from most significant to least significant, are: left edge, right edge, top edge, bottom edge.
      * @param connectableTriMask A 4-bit bitmask with the triangles that will be added to the list of connectable triangles. The bits, from most significant to least significant, are: left edge triangles, right edge triangles, top edge triangles, bottom edge triangles.
      */
-    addSubdivQuadWithEdges(edgeList: EdgeList, connectableTriangles: Array<Triangle>, edgeMask: number, connectableTriMask: number, tlPos: vec3, trPos: vec3, blPos: vec3, brPos: vec3, materialID: number, subDivisions = 1, tlUV?: vec2, trUV?: vec2, blUV?: vec2, brUV?: vec2): void {
+    addSubdivQuadWithEdges(edgeList: EdgeList, connectableTriangles: Array<Triangle>, edgeMask: number, connectableTriMask: number, tlPos: vec3, trPos: vec3, blPos: vec3, brPos: vec3, materialID: number, addTangents = true, subDivisions = 1, tlUV?: vec2, trUV?: vec2, blUV?: vec2, brUV?: vec2): void {
         if ((edgeMask & connectableTriMask) > 0) {
             console.warn('edgeMask and connectableTriMask have bits set in both masks. Lists generated will not be usable by autoConnectEdges, unless both lists are used in different calls');
         }
 
         // make quad
         const triOffset = this.numTri;
-        this.addSubdivQuad(tlPos, trPos, blPos, brPos, materialID, subDivisions, tlUV, trUV, blUV, brUV);
+        this.addSubdivQuad(tlPos, trPos, blPos, brPos, materialID, addTangents, subDivisions, tlUV, trUV, blUV, brUV);
 
         // append to lists
         const triStride = subDivisions * 2;
@@ -866,7 +921,7 @@ export class ManifoldBuilder {
         }
     }
 
-    private smoothenVertexNormal(hardNormals: Array<vec3>, surfaceAreas: Array<number>, dotThreshold: number, triangle: Triangle, vertexIdx: number) {
+    private smoothenVertexNormal(hardNormals: Array<vec3>, surfaceAreas: Array<number>, dotThreshold: number, triangle: Triangle, vertexIdx: number, mergeTangents: boolean) {
         // don't do anything if normal is already set
         if (triangle.hasNormals(vertexIdx)) {
             return;
@@ -930,10 +985,15 @@ export class ManifoldBuilder {
         }
 
         // calculate smooth normal of each group
+        const smoothNormal = vec3.create(), smoothTangent: null | vec4 = mergeTangents ? vec4.create() : null;
         for (const group of groups) {
-            const smoothNormal = vec3.create();
+            vec3.zero(smoothNormal);
 
-            for (const [otherTriangle, _otherVertex] of group) {
+            if (smoothTangent) {
+                vec4.zero(smoothTangent);
+            }
+
+            for (const [otherTriangle, otherVertex] of group) {
                 // XXX weighted normals are used so that bevelled geometry isn't
                 // ugly. note that normals are weighted by triangle surface area
                 // but not by corner angle. this means that there are still
@@ -941,12 +1001,30 @@ export class ManifoldBuilder {
                 // http://www.bytehazard.com/articles/vertnorm.html
                 const i = otherTriangle.helper;
                 vec3.scaleAndAdd(smoothNormal, smoothNormal, hardNormals[i], surfaceAreas[i]);
+
+                if (smoothTangent) {
+                    vec4.scaleAndAdd(smoothTangent, smoothTangent, otherTriangle.getTangent(otherVertex), surfaceAreas[i])
+                }
             }
 
             vec3.normalize(smoothNormal, smoothNormal);
 
+            if (smoothTangent) {
+                vec3.normalize(smoothTangent as vec3, smoothTangent as vec3);
+
+                if (smoothTangent[3] >= 0) {
+                    smoothTangent[3] = 1;
+                } else {
+                    smoothTangent[3] = -1;
+                }
+            }
+
             for (const [otherTriangle, otherVertex] of group) {
                 otherTriangle.setNormal(otherVertex, smoothNormal);
+
+                if (smoothTangent) {
+                    otherTriangle.setTangent(otherVertex, smoothTangent);
+                }
             }
         }
     }
@@ -962,8 +1040,9 @@ export class ManifoldBuilder {
      *
      * @param maxAngle Maximum angle, in radians, between 2 triangles for them to be considered part of the same smoothing group for a vertex
      * @param resetNormals If true, then all vertex normals will be reset to (0,0,0) before applying the modifier
+     * @param mergeTangents Defaults to true. If true, then smoothed vertices will have their tangents merged.
      */
-    addSmoothNormals(maxAngle: number, resetNormals = true) {
+    addSmoothNormals(maxAngle: number, resetNormals = true, mergeTangents = true) {
         // convert angle to dot product threshold
         const dotThreshold = Math.cos(Math.max(Math.min(maxAngle, Math.PI), 0));
 
@@ -990,7 +1069,7 @@ export class ManifoldBuilder {
         // smooth each vertex
         for (const triangle of this.triangles) {
             for (let v = 0; v < 3; v++) {
-                this.smoothenVertexNormal(hardNormals, surfaceAreas, dotThreshold, triangle, v);
+                this.smoothenVertexNormal(hardNormals, surfaceAreas, dotThreshold, triangle, v, mergeTangents);
             }
         }
     }

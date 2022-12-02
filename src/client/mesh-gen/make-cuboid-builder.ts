@@ -13,7 +13,7 @@ function makeUVs(uSpan: number, vSpan: number): [ tl: vec2, tr: vec2, bl: vec2, 
     return [ [0, vSpan], [uSpan, vSpan], [0, 0], [uSpan, 0] ];
 }
 
-function addCubeFace(builder: ManifoldBuilder, edgeList: EdgeList, connectableTriangles: Array<Triangle>, corners: Array<vec3>, quad: Quad, subDivisions: number): WL.Mesh {
+function addCubeFace(builder: ManifoldBuilder, edgeList: EdgeList, connectableTriangles: Array<Triangle>, corners: Array<vec3>, quad: Quad, addTangents: boolean, subDivisions: number): WL.Mesh {
     // resolve actual uv values
     let finalUVs: CuboidFaceUVs | undefined | Tuple<undefined, 4> = undefined;
     const uvs = quad[4];
@@ -45,10 +45,10 @@ function addCubeFace(builder: ManifoldBuilder, edgeList: EdgeList, connectableTr
     const trPos = corners[quad[3]];
     const blPos = corners[quad[1]];
     const brPos = corners[quad[2]];
-    builder.addSubdivQuadWithEdges(edgeList, connectableTriangles, quad[8], quad[9], tlPos, trPos, blPos, brPos, quad[7], subDivisions, ...finalUVs);
+    builder.addSubdivQuadWithEdges(edgeList, connectableTriangles, quad[8], quad[9], tlPos, trPos, blPos, brPos, quad[7], addTangents, subDivisions, ...finalUVs);
 }
 
-export function makeCuboidBuilder(subDivisions: number, width: number, height: number, depth: number, center: boolean, leftUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, rightUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, downUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio): ManifoldBuilder {
+export function makeCuboidBuilder(subDivisions: number, width: number, height: number, depth: number, center: boolean, addTangents = true, leftUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, rightUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, downUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio): ManifoldBuilder {
     // make corners
     const right = center ? (width / 2) : width;
     const left = center ? -right : 0;
@@ -83,7 +83,7 @@ export function makeCuboidBuilder(subDivisions: number, width: number, height: n
     const connectableTriangles: Array<Triangle> = [];
     const builder = new ManifoldBuilder();
     for (const face of faces) {
-        addCubeFace(builder, edgeList, connectableTriangles, corners, face, subDivisions);
+        addCubeFace(builder, edgeList, connectableTriangles, corners, face, addTangents, subDivisions);
     }
 
     // auto-connect triangles; edges inside quad are already connected, but

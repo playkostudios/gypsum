@@ -9,6 +9,8 @@ interface PrismoidOptions extends SmoothNormalsOptions {
     topOffset?: vec3;
     bottomScale?: number;
     topScale?: number;
+    baseMaterial?: WL.Material;
+    sideMaterial?: WL.Material;
 }
 
 export class PrismoidMesh extends BasePrismoidPyramidMesh {
@@ -23,6 +25,8 @@ export class PrismoidMesh extends BasePrismoidPyramidMesh {
             (options?.smoothNormals ?? false)
                 ? (options?.maxSmoothAngle ?? 0.9)
                 : null,
+            options?.baseMaterial ?? null,
+            options?.sideMaterial ?? null,
         );
     }
 }

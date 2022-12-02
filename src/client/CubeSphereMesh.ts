@@ -1,11 +1,13 @@
 import { makeCuboidBuilder } from './mesh-gen/make-cuboid-builder';
 import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
 import { vec3 } from 'gl-matrix';
+import { makeCuboidMaterialMap } from './mesh-gen/make-cuboid-material-map';
 
 import type { CuboidFaceUVPosRatio, CuboidFaceUVs } from './mesh-gen/make-cuboid-builder';
 import type { RadialOptions } from './RadialOptions';
 import type { vec2 } from 'gl-matrix';
 import type { ManifoldBuilder } from './mesh-gen/ManifoldBuilder';
+import type { CuboidMaterialOptions } from './RectangularCuboidMesh';
 
 const THIRD = 1 / 3;
 const NO_UVS: [vec2, vec2, vec2, vec2] = [[0,0],[0,0],[0,0],[0,0]];
@@ -20,15 +22,7 @@ type CubeSphereOptions = RadialOptions & ({
     upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
     backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
     frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
-}) & {
-    material?: WL.Material;
-    leftMaterial?: WL.Material;
-    rightMaterial?: WL.Material;
-    downMaterial?: WL.Material;
-    upMaterial?: WL.Material;
-    backMaterial?: WL.Material;
-    frontMaterial?: WL.Material;
-};
+}) & CuboidMaterialOptions;
 
 function mapCubeToSphere(x: number, y: number, z: number): vec3 {
     // XXX algorithm expects inputs to be in the range -1:1, not -0.5:0.5
@@ -55,32 +49,15 @@ export class CubeSphereMesh extends BaseManifoldWLMesh {
         const radius = options?.radius ?? 0.5;
         const diameter = radius * 2;
 
-        let materialMap: Map<number, WL.Material>;
-        if (options?.material) {
-            materialMap = new Map();
-            for (let i = 0; i < 6; i++) {
-                materialMap.set(i, options.material);
-            }
-        } else {
-            materialMap = new Map([
-                [ 0, options?.leftMaterial ?? null ],
-                [ 1, options?.rightMaterial ?? null ],
-                [ 2, options?.downMaterial ?? null ],
-                [ 3, options?.upMaterial ?? null ],
-                [ 4, options?.backMaterial ?? null ],
-                [ 5, options?.frontMaterial ?? null ],
-            ]);
-        }
-
         let builder: ManifoldBuilder;
         if (options?.equirectangular) {
             builder = makeCuboidBuilder(
-                subDivs, diameter, diameter, diameter, true,
+                subDivs, diameter, diameter, diameter, true, false,
                 NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS,
             );
         } else {
             builder = makeCuboidBuilder(
-                subDivs, diameter, diameter, diameter, true,
+                subDivs, diameter, diameter, diameter, true, false,
                 options?.leftUVs, options?.rightUVs, options?.downUVs,
                 options?.upUVs, options?.backUVs, options?.frontUVs,
             );
@@ -93,6 +70,11 @@ export class CubeSphereMesh extends BaseManifoldWLMesh {
             builder.makeEquirectUVs();
         }
 
-        super(...builder.finalize(materialMap));
+        super(...builder.finalize(makeCuboidMaterialMap(
+            options?.material,
+            options?.leftMaterial, options?.rightMaterial,
+            options?.downMaterial, options?.upMaterial,
+            options?.backMaterial, options?.frontMaterial,
+        )));
     }
 }
