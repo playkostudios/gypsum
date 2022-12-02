@@ -52,7 +52,7 @@ export class CSGPool {
     private jobs = new Map<number, JobTuple>();
     private disposed = false;
 
-    constructor(workerCount: number | null = null, workerPath = 'manifold-wle.worker.min.js', libraryPath = 'manifold.js') {
+    constructor(workerCount: number | null = null, workerPath = 'gypsum-manifold.worker.min.js', libraryPath = 'manifold.js') {
         this.wantedWorkerCount = Math.max(
             1, workerCount ?? Math.ceil(navigator.hardwareConcurrency / 2)
         );
