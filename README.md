@@ -60,7 +60,26 @@ asynchronous Constructive Solid Geometry powered by
 
 # Installing
 
-TODO upload new build, publish npm package
+Install Gypsum and the custom Manifold build with:
+
+```
+npm install --save-dev gypsum-mesh github:playkostudios/manifold#package
+```
+
+In your build script, make sure to copy the Manifold library and the Gypsum
+worker to the deployment folder, by doing something such as this in your
+`package.json`:
+
+```json
+{
+  "scripts": {
+    "copy-worker": "shx cp node_modules/gypsum-mesh/dist/gypsum-manifold.worker.* deploy/",
+    "copy-manifold": "shx cp node_modules/manifold-3d/manifold.js deploy/ && shx cp node_modules/manifold-3d/manifold.wasm deploy/",
+    "build-bundle": "esbuild ./js/bundle.js --minify --sourcemap --bundle --platform=browser --outfile=\"deploy/gypsum-example-bundle.js\"",
+    "build": "npm run build-bundle && npm run copy-worker && npm run copy-manifold"
+  }
+}
+```
 
 # Building
 
@@ -85,7 +104,8 @@ An example Wonderland Engine project can be found on a
 
 ## API documentation
 
-TODO finish docstrings, add github pages, add link to documentation
+API documentation can be found on
+[Github Pages](https://playkostudios.github.io/gypsum/).
 
 ## Procedural meshes
 

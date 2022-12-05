@@ -32,6 +32,9 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
         // mesh
         // logWorker(console.debug, 'Adding mesh as manifold to stack');
 
+        // FIXME fix manifold type definitions file to have Mesh
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         const mesh = new manifold.Mesh();
         mesh.vertPos = meshObj.vertPos;
         mesh.triVerts = meshObj.triVerts;
@@ -331,6 +334,9 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
 
             // free allocated manifold objects
             for (const manifold of allocatedManifolds) {
+                // FIXME fix manifold type definitions file to have delete()
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
                 manifold.delete();
             }
 

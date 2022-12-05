@@ -8,15 +8,17 @@ import type { CSGTree } from './CSGTree';
 export type OpTreeCtx<MeshType> = { [key: string | number]: (CSGTree<MeshType> | MeshType) };
 
 function iterateOpTreeNode<MeshType>(context: OpTreeCtx<MeshType>, key: string | number, node: CSGTree<MeshType> | MeshType, handleMesh: ((context: OpTreeCtx<MeshType>, key: string | number, mesh: MeshType) => void) | null = null, handlePrimitive: ((context: OpTreeCtx<MeshType>, key: string | number, operation: CSGPrimitive) => void) | null = null, handleOperation: ((context: OpTreeCtx<MeshType>, key: string | number, operation: CSGGeometricOperation<MeshType>) => void) | null = null): void {
-    if ('primitive' in node) {
+    if ('primitive' in (node as object)) {
+        const primNode = node as CSGPrimitive;
+
         // primitive
-        switch (node.primitive) {
+        switch (primNode.primitive) {
             case 'cube':
             case 'cylinder':
             case 'sphere':
             case 'tetrahedron':
                 if (handlePrimitive) {
-                    handlePrimitive(context, key, node);
+                    handlePrimitive(context, key, primNode);
                 }
                 break;
             default: {
@@ -25,9 +27,11 @@ function iterateOpTreeNode<MeshType>(context: OpTreeCtx<MeshType>, key: string |
                 throw new Error(`Unknown primitive: ${prim}`);
             }
         }
-    } else if ('operation' in node) {
+    } else if ('operation' in (node as object)) {
+        const opNode = node as CSGGeometricOperation<MeshType>;
+
         // operation
-        switch (node.operation) {
+        switch (opNode.operation) {
             case 'add':
             case 'union':
             case 'subtract':
@@ -36,17 +40,17 @@ function iterateOpTreeNode<MeshType>(context: OpTreeCtx<MeshType>, key: string |
             case 'intersection': {
                 // XXX children are iterated from right to left so that they can
                 // be pushed to a stack and then popped at the right order
-                if ('manifolds' in node) {
-                    for (let i = node.manifolds.length - 1; i >= 0; i--) {
-                        iterateOpTreeNode(node.manifolds as unknown as OpTreeCtx<MeshType>, i, node.manifolds[i], handleMesh, handlePrimitive, handleOperation);
+                if ('manifolds' in opNode) {
+                    for (let i = opNode.manifolds.length - 1; i >= 0; i--) {
+                        iterateOpTreeNode(opNode.manifolds as unknown as OpTreeCtx<MeshType>, i, opNode.manifolds[i], handleMesh, handlePrimitive, handleOperation);
                     }
                 } else {
-                    iterateOpTreeNode(node as unknown as OpTreeCtx<MeshType>, 'right', node.right, handleMesh, handlePrimitive, handleOperation);
-                    iterateOpTreeNode(node as unknown as OpTreeCtx<MeshType>, 'left', node.left, handleMesh, handlePrimitive, handleOperation);
+                    iterateOpTreeNode(opNode as unknown as OpTreeCtx<MeshType>, 'right', opNode.right, handleMesh, handlePrimitive, handleOperation);
+                    iterateOpTreeNode(opNode as unknown as OpTreeCtx<MeshType>, 'left', opNode.left, handleMesh, handlePrimitive, handleOperation);
                 }
 
                 if (handleOperation) {
-                    handleOperation(context, key, node);
+                    handleOperation(context, key, opNode);
                 }
                 break;
             }
@@ -56,17 +60,17 @@ function iterateOpTreeNode<MeshType>(context: OpTreeCtx<MeshType>, key: string |
             case 'transform':
             case 'refine':
             case 'asOriginal':
-                iterateOpTreeNode(node as unknown as OpTreeCtx<MeshType>, 'manifold', node.manifold, handleMesh, handlePrimitive, handleOperation);
+                iterateOpTreeNode(opNode as unknown as OpTreeCtx<MeshType>, 'manifold', opNode.manifold, handleMesh, handlePrimitive, handleOperation);
                 // XXX intentional fallthrough
             case 'extrude':
             case 'revolve':
                 if (handleOperation) {
-                    handleOperation(context, key, node);
+                    handleOperation(context, key, opNode as CSGGeometricOperation<MeshType>);
                 }
                 break;
             default: {
                 // XXX fighting the type system again...
-                const op = (node as {operation: string}).operation;
+                const op = (opNode as {operation: string}).operation;
                 if (op === 'compose' || op === 'decompose') {
                     throw new Error(`${op} operation is not implemented yet`);
                 } else {
@@ -77,7 +81,7 @@ function iterateOpTreeNode<MeshType>(context: OpTreeCtx<MeshType>, key: string |
     } else {
         // assume this is a mesh object
         if (handleMesh) {
-            handleMesh(context, key, node);
+            handleMesh(context, key, node as MeshType);
         }
     }
 }
