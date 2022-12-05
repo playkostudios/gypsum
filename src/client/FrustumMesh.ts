@@ -4,13 +4,32 @@ import { vec3 } from 'gl-matrix';
 import type { vec2 } from 'gl-matrix';
 import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
 
+/**
+ * Optional arguments for a procedural frustum.
+ */
 export interface FrustumOptions extends SmoothNormalsOptions {
+    /** The uniform scale of the base. */
     baseScale?: number;
+    /** The material used for the frustum bases. */
     baseMaterial?: WL.Material;
+    /** The material used for the sides of the frustum. */
     sideMaterial?: WL.Material;
 }
 
+/**
+ * A frustum implemented as a prism with a scaled top base.
+ *
+ * @category Procedural Mesh
+ */
 export class FrustumMesh extends BasePrismoidPyramidMesh {
+    /**
+     * Make a new frustum.
+     *
+     * @param polyline - The polyline for the base.
+     * @param apex - The apex point of the frustum.
+     * @param height - The height of the frustum. The height is expected to not exceed the apex.
+     * @param options - Optional arguments for the frustum generation.
+     */
     constructor(polyline: Array<vec2>, apex: vec3, height: number, options?: FrustumOptions) {
         const baseScale = options?.baseScale ?? 1;
         const apexHeight = Math.abs(apex[1]);

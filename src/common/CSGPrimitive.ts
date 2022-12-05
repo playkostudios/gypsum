@@ -1,3 +1,8 @@
+/**
+ * A Manifold CSG primitive. Using procedural meshes is preferred over this as
+ * Manifold always creates surfaces with smooth normals, no tangents and no
+ * texture coordinates.
+ */
 export type CSGPrimitive = {
     primitive: 'cube',
     size?: [number, number, number] | number,

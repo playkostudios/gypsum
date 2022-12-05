@@ -4,7 +4,18 @@ import { vec3 } from 'gl-matrix';
 import type { vec2 } from 'gl-matrix';
 import type { PrismPyramidOptions } from './PrismPyramidOptions';
 
+/**
+ * A procedural prism which extrudes along the Y direction.
+ *
+ * @category Procedural Mesh
+ */
 export class PrismMesh extends BasePrismoidPyramidMesh {
+    /**
+     * Make a new prism which extrudes along the Y direction.
+     *
+     * @param polyline - The polyline to use for the base.
+     * @param options - Optional arguments for the prism generation.
+     */
     constructor(polyline: Array<vec2>, options?: PrismPyramidOptions) {
         const baseScale = options?.baseScale ?? 1;
 

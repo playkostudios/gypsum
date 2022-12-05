@@ -1,4 +1,4 @@
-import { ManifoldBuilder } from './ManifoldBuilder';
+import { MeshBuilder } from './MeshBuilder';
 import { vec2, vec3 } from 'gl-matrix';
 
 const ICO_V: Array<Readonly<vec3>> = [
@@ -23,8 +23,16 @@ const BL_UV: Readonly<vec2> = vec2.fromValues(0, 0);
 const BM_UV: Readonly<vec2> = vec2.fromValues(0.5, 0);
 const BR_UV: Readonly<vec2> = vec2.fromValues(1, 0);
 
-export function makeIcosahedronBuilder(addTangents = true): ManifoldBuilder {
-    const builder = new ManifoldBuilder();
+/**
+ * Make a new MeshBuilder instance with the triangles and topology of a
+ * normalized icosahedron (2x2x2 icosahedron centered at (0, 0, 0)). Triangle
+ * material IDs are unique for each of the 20 faces. IDs are assigned from the
+ * top triangles to the bottom triangles, in the range 0-19.
+ *
+ * @param addTangents - If true (default), then tangents will be added to each triangle's vertices. Useful if you want to avoid generating tangents for optimisation purposes.
+ */
+export function makeIcosahedronBuilder(addTangents = true): MeshBuilder {
+    const builder = new MeshBuilder();
 
     // top triangles
     const t0  = builder.addTriangle(ICO_V[0 ], ICO_V[1 ], ICO_V[2 ], TM_UV, BL_UV, BR_UV);
@@ -51,6 +59,27 @@ export function makeIcosahedronBuilder(addTangents = true): ManifoldBuilder {
     const t17 = builder.addTriangle(ICO_V[11], ICO_V[9 ], ICO_V[8 ], BM_UV, TR_UV, TL_UV);
     const t18 = builder.addTriangle(ICO_V[11], ICO_V[10], ICO_V[9 ], BM_UV, TR_UV, TL_UV);
     const t19 = builder.addTriangle(ICO_V[11], ICO_V[6 ], ICO_V[10], BM_UV, TR_UV, TL_UV);
+
+    // set material IDs
+    t1.materialID = 1;
+    t2.materialID = 2;
+    t3.materialID = 3;
+    t4.materialID = 4;
+    t5.materialID = 5;
+    t6.materialID = 6;
+    t7.materialID = 7;
+    t8.materialID = 8;
+    t9.materialID = 9;
+    t10.materialID = 10;
+    t11.materialID = 11;
+    t12.materialID = 12;
+    t13.materialID = 13;
+    t14.materialID = 14;
+    t15.materialID = 15;
+    t16.materialID = 16;
+    t17.materialID = 17;
+    t18.materialID = 18;
+    t19.materialID = 19;
 
     // set tangents automatically. tangents go around the zenith CCW, set
     // automatically by following a corresponding edge (and flipping direction

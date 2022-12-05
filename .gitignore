@@ -3,7 +3,7 @@
 *.sublime-workspace
 package-lock.json
 node_modules/
+docs/
 dist/*.js
 dist/*.js.map
 dist/*.d.ts
-src_ignore/

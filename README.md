@@ -40,6 +40,24 @@ asynchronous Constructive Solid Geometry powered by
   - In the meantime, the input meshes could be transformed before doing a CSG operation with them
 - Looped extrusions don't connect properly if bases have different scales
 
+# Table of contents
+
+- [Installing](#installing)
+- [Building](#building)
+- [Usage](#usage)
+  - [Example](#example)
+  - [API documentation](#api-documentation)
+  - [Procedural meshes](#procedural-meshes)
+    - [Getting submeshes](#getting-submeshes)
+    - [Applying transformations](#applying-transformations)
+    - [Making procedural meshes](#making-procedural-meshes)
+    - [Creating MeshGroups from user-provided meshes](#creating-meshgroups-from-user-provided-meshes)
+    - [Memory management](#memory-management)
+  - [CSG operations](#csg-operations)
+- [Contributing](#contributing)
+- [Future work](#future-work)
+- [Credits](#credits)
+
 # Installing
 
 TODO upload new build, publish npm package
@@ -72,9 +90,9 @@ TODO finish docstrings, add github pages, add link to documentation
 ## Procedural meshes
 
 Procedural meshes don't use the WL.Mesh class. Instead, they use their own class
-which contains a list of WL.Mesh instances (submeshes), so that a single
-procedural mesh can have multiple materials. Procedural meshes also have
-utilities for applying transformations.
+(`MeshGroup`) which contains a list of WL.Mesh and WL.Material pairs
+(submeshes), so that a single procedural mesh can have multiple materials.
+Procedural meshes also have utilities for applying transformations.
 
 ### Getting submeshes
 
@@ -108,23 +126,28 @@ For example, this rotates a procedural mesh by 45 degrees around the Y axis:
 procMesh.rotate(quat.fromEuler(quat.create(), 0, 45 ,0));
 ```
 
+Transformation methods are chainable.
+
 ### Making procedural meshes
 
-#### Cuboids
+All procedural meshes are implemented as subclasses of the `MeshGroup` class. To
+make a new procedural mesh, simply instantiate a subclass. The constructor
+arguments usually have 1 or more required argument, and all optional arguments
+are passed in an options object which can be omitted.
 
-##### Cube
-
-Default cube (length 1):
+For example, a 1x1x1 cube can be created by creating a new `CubeMesh` instance:
 
 ```js
-const cone = new CubeMesh(1);
+const procMesh = new CubeMesh(1);
 ```
 
-Example cube with more options (length 6):
+However, more options can be passed via an options object. For example, in this
+6x6x6 cube, the cube is not centered unlike before, each face has a separate
+material, and the UVs for each face are set to each UV corner:
 
 ```js
-const cone = new CubeMesh(6, {
-  center: true,
+const procMesh = new CubeMesh(6, {
+  center: false,
   // supply WL.Material instances for the following properties:
   // instead of a separate material for each side, `material` can also be passed to set all sides
   leftMaterial: this.leftMaterial,
@@ -144,97 +167,160 @@ const cone = new CubeMesh(6, {
 });
 ```
 
-##### Rectangular cuboid
+A list of all procedural mesh classes can be found in the API documentation, in
+the `Procedural Mesh` category.
 
-TODO example
+Currently, the following procedural meshes are available:
+- Cuboids:
+  - Cube
+  - Rectangular cuboid
+- Extrusions:
+  - Curve extrusion
+  - Linear extrusion
+  - Solid of revolution
+- Icosahedron
+- Prismoids:
+  - Cylinder
+  - Frustum
+  - Prism
+  - Prismoid
+- Pyramids:
+  - Cone
+  - Pyramid
+- Spheres:
+  - Cube sphere
+  - Icosphere
+  - UV sphere
+- Torus
 
-#### Spheres
+### Creating MeshGroups from user-provided meshes
 
-##### Cube sphere
-
-TODO example
-
-##### Icosphere
-
-TODO example
-
-##### UV sphere
-
-TODO example
-
-#### Cylinder
-
-TODO example
-
-#### Extrusions
-
-##### Linear extrusion
-
-TODO example
-
-##### Curve extrusion
-
-TODO example
-
-##### Solid of revolution
-
-TODO example
-
-#### Icosahedron
-
-TODO example
-
-#### Prismoids
-
-##### Frustum
-
-TODO example
-
-##### Prism
-
-TODO example
-
-##### Prismoid
-
-TODO example
-
-#### Pyramids
-
-##### Cone
-
-Default cone (radius 0.5, height 1, smooth normals):
+User-provided meshes (as WL.Mesh instances) can be converted to `MeshGroup`
+instances if you need to trasform them:
 
 ```js
-const cone = new ConeMesh();
+// with material
+const procMesh = MeshGroup.fromWLEMesh(mesh, material);
+// ... or without material (material will be null)
+// const procMesh = MeshGroup.fromWLEMesh(mesh);
+
+// apply transformation to mesh group
+procMesh.uniformScale(0.01);
 ```
 
-Example cone with more options:
+The constructor can also be used if you want to make a `MeshGroup` consisting of
+multiple user-provided meshes. In this case, a list of submeshes (mesh and
+material pairs) must be supplied:
+```js
+const procMesh = new MeshGroup([
+  [firstMesh, firstMaterial],
+  [secondMesh, null], // second mesh has no material, null must be passed
+  [thirdMesh, thirdMaterial],
+]);
+
+// apply transformation to mesh group
+procMesh.uniformScale(0.01);
+```
+
+Note that creating `MeshGroup` instances with user-provided meshes can fail if
+the meshes are used for CSG operations. This is because there is no connectivity
+information in the meshes, so the connectivity between triangles must be
+guessed. Currently, a naive algorithm based on vertex distance is used for
+guessing connectivity, but this fails if singularities exist, or if there are
+shared edges between more than 2 triangles.
+
+Note that transforming `MeshGroup` instances created from user-provided meshes
+**will modify the original meshes in-place**. If you want to keep the original
+mesh intact, then pass a clone of the original mesh to the `MeshGroup`, instead
+of using the original mesh. A mesh clone function is available in the library
+(`cloneMesh`), but note that it does not copy skinning data.
+
+### Memory management
+
+Procedural meshes create new `WL.Mesh` instances used for the submeshes of a
+`MeshGroup`. `WL.Mesh` instances are not automatically destroyed, as they are an
+engine resource, and therefore aren't garbage-collected.
+
+If you are creating a procedural mesh and only using it for rendering, then the
+meshes don't have to be destroyed. They only need to be destroyed after you know
+you will no longer render them.
+
+To destroy all the meshes in a `MeshGroup`, call `MeshGroup.dispose()`. For
+example, if you have a procedural mesh `procMesh`, then call
+`procMesh.dispose()`. Note that if a `MeshGroup` is created from a user-provided
+mesh, then the mesh will still be destroyed, meaning that if you passed the
+original mesh without cloning to the `MeshGroup`, then that mesh will be
+destroyed. If a clone was passed instead, then the clone will be destroyed.
+
+If you are creating a mesh that is only used for a CSG operation, and then never
+used again, then it is recommended that you set the auto-dispose flag by calling
+`MeshGroup.mark()`. For example, if you have a procedural cube `diffCube` that
+is only used for subtracting another mesh in a CSG operation, then you can mark
+the cube to be auto-disposed by calling `diffCube.mark()`, and the cube will be
+disposed after it's used for a CSG operation. Attempting to use the cube after
+it was disposed will not work. The `mark` method is chainable.
+
+## CSG operations
+
+CSG operations are done by making a tree of CSG operations, sending the tree to
+a worker, and waiting for the operations to finish asynchronously. However,
+there can be more than 1 worker, and the number of workers is configurable, so
+some extra setup work needs to be done; a pool of workers needs to be created,
+with the wanted number of workers, and the CSG operations are dispatched via
+this worker pool. The worker pool will then decide which worker to send the CSG
+operation to; the CSG pool load-balances.
+
+Example (CSG pool has only 1 worker here):
 
 ```js
-const cone = new ConeMesh({
-  subDivisions: 24,
-  radius: 2,
-  height: 6,
-  smoothNormals: true,
-  // supply WL.Material instances for the following properties:
-  baseMaterial: this.baseMaterial,
-  sideMaterial: this.sideMaterial,
+// create a new pool of workers. note that the workers are not initialised until
+// the first csg operation is dispatched, or until `initialize` is called
+const csg = new CSGPool(1);
+
+// if you want to make sure that the pool is initialized before the first csg
+// operation to prevent stuttering, then do the following:
+// await csg.initialize();
+
+// subtract 2 cubes, where the subtracting cube is offset by (0.5, 0.5, 0.5)
+const resultMesh = await csg.dispatch({
+  operation: 'subtract',
+  left: new CubeMesh(1).mark(),
+  right: new CubeMesh(1).translate([0.5, 0.5, 0.5]).mark(),
 });
+
+// get submeshes of the result of the CSG operation
+const resultSubmeshes = resultMesh.getSubmeshes();
+
+// add each submesh to the scene
+for (const [mesh, material] of resultSubmeshes) {
+  this.object.addComponent('mesh', {
+    mesh,
+    material: material ?? this.fallbackMaterial
+  });
+}
 ```
 
-##### Pyramid
+`CSGPool` are expensive to create, and there is a limit of workers that can be
+created in a browser. Ideally, there should be only 1 `CSGPool` instance with a
+reasonable amount of workers (such as 3), and the pool should be reused accross
+all scripts that do CSG operations.
 
-TODO example
+If no more CSG operations will be done, then a `CSGPool` can be destroyed by
+calling the `dispose` method. For example, in a pool `csg`:
 
-#### Torus
+```js
+csg.dispose();
+```
 
-TODO example
+Disposing a pool will invalidate it; any operations done on a disposed pool will
+throw an error. Disposing a pool will also terminate all workers created by the
+pool.
 
 # Contributing
 
 The current API is ugly and should be considered unstable; expect changes to the
 API in the future. Contributions improving the usability of the API would be
-greatly appreciated, especially around the Triangle and ManifoldBuilder classes.
+greatly appreciated, especially around the Triangle and MeshBuilder classes.
 
 # Future work
 

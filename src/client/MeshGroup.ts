@@ -23,24 +23,74 @@ const MAX_INDEX = 0xFFFFFFFF;
  */
 export type SubmeshMap = Uint8Array | Uint16Array | Uint32Array;
 
+/**
+ * A pair containing a WL.Mesh instance and it's assigned WL.Material.
+ */
 export type Submesh = [mesh: WL.Mesh, material: WL.Material];
 
-export abstract class BaseManifoldWLMesh {
+/**
+ * A helper class which acts as a single mesh, but contains a list of submeshes,
+ * where each submesh is assigned a different material.
+ */
+export class MeshGroup {
     /**
-     * If this flag is set, then {@link dispose} will be called after a CSG
-     * operation is done. It's recommended to call {@link mark} instead of
-     * setting this manually, since the method is chainable.
+     * If this flag is set, then {@link MeshGroup#dispose} will be called after
+     * a CSG operation is done. It's recommended to call {@link MeshGroup#mark}
+     * instead of setting this manually, since the method is chainable.
      */
     autoDispose = false;
 
     /**
-     * WARNING: the submeshes array and the manifold mesh will have their
-     * ownership tranferred to this object. if you modify them later, they will
-     * be modified here as well, possibly corrupting the mesh. to avoid issues
+     * Create a new MeshGroup from a list of submeshes, a manifold, and a
+     * submesh map, which maps triangles from the manifold to triangles from a
+     * submesh.
+     *
+     * WARNING: The submeshes array and the manifold mesh will have their
+     * ownership tranferred to this object. If you modify them later, they will
+     * be modified here as well, possibly corrupting the mesh. To avoid issues
      * with this, do a deep clone of the inputs
+     *
+     * @param submeshes - The list of submeshes to assign to this group.
+     * @param premadeManifoldMesh - A manifold which defines the topology of the submeshes.
+     * @param submeshMap - A map which maps triangles in the manifold to triangles in a submesh.
      */
     constructor(protected submeshes: Array<Submesh> = [], protected premadeManifoldMesh: StrippedMesh | null = null, protected submeshMap: SubmeshMap | null = null) {}
 
+    /**
+     * Create a new MeshGroup from a WL.Mesh.
+     *
+     * WARNING: The submeshes array and the manifold mesh will have their
+     * ownership tranferred to this object. If you modify them later, they will
+     * be modified here as well, possibly corrupting the mesh. To avoid issues
+     * with this, do a deep clone of the inputs
+     *
+     * @param mesh - A WL.Mesh instance.
+     * @param material - A WL.Material instance. Null by default.
+     */
+    static fromWLEMesh(mesh: WL.Mesh, material: WL.Material = null) {
+        return new MeshGroup([[ mesh, material ]]);
+    }
+
+    /**
+     * Create a new empty MeshGroup. Useless on its own, only ever appears as a
+     * fallback for CSG operations with no result.
+     */
+    static makeEmpty() {
+        return new MeshGroup(
+            [],
+            <StrippedMesh>{
+                vertPos: new Float32Array(0),
+                triVerts: new Uint32Array(0),
+            },
+            new Uint8Array(0),
+        );
+    }
+
+    /**
+     * Get the manifold mesh of this MeshGroup. If the MeshGroup has no manifold
+     * yet, then a manifold will be automatically generated and cached. Note
+     * that this process can throw.
+     */
     get manifoldMesh(): StrippedMesh {
         if (!this.premadeManifoldMesh) {
             const wleMeshes = new Array<WL.Mesh>(this.submeshes.length);
@@ -50,16 +100,25 @@ export abstract class BaseManifoldWLMesh {
                 wleMeshes[i++] = wleMesh;
             }
 
-            [this.submeshMap, this.premadeManifoldMesh] = BaseManifoldWLMesh.manifoldFromWLE(wleMeshes);
+            [this.submeshMap, this.premadeManifoldMesh] = MeshGroup.manifoldFromWLE(wleMeshes);
         }
 
         return this.premadeManifoldMesh;
     }
 
+    /**
+     * Get the number of submeshes inside this MeshGroup.
+     */
     get submeshCount(): number {
         return this.submeshes.length;
     }
 
+    /**
+     * Get the submeshes at a specific submesh index.
+     *
+     * @param submeshIdx - The index of the wanted submesh.
+     * @returns A pair containing a WL.Mesh instance and a WL.Material instance.
+     */
     getSubmesh(submeshIdx: number): Submesh {
         const submesh = this.submeshes[submeshIdx];
 
@@ -70,6 +129,11 @@ export abstract class BaseManifoldWLMesh {
         return submesh;
     }
 
+    /**
+     * Get the submeshes inside this MeshGroup.
+     *
+     * @returns A list of submeshes, where each submesh is a pair containing a WL.Mesh instance and a WL.Material instance.
+     */
     getSubmeshes(): Array<Submesh> {
         const submeshes = new Array(this.submeshCount);
 
@@ -81,6 +145,15 @@ export abstract class BaseManifoldWLMesh {
         return submeshes;
     }
 
+    /**
+     * Get the submesh and triangle index which corresponds to a given manifold
+     * triangle index.
+     *
+     * If submesh map is missing, then this will throw.
+     *
+     * @param triIdx - The manifold triangle index.
+     * @returns A pair containing the submesh that this triangle index belongs to, and the triangle index in that submesh.
+     */
     getTriBarySubmesh(triIdx: number): [submesh: Submesh, iTriOrig: number] {
         if (!this.submeshMap) {
             throw new Error('Missing submesh map');
@@ -93,10 +166,17 @@ export abstract class BaseManifoldWLMesh {
         ];
     }
 
-    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>): [submeshMap: SubmeshMap, manifoldMesh: StrippedMesh];
-    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap: true): [submeshMap: SubmeshMap, manifoldMesh: StrippedMesh];
-    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap: false): StrippedMesh;
-    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap = true): StrippedMesh | [submeshMap: SubmeshMap, manifoldMesh: StrippedMesh] {
+    /**
+     * Automatically create a manifold from given Wonderland Engine meshes. Note
+     * that this method has issues with singularities and edges shared by more
+     * than 2 triangles, since this is a vertex distance method instead of
+     * better methods such as cutting and stitching.
+     *
+     * @param wleMeshes - A Wonderland Engine mesh, or a list of Wonderland Engine meshes, to convert to a manifold
+     * @param genSubmeshMap - Should the submesh map be generated? True by default.
+     * @returns Returns a tuple containing the submesh map, and a manifold. If genSubmeshMap is false, then the submesh map will be null.
+     */
+    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap = true): [submeshMap: SubmeshMap | null, manifoldMesh: StrippedMesh] {
         if (!Array.isArray(wleMeshes)) {
             wleMeshes = [wleMeshes];
         }
@@ -126,7 +206,7 @@ export abstract class BaseManifoldWLMesh {
         const vertPos = new DynamicArray(Float32Array);
         const totalTriCount = totalVertexCount / 3;
         const hasher = new VertexHasher();
-        const submeshMap = genSubmeshMap ? BaseManifoldWLMesh.makeSubmeshMapBuffer(totalTriCount, maxSubmeshTriCount, wleMeshes.length - 1) : null;
+        const submeshMap = genSubmeshMap ? MeshGroup.makeSubmeshMapBuffer(totalTriCount, maxSubmeshTriCount, wleMeshes.length - 1) : null;
         let jm = 0;
         let js = 0;
 
@@ -208,22 +288,42 @@ export abstract class BaseManifoldWLMesh {
 
             return [submeshMap, mesh];
         } else {
-            return mesh;
+            return [null, mesh];
         }
     }
 
+    /**
+     * Make an indexData buffer for the creation of a WL.Mesh instance.
+     * Automatically decides the most memory-efficient TypedArray for the
+     * buffer.
+     *
+     * @param size - The ammount of indices in the indexData buffer.
+     * @param vertexCount - The amount of vertices that will be indexed.
+     * @returns A tuple containing the indexData buffer, and the indexType argument to be passed to the WL.Mesh constructor.
+     */
     static makeIndexBuffer(size: number, vertexCount: number): [indexData: Uint8Array, indexType: WL.MeshIndexType] | [indexData: Uint16Array, indexType: WL.MeshIndexType] | [indexData: Uint32Array, indexType: WL.MeshIndexType] {
-        if (vertexCount <= 0xFF) {
+        const vertexCountM1 = vertexCount - 1;
+
+        if (vertexCountM1 <= 0xFF) {
             return [new Uint8Array(size), WL.MeshIndexType.UnsignedByte];
-        } else if (vertexCount <= 0xFFFF) {
+        } else if (vertexCountM1 <= 0xFFFF) {
             return [new Uint16Array(size), WL.MeshIndexType.UnsignedShort];
-        } else if (vertexCount <= MAX_INDEX) {
+        } else if (vertexCountM1 <= MAX_INDEX) {
             return [new Uint32Array(size), WL.MeshIndexType.UnsignedInt];
         } else {
             throw new Error(`Maximum index exceeded (${MAX_INDEX})`);
         }
     }
 
+    /**
+     * Make a buffer for storing submesh map data. Automatically decides the
+     * most memory-efficient TypedArray for the buffer.
+     *
+     * @param triCount - The ammount of triangle that will be mapped.
+     * @param maxSubmeshTriCount - The biggest amount of triangles in the submeshes.
+     * @param maxSubmeshIdx - The biggest submesh index.
+     * @returns A new buffer for storing submesh map data.
+     */
     static makeSubmeshMapBuffer(triCount: number, maxSubmeshTriCount: number, maxSubmeshIdx: number): SubmeshMap {
         const maxNum = Math.max(maxSubmeshTriCount - 1, maxSubmeshIdx);
         if (maxNum <= 0xFF) {
@@ -252,8 +352,8 @@ export abstract class BaseManifoldWLMesh {
     }
 
     /**
-     * Sets {@link autoDispose} to true (marks as auto-disposable). Chainable
-     * method.
+     * Sets {@link MeshGroup#autoDispose} to true (marks as auto-disposable).
+     * Chainable method.
      */
     mark(): this {
         this.autoDispose = true;
@@ -262,11 +362,11 @@ export abstract class BaseManifoldWLMesh {
 
     /**
      * Transform all submeshes and the manifold by a given matrix and normal
-     * matrix.
+     * matrix. Chainable method.
      */
-    transform(matrix: mat4, normalMatrix?: mat3): void {
+    transform(matrix: mat4, normalMatrix?: mat3): this {
         if (!normalMatrix) {
-            normalMatrix = mat3.normalFromMat4(mat3.create(), matrix);
+            normalMatrix = mat3.fromMat4(mat3.create(), matrix);
         }
 
         const tmp3 = vec3.create();
@@ -321,27 +421,43 @@ export abstract class BaseManifoldWLMesh {
                 vertPos[iStart + 2] = tmp3[2];
             }
         }
+
+        return this;
     }
 
     /**
      * Translate all submeshes and the manifold by a given translation vector.
+     * Chainable method.
      */
-    translate(translation: vec3): void {
+    translate(translation: vec3): this {
         this.transform(mat4.fromTranslation(mat4.create(), translation));
+        return this;
     }
 
-    /** Scale all submeshes and the manifold by a given per-axis factor. */
-    scale(factor: vec3): void {
+    /**
+     * Scale all submeshes and the manifold by a given per-axis factor.
+     * Chainable method.
+     */
+    scale(factor: vec3): this {
         this.transform(mat4.fromScaling(mat4.create(), factor));
+        return this;
     }
 
-    /** Scale all submeshes and the manifold by a single factor. */
-    uniformScale(factor: number): void {
+    /**
+     * Scale all submeshes and the manifold by a single factor. Chainable
+     * method.
+     */
+    uniformScale(factor: number): this {
         this.transform(mat4.fromScaling(mat4.create(), vec3.fromValues(factor, factor, factor)));
+        return this;
     }
 
-    /** Rotate all submeshes and the manifold by a given quaternion. */
-    rotate(rotation: quat): void {
+    /**
+     * Rotate all submeshes and the manifold by a given quaternion. Chainable
+     * method.
+     */
+    rotate(rotation: quat): this {
         this.transform(mat4.fromQuat(mat4.create(), rotation));
+        return this;
     }
 }

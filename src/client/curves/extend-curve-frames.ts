@@ -9,7 +9,7 @@ import { CurveFrames } from './curve-frame';
  * valid, make sure to call {@link fixTangentList} to the input lists. Frames
  * and positions lists must match in length.
  *
- * @param extension How many units of length the start and end will be extended out. Defaults to 1e-7
+ * @param extension - How many units of length the start and end will be extended out. Defaults to 1e-7 (EPS)
  */
 export function extendCurveFrames(frames: CurveFrames, positions: Array<vec3>, extension = EPS): [frames: CurveFrames, positions: Array<vec3>] {
     // validate inputs

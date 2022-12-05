@@ -11,6 +11,12 @@ export class BitArray {
     buffer: ArrayBuffer;
     view: DataView;
 
+    /**
+     * Create a new BitArray which can store a given amount of bits. This will
+     * create an internal ArrayBuffer with enough bytes to store the wanted
+     * amount of bits. For example, 16 bits will allocate 2 bytes, and 17 bits
+     * will allocate 3 bytes.
+     */
     constructor(readonly bitCount: number, defaultValue = false) {
         const byteCount = Math.ceil(bitCount / 8);
         this.buffer = new ArrayBuffer(byteCount);
@@ -23,6 +29,12 @@ export class BitArray {
         }
     }
 
+    /**
+     * Set a specific bit to either 0 or 1.
+     *
+     * @param - index The bit to set. 0 references the first bit, 7 references the 8th bit...
+     * @param - value Whether to set the bit to 0 or 1. If true, then the bit is set to 1, otherwise, the bit is set to 0.
+     */
     set(index: number, value: boolean): void {
         const byteOffset = index >>> 3;
         let byte = this.view.getUint8(byteOffset);
@@ -37,12 +49,26 @@ export class BitArray {
         this.view.setUint8(byteOffset, byte);
     }
 
+    /**
+     * Get the value of a specific bit.
+     *
+     * @param - index The bit to set. 0 references the first bit, 7 references the 8th bit...
+     * @returns false is the bit is set to 0, or true if the bit is set to 1.
+     */
     get(index: number): boolean {
         const byteOffset = index >>> 3;
         const val = this.view.getUint8(byteOffset);
         return ((val >>> (index & 0b111)) & 0b1) === 1;
     }
 
+    /**
+     * Similar to calling {@link BitArray#get} and then setting the a bit with
+     * {@link BitArray#set}, but more efficient.
+     *
+     * @param index - The bit to get and set. 0 references the first bit, 7 references the 8th bit...
+     * @param value - Whether to set the bit to 0 or 1. If true, then the bit is set to 1, otherwise, the bit is set to 0.
+     * @returns false is the bit was set to 0 before the set operation, or true if the bit was set to 1 before the set operation.
+     */
     getAndSet(index: number, value: boolean): boolean {
         const byteOffset = index >>> 3;
         let byte = this.view.getUint8(byteOffset);
@@ -61,6 +87,11 @@ export class BitArray {
         return oldVal;
     }
 
+    /**
+     * Check if all the bits are set to 1.
+     *
+     * @returns Returns true if all bits are set to 1.
+     */
     isAllSet(): boolean {
         let wholeByteCount = this.buffer.byteLength;
         if (wholeByteCount === 0) {
@@ -89,6 +120,13 @@ export class BitArray {
         return true;
     }
 
+    /**
+     * Get the index of the first occurrence of a wanted value. Similar to
+     * Array.indexOf.
+     *
+     * @param value - The value to search. If true, then 1 will be searched, otherwise, then 0 will be searched.
+     * @returns Returns the first index of a bit that has the wanted value. If no bit has the wanted value, then -1 is returned.
+     */
     indexOf(value: boolean): number {
         const wholeByteCount = this.buffer.byteLength;
         if (wholeByteCount === 0) {

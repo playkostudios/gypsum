@@ -4,6 +4,7 @@ import type { CSGOperation } from './CSGOperation';
 import type { CSGPrimitive } from './CSGPrimitive';
 import type { CSGTree } from './CSGTree';
 
+/** An internal context object used for iterating CSG operation trees. */
 export type OpTreeCtx<MeshType> = { [key: string | number]: (CSGTree<MeshType> | MeshType) };
 
 function iterateOpTreeNode<MeshType>(context: OpTreeCtx<MeshType>, key: string | number, node: CSGTree<MeshType> | MeshType, handleMesh: ((context: OpTreeCtx<MeshType>, key: string | number, mesh: MeshType) => void) | null = null, handlePrimitive: ((context: OpTreeCtx<MeshType>, key: string | number, operation: CSGPrimitive) => void) | null = null, handleOperation: ((context: OpTreeCtx<MeshType>, key: string | number, operation: CSGGeometricOperation<MeshType>) => void) | null = null): void {
@@ -81,6 +82,7 @@ function iterateOpTreeNode<MeshType>(context: OpTreeCtx<MeshType>, key: string |
     }
 }
 
+/** An internal function for iterating CSG operation trees. */
 export function iterateOpTree<MeshType>(tree: CSGOperation<MeshType>, handleMesh: ((context: OpTreeCtx<MeshType>, key: string | number, mesh: MeshType) => void) | null = null, handlePrimitive: ((context: OpTreeCtx<MeshType>, key: string | number, operation: CSGPrimitive) => void) | null = null, handleOperation: ((context: OpTreeCtx<MeshType>, key: string | number, operation: CSGGeometricOperation<MeshType>) => void) | null = null, handleTopOperation: ((context: OpTreeCtx<MeshType>, key: string | number, topOperation: CSGFinalOperation<MeshType>) => void) | null = null): void {
     const context = <OpTreeCtx<MeshType>>{
         root: tree

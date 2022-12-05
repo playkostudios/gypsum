@@ -28,6 +28,16 @@ function isInInterval(index: number, start: number, end: number) {
     }
 }
 
+/**
+ * Triangulate a monotone polyline into a list of triangle vertex indices
+ * relative to the original polyline.
+ *
+ * @param polyline - The monotone polyline to triangulate.
+ * @param output - The array of indices to append results to.
+ * @param index - The index on the output array to append to.
+ * @param isClockwiseHint - Is the monotone polyline in clockwise winding order? Only for optimisation purposes.
+ * @returns A tuple containing the list of triangle indices in a similar fashion to {@link triangulate2DPolygon}, and the index past the last index that was written to the output array.
+ */
 export default function triangulateMonotone2DPolygon(polyline: Array<vec2>, output?: Array<number>, index = 0, isClockwiseHint?: boolean): [trianglesIndices: Array<number>, lastIndex: number] {
     const vertexCount = polyline.length;
 

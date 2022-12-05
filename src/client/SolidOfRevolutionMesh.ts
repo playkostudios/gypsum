@@ -2,21 +2,43 @@ import { vec2, vec3 } from 'gl-matrix';
 import { ExtrusionMesh } from './ExtrusionMesh';
 
 import type { CurveFrames } from './curves/curve-frame';
+import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
 
 const TAU = Math.PI * 2;
 
-export interface SolidOfRevolutionNoOffsetOptions {
-    smoothNormals?: boolean;
-    maxSmoothAngle?: number;
+/** Optional arguments for solids of revolution, without offsets. */
+export interface SolidOfRevolutionNoOffsetOptions extends SmoothNormalsOptions {
+    /**
+     * The number of segments around the axis of revolution in a solid of
+     * revolution.
+     */
     segments?: number;
+    /**
+     * The UV values for each slice in the solid of revolution, in the same
+     * format as extrusions.
+     */
     segmentsUVs?: [startV: number | null, endV: number | null, segmentsUs: Array<number> | null];
 }
 
+/** Optional arguments for solids of revolution, with offsets. */
 export interface SolidOfRevolutionOptions extends SolidOfRevolutionNoOffsetOptions {
+    /** The offset of the slice in a solid of revolution, in 2D space. */
     offset?: vec2;
 }
 
+/**
+ * A basic solid of revolution; a looped extrusion around an axis of revolution.
+ *
+ * @category Procedural Mesh
+ */
 export class SolidOfRevolutionMesh extends ExtrusionMesh {
+    /**
+     * Make a solid of revolution from a slice. Slices are revolved around the
+     * Y axis.
+     *
+     * @param polyline - The polyline for the slice of the solid.
+     * @param options - Optional arguments for the solid of revolution generation.
+     */
     constructor(polyline: Array<vec2>, options?: SolidOfRevolutionOptions) {
         const offset = options?.offset ?? vec2.create();
         const segments = options?.segments ?? 16;

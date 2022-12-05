@@ -1,11 +1,11 @@
 import triangulate2DPolygon from './triangulation/triangulate-2d-polygon';
-import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
+import { MeshGroup } from './MeshGroup';
 import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
 import { vec3, vec2, vec4 } from 'gl-matrix';
 import { ExtrusionMesh } from './ExtrusionMesh';
 
 import type { CurveFrame } from '../client';
-import { EdgeList, ManifoldBuilder } from './mesh-gen/ManifoldBuilder';
+import { EdgeList, MeshBuilder } from './mesh-gen/MeshBuilder';
 import { Triangle } from './mesh-gen/Triangle';
 
 const TAU = Math.PI * 2;
@@ -56,7 +56,24 @@ function makeBaseUVs(polyline: Array<vec2>, polylineLen: number, bottomBase: boo
     return baseUVs;
 }
 
-export class BasePrismoidPyramidMesh extends BaseManifoldWLMesh {
+/**
+ * A procedural mesh class that handles both prismoids and pyramids due to their
+ * similarily.
+ */
+export class BasePrismoidPyramidMesh extends MeshGroup {
+    /**
+     * Create a new prismoid/pyramid hybrid. If the mesh is a prismoid, then an
+     * extrusion will be created.
+     *
+     * @param polyline - The cross-section of the prismoid.
+     * @param bottomScale - The scale of the bottom base. If 0, then an inverted pyramid will be created.
+     * @param topScale - The scale of the top base. If 0, then a pyramid will be created.
+     * @param bottomOffset - The offset of the bottom base.
+     * @param topOffset - The offset of the top base.
+     * @param smoothNormalMaxAngle - The maximum angle for automatic smoothing. if null, then no automatic smoothing will be done.
+     * @param baseMaterial - The WL.Material to use for the base triangles.
+     * @param sideMaterial - The WL.Material to use fot the side triangles.
+     */
     constructor(polyline: Array<vec2>, bottomScale: number, topScale: number, bottomOffset: vec3, topOffset: vec3, smoothNormalMaxAngle: number | null, baseMaterial: WL.Material | null = null, sideMaterial: WL.Material | null = null) {
         // validate that there is at most one apex
         if (topScale === 0 && bottomScale === 0) {
@@ -84,7 +101,7 @@ export class BasePrismoidPyramidMesh extends BaseManifoldWLMesh {
             const hasTopApex = (topScale === 0);
             const apexPos = hasTopApex ? topOffset : bottomOffset;
             const apexTexCoords = vec2.fromValues(0.5, 0.5); // center of circle
-            const builder = new ManifoldBuilder();
+            const builder = new MeshBuilder();
 
             // make transformed base vertex positions
             const basePos = makeBase(polyline, polylineLen, hasTopApex ? bottomScale : topScale, hasTopApex ? bottomOffset : topOffset);

@@ -1,8 +1,9 @@
 import type { CSGTree } from './CSGTree';
 
-// XXX a geometric operation is an operation that returns a manifold (and
-// therefore can be chained)
-
+/**
+ * A CSG operation in a CSG operation tree that returns a manifold, and
+ * therefore can be chained.
+ */
 export type CSGGeometricOperation<MeshType> = (
     {
         operation: 'add' | 'union' | 'subtract' | 'difference' | 'intersect' | 'intersection',

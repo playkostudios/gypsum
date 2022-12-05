@@ -1,18 +1,37 @@
 import { makeIcosahedronMaterialMap } from './mesh-gen/make-icosahedron-material-map';
 import { makeIcosahedronBuilder } from './mesh-gen/make-icosahedron-builder';
-import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
+import { MeshGroup } from './MeshGroup';
 
 import type { Tuple } from './misc/Tuple';
 import type { NumRange } from './misc/NumRange';
 import type { RadialOptions } from './RadialOptions';
 
+/** Optional arguments for a procedural icosphere. */
 export interface IcosphereOptions extends RadialOptions {
+    /**
+     * The material to use for each face. Can either be an array with 20
+     * materials, or a single materials that is assigned to all faces.
+     */
     faceMaterials?: Tuple<WL.Material | null, NumRange<0, 20>> | WL.Material;
+    /** The radius of the sphere. */
     radius?: number;
+    /**
+     * Does the icosphere have an equirectangular projection? False by default.
+     */
     equirectangular?: boolean;
 }
 
-export class IcosphereMesh extends BaseManifoldWLMesh {
+/**
+ * A procedural sphere made by splitting and normalizing an icosahedron.
+ *
+ * @category Procedural Mesh
+ */
+export class IcosphereMesh extends MeshGroup {
+    /**
+     * Create a new icosphere. By default, has a radius of 0.5.
+     *
+     * @param options - Optional arguments for the sphere.
+     */
     constructor(options?: IcosphereOptions) {
         // make manifold builder populated with icosahedron triangles
         const builder = makeIcosahedronBuilder(false);

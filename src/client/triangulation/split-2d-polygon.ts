@@ -60,6 +60,14 @@ function splitPolygonTo(polyline: Array<vec2>, indices: Array<number>, diagonals
     }
 }
 
+/**
+ * Split a polyline by a list of diagonals.
+ *
+ * @param polyline - The polyline to split.
+ * @param diagonals - The diagonals to split the polyline by. For example, if a diagonal is [0, 3], then the polyline will be split into 2 polylines, where there is a new edge from the index 0 to index 3.
+ * @param output - An array to append the outputs to.
+ * @param flip - If true, then the output polylines will have their winding order flipped. False by default.
+ */
 export default function split2DPolygon(polyline: Array<vec2>, diagonals: Array<[number, number]>, output?: Array<Array<vec2>>, flip = false): Array<Array<vec2>> {
     if (!output) {
         output = [];

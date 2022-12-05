@@ -4,16 +4,35 @@ import { vec3 } from 'gl-matrix';
 import type { vec2 } from 'gl-matrix';
 import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
 
-interface PrismoidOptions extends SmoothNormalsOptions {
+/** Optional arguments for the prismoid generation. */
+export interface PrismoidOptions extends SmoothNormalsOptions {
+    /** The offset for the bottom base. */
     bottomOffset?: vec3;
+    /** The offset for the top base. */
     topOffset?: vec3;
+    /** The scale for the bottom base. */
     bottomScale?: number;
+    /** The scale for the top base. */
     topScale?: number;
+    /** The material to use for the bases. */
     baseMaterial?: WL.Material;
+    /** The material to use for the sides. */
     sideMaterial?: WL.Material;
 }
 
+/**
+ * A procedural prismoid which extrudes along the Y direction, with optional
+ * shear.
+ *
+ * @category Procedural Mesh
+ */
 export class PrismoidMesh extends BasePrismoidPyramidMesh {
+    /**
+     * Make a new prismoid.
+     *
+     * @param polyline - The polyline to use for the base.
+     * @param options - Optional arguments for the prismoid generation.
+     */
     constructor(polyline: Array<vec2>, options?: PrismoidOptions) {
         super(
             polyline,

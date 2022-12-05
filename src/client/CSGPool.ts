@@ -5,17 +5,16 @@ import { CSGOperation } from '../common/CSGOperation';
 import { iterateOpTree } from '../common/iterate-operation-tree';
 import { WorkerResponse } from '../common/WorkerResponse';
 import { vec3 } from 'gl-matrix';
-import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
+import { MeshGroup, Submesh, SubmeshMap } from './MeshGroup';
 
 import type { WorkerRequest } from '../common/WorkerRequest';
 import type { OpTreeCtx } from '../common/iterate-operation-tree';
 import type { StrippedMesh } from '../common/StrippedMesh';
 
-type MeshArr = Array<[mesh: WL.Mesh, material: WL.Material | null]>;
 type WorkerTuple = [worker: Worker, jobCount: number];
 type WorkerArray = Array<WorkerTuple>;
-type JobResult = MeshArr | boolean | number | Box | Properties | Curvature;
-type JobTuple = [resolve: (value: JobResult) => void, reject: (reason: unknown) => void, origMeshes: Array<BaseManifoldWLMesh | WL.Mesh>, workerID: number];
+type JobResult = MeshGroup | boolean | number | Box | Properties | Curvature;
+type JobTuple = [resolve: (value: JobResult) => void, reject: (reason: unknown) => void, origMeshes: Array<MeshGroup | WL.Mesh>, workerID: number];
 
 function getFromBary(vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor): [aVec: Array<number>, bVec: Array<number>, cVec: Array<number>] {
     const aOrigVal = origAccessor.get(a);
@@ -43,21 +42,33 @@ function setFromBary(i: number, vecSize: number, a: number, b: number, c: number
     buffer.set(cVec, i);
 }
 
+/**
+ * A pool of workers to use for CSG operation with Manifold.
+ */
 export class CSGPool {
     private wantedWorkerCount: number;
     private workerPath: string;
-    private libraryPath: string;
+    private manifoldPath: string;
     private workers: WorkerArray | null = null;
     private nextJobID = 0;
     private jobs = new Map<number, JobTuple>();
     private disposed = false;
 
-    constructor(workerCount: number | null = null, workerPath = 'gypsum-manifold.worker.min.js', libraryPath = 'manifold.js') {
+    /**
+     * Create a new pool of workers. Workers will only be initialized on the
+     * first CSG operation, or after calling and waiting for
+     * {@link CSGPool#initialize}.
+     *
+     * @param workerCount - The wanted amount of workers. Note that this is a target, not a requirement. If all but one worker fails to be created, no error will be thrown.
+     * @param workerPath - The path to the Gypsum<->Manifold worker script. Points to "gypsum-manifold.worker.min.js" by default.
+     * @param manifoldPath - The path to the Manifold WASM bindings library. Points to "manifold.js" by default.
+     */
+    constructor(workerCount: number | null = null, workerPath = 'gypsum-manifold.worker.min.js', manifoldPath = 'manifold.js') {
         this.wantedWorkerCount = Math.max(
             1, workerCount ?? Math.ceil(navigator.hardwareConcurrency / 2)
         );
         this.workerPath = workerPath;
-        this.libraryPath = libraryPath;
+        this.manifoldPath = manifoldPath;
     }
 
     private terminateWorkers() {
@@ -68,27 +79,32 @@ export class CSGPool {
         }
     }
 
+    /**
+     * Destroys all resources associated with this pool. All jobs assigned to
+     * this pool are rejected, and all workers assigned to this pool are
+     * terminated. Does nothing if the pool is already disposed.
+     */
     dispose() {
         this.terminateWorkers();
         this.disposed = true;
     }
 
-    private toManifoldMesh(wleMesh: BaseManifoldWLMesh | WL.Mesh): StrippedMesh {
-        if (wleMesh instanceof BaseManifoldWLMesh) {
+    private toManifoldMesh(wleMesh: MeshGroup | WL.Mesh): StrippedMesh {
+        if (wleMesh instanceof MeshGroup) {
             return wleMesh.manifoldMesh;
         } else if(wleMesh instanceof WL.Mesh) {
-            return BaseManifoldWLMesh.manifoldFromWLE(wleMesh, false);
+            return MeshGroup.manifoldFromWLE(wleMesh, false)[1];
         } else {
             return wleMesh;
         }
     }
 
-    private meshToWLEArr(mesh: StrippedMesh, meshRelation: MeshRelation, meshIDMap: Map<number, BaseManifoldWLMesh | WL.Mesh>): MeshArr {
+    private strippedMeshToMeshGroup(mesh: StrippedMesh, meshRelation: MeshRelation, meshIDMap: Map<number, MeshGroup | WL.Mesh>): MeshGroup {
         // validate triangle count
         const triCount = mesh.triVerts.length / 3;
 
         if (triCount === 0) {
-            return [];
+            return MeshGroup.makeEmpty();
         }
 
         // map triangles to materials
@@ -102,7 +118,7 @@ export class CSGPool {
             let material: WL.Material;
             let iTriOrig = iTri;
 
-            if (origMesh instanceof BaseManifoldWLMesh) {
+            if (origMesh instanceof MeshGroup) {
                 [[wleMesh, material], iTriOrig] = origMesh.getTriBarySubmesh(triBary.tri);
             } else {
                 material = null;
@@ -127,20 +143,30 @@ export class CSGPool {
             va.push([iTri, iTriOrig]);
         }
 
-        // make mesh for each vertex array
-        const meshArr: MeshArr = [];
-
+        // count biggest submesh triangle count, and triangle count for each
+        // vertex array
+        let maxSubmeshTriCount = 0;
+        const vaTriCounts = new Map<WL.Material, number>();
         for (const [material, vaMap] of vertexArrays) {
-            // count triangles in vertex array
             let vaTotalTriCount = 0;
             for (const va of vaMap.values()) {
                 vaTotalTriCount += va.length;
             }
 
+            maxSubmeshTriCount = Math.max(maxSubmeshTriCount, vaTotalTriCount);
+            vaTriCounts.set(material, vaTotalTriCount);
+        }
+
+        // make submesh for each vertex array, and make submesh map
+        const submeshes: Array<Submesh> = [];
+        const submeshMap: SubmeshMap = MeshGroup.makeSubmeshMapBuffer(triCount, maxSubmeshTriCount, Math.max(vertexArrays.size - 1, 0));
+
+        for (const [material, vaMap] of vertexArrays) {
             // make index buffer
+            const vaTotalTriCount = vaTriCounts.get(material) as number;
             const vertexCount = vaTotalTriCount * 3;
             // XXX no vertex merging
-            const [indexData, indexType] = BaseManifoldWLMesh.makeIndexBuffer(vertexCount, vertexCount);
+            const [indexData, indexType] = MeshGroup.makeIndexBuffer(vertexCount, vertexCount);
 
             for (let i = 0; i < vertexCount; i++) {
                 indexData[i] = i;
@@ -180,11 +206,12 @@ export class CSGPool {
                 colorBuffer = new Float32Array(vertexCount * 4);
             }
 
-            let j2 = 0, j3 = 0, j4 = 0;
+            const submeshIdx = submeshes.length;
+            let j = 0, j2 = 0, j3 = 0, j4 = 0;
             for (const [origMesh, va] of vaMap) {
                 const vaTriCount = va.length;
 
-                for (let i = 0; i < vaTriCount; i++, j2 += 6, j3 += 9, j4 += 12) {
+                for (let i = 0; i < vaTriCount; i++, j++, j2 += 6, j3 += 9, j4 += 12) {
                     const [triIdx, origTriIdx] = va[i];
                     const triIdxOffset = triIdx * 3;
                     const triIndices = mesh.triVerts.slice(triIdxOffset, triIdxOffset + 3);
@@ -321,6 +348,10 @@ export class CSGPool {
                     positionBuffer.set(aPosNew, j3);
                     positionBuffer.set(bPosNew, j3 + 3);
                     positionBuffer.set(cPosNew, j3 + 6);
+
+                    // update submesh map
+                    const smOffset = triIdx * 2;
+                    submeshMap.set([submeshIdx, j], smOffset);
                 }
             }
 
@@ -342,10 +373,10 @@ export class CSGPool {
                 colors.set(0, colorBuffer);
             }
 
-            meshArr.push([wleMesh, material]);
+            submeshes.push([wleMesh, material]);
         }
 
-        return meshArr;
+        return new MeshGroup(submeshes, mesh, submeshMap);
     }
 
     private async initializeSingle(displayID: number): Promise<void> {
@@ -360,7 +391,7 @@ export class CSGPool {
                         stage++;
                         worker.postMessage({
                             type: 'initialize',
-                            libraryPath: this.libraryPath
+                            libraryPath: this.manifoldPath
                         });
                     } else {
                         console.warn('Unexpected "created" message from worker. Ignored');
@@ -431,7 +462,7 @@ export class CSGPool {
 
                         if (Array.isArray(result)) {
                             const [mesh, meshRelation, meshIDMap] = result;
-                            const mappedOrigMap = new Map<number, BaseManifoldWLMesh | WL.Mesh>();
+                            const mappedOrigMap = new Map<number, MeshGroup | WL.Mesh>();
 
                             for (const [src, dst] of meshIDMap) {
                                 const orig = origMap[dst];
@@ -440,7 +471,7 @@ export class CSGPool {
                                 }
                             }
 
-                            jobResolve(this.meshToWLEArr(mesh, meshRelation, mappedOrigMap));
+                            jobResolve(this.strippedMeshToMeshGroup(mesh, meshRelation, mappedOrigMap));
                         } else {
                             jobResolve(result);
                         }
@@ -456,7 +487,7 @@ export class CSGPool {
         })
     }
 
-    private async initialize(): Promise<void> {
+    private async initializeImpl(): Promise<void> {
         if (this.disposed) {
             throw new Error('Disposed CSGPools cannot be initialized');
         }
@@ -497,22 +528,37 @@ export class CSGPool {
         return [bestWorkerIdx, bestWorker];
     }
 
-    async dispatch(operation: CSGOperation<BaseManifoldWLMesh | WL.Mesh>): Promise<JobResult> {
+    /**
+     * Initialize all the workers in this pool. Note that calling this is not
+     * neccessary, but is recommended to avoid stuttering, as this is called
+     * automatically on the first CSG operation.
+     */
+    async initialize(): Promise<void> {
+        if (this.disposed) {
+            throw new Error('Cannot initialize a disposed CSGPool');
+        }
+
+        if (!this.workers) {
+            await this.initializeImpl();
+        }
+
+        if ((this.workers as WorkerArray).length === 0) {
+            throw new Error('All workers failed to initialize');
+        }
+    }
+
+    /**
+     * Dispatch a tree of CSG operations to the best worker; first worker with
+     * the least amount of running jobs.
+     *
+     * @param operation - A tree of CSG operations to send to the worker.
+     */
+    async dispatch(operation: CSGOperation<MeshGroup | WL.Mesh>): Promise<JobResult> {
         try {
-            if (this.disposed) {
-                throw new Error('Cannot dispatch jobs to a disposed CSGPool');
-            }
-
-            if (!this.workers) {
-                await this.initialize();
-            }
-
-            if ((this.workers as WorkerArray).length === 0) {
-                throw new Error('All workers failed to initialize');
-            }
+            await this.initialize();
         } catch(e) {
-            iterateOpTree<BaseManifoldWLMesh | WL.Mesh>(operation, (_context: OpTreeCtx<BaseManifoldWLMesh | WL.Mesh>, _key: number | string, mesh: BaseManifoldWLMesh | WL.Mesh) => {
-                if (mesh instanceof BaseManifoldWLMesh && mesh.autoDispose) {
+            iterateOpTree<MeshGroup | WL.Mesh>(operation, (_context: OpTreeCtx<MeshGroup | WL.Mesh>, _key: number | string, mesh: MeshGroup | WL.Mesh) => {
+                if (mesh instanceof MeshGroup && mesh.autoDispose) {
                     mesh.dispose();
                 }
             });
@@ -520,12 +566,12 @@ export class CSGPool {
             throw e;
         }
 
-        const origMap = new Array<BaseManifoldWLMesh | WL.Mesh>();
+        const origMap = new Array<MeshGroup | WL.Mesh>();
 
         try {
             let nextMeshID = 0;
             const transfer = new Array<Transferable>();
-            iterateOpTree<BaseManifoldWLMesh | WL.Mesh>(operation, (context: OpTreeCtx<BaseManifoldWLMesh | WL.Mesh>, key: number | string, mesh: BaseManifoldWLMesh | WL.Mesh) => {
+            iterateOpTree<MeshGroup | WL.Mesh>(operation, (context: OpTreeCtx<MeshGroup | WL.Mesh>, key: number | string, mesh: MeshGroup | WL.Mesh) => {
                 // mesh
                 const converted = this.toManifoldMesh(mesh);
                 transfer.push(converted.triVerts.buffer, converted.vertPos.buffer);
@@ -546,7 +592,7 @@ export class CSGPool {
             });
         } finally {
             for (const mesh of origMap) {
-                if (mesh instanceof BaseManifoldWLMesh && mesh.autoDispose) {
+                if (mesh instanceof MeshGroup && mesh.autoDispose) {
                     mesh.dispose();
                 }
             }

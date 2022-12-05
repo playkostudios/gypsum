@@ -2,6 +2,14 @@ import { vec2 } from 'gl-matrix';
 
 const TAU = Math.PI * 2;
 
+/**
+ * Make a star polyline; a line which creates a star polygon.
+ *
+ * @param outerRadius - The radius of the star's tips.
+ * @param innerRadius - The radius of the star's middle vertices.
+ * @param sides - The amount of tips in the star.
+ * @param clockwise - Should the polyline be in clockwise order? False by default.
+ */
 export function makeStarPolyline(outerRadius: number, innerRadius: number, sides: number, clockwise = false): Array<vec2> {
     if (sides < 3) {
         throw new Error('There must be at least 3 sides in a star polyline');

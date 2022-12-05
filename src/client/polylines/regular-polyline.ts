@@ -2,6 +2,13 @@ import { vec2 } from 'gl-matrix';
 
 const TAU = Math.PI * 2;
 
+/**
+ * Make a regular polyline; a line which creates a regular polygon.
+ *
+ * @param radius - The radius of the regular polygon.
+ * @param sides - The amount of sides in the regular polygon.
+ * @param clockwise - Should the polyline be in clockwise order? False by default.
+ */
 export function makeRegularPolyline(radius: number, sides: number, clockwise = false): Array<vec2> {
     if (sides < 3) {
         throw new Error('There must be at least 3 sides in a regular polyline');

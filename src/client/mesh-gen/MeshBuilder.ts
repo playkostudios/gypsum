@@ -2,7 +2,7 @@ import { DynamicArray } from './DynamicArray';
 import { BitArray } from './BitArray';
 import { Triangle, VERTEX_STRIDE, VERTEX_TOTAL } from './Triangle';
 import { vec2, vec3, mat4, mat3, vec4 } from 'gl-matrix';
-import { BaseManifoldWLMesh, Submesh, SubmeshMap } from '../BaseManifoldWLMesh';
+import { MeshGroup, Submesh, SubmeshMap } from '../MeshGroup';
 import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';
 
@@ -83,15 +83,23 @@ function sortMaterials(materials: Iterable<WL.Material | null>, materialMap: Map
 // whether or not to generate normals and UVs, but there's nothing i can do
 // about it for now (the isAttributeAvailable feature could be hacked in, but
 // it's very ugly and i'd rather wait)
-export class ManifoldBuilder {
+
+/**
+ * A helper class for easily creating meshes, with connected triangles.
+ */
+export class MeshBuilder {
     /**
      * The list of all triangles in this manifold. Note that this array might be
      * detached from the builder and replaced with a new array. It is safe to
      * use between operations, but when doing some operations such as
-     * subDivide4, a new array will be created.
+     * {@link MeshBuilder#subDivide4}, a new array will be created.
      */
     triangles = new Array<Triangle>();
 
+    /**
+     * Get the number of triangles in this MeshBuilder. Equivalent to getting
+     * the length of {@link MeshBuilder#triangles}.
+     */
     get numTri(): number {
         return this.triangles.length;
     }
@@ -107,8 +115,8 @@ export class ManifoldBuilder {
     }
 
     /**
-     * Calls {@link autoConnectAllEdgesOfSubset} with all the triangles in this
-     * builder.
+     * Calls {@link MeshBuilder#autoConnectAllEdgesOfSubset} with all the
+     * triangles in this builder.
      */
     autoConnectAllEdges(): void {
         this.autoConnectAllEdgesOfSubset(this.triangles);
@@ -118,6 +126,8 @@ export class ManifoldBuilder {
      * Auto-connect edges of a subset of the mesh by checking the vertex
      * positions of each triangle in the subset. Already connected edges will
      * not be reconnected to other edges.
+     *
+     * @param triangles - The triangles to auto-connect. All triangles in this list are assumed to be in the MeshBuilder.
      */
     autoConnectAllEdgesOfSubset(triangles: Array<Triangle>): void {
         const triCount = triangles.length;
@@ -204,9 +214,13 @@ export class ManifoldBuilder {
     }
 
     /**
-     * Similar to {@link autoConnectAllEdgesOfSubset}, but only auto-connects a
-     * select set of edges. Edges will not replace already connected triangles.
-     * If an edge fails to auto-connect, then an error will be thrown.
+     * Similar to {@link MeshBuilder#autoConnectAllEdgesOfSubset}, but only
+     * auto-connects a select set of edges. Edges will not replace already
+     * connected triangles. If an edge fails to auto-connect, then an error will
+     * be thrown.
+     *
+     * @param edges - The list of edges to auto-connect. If an edge is not in this list, it will not be auto-connected.
+     * @param connectableTriangles - The list of triangles that the edges in the edge list are allowed to connect to. All triangles are assumed to be part of the MeshBuilder.
      */
     autoConnectEdges(edges: EdgeList, connectableTriangles: Array<Triangle>): void {
         for (const [triangle, edgeIdx] of edges) {
@@ -237,7 +251,8 @@ export class ManifoldBuilder {
     }
 
     /**
-     * Similar to {@link addTriangle}, but normals are not set (kept as 0,0,0).
+     * Similar to {@link MeshBuilder#addTriangle}, but normals are not set
+     * (kept as 0,0,0).
      */
     addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>): Triangle;
     addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, uv0: Readonly<vec2>, uv1: Readonly<vec2>, uv2: Readonly<vec2>): Triangle;
@@ -259,8 +274,8 @@ export class ManifoldBuilder {
     }
 
     /**
-     * Pushes a new triangle to the end of the {@link triangles} array. Helpers
-     * are set to their index on the triangles array.
+     * Pushes a new triangle to the end of the {@link MeshBuilder#triangles}
+     * array. Helpers are set to their index on the triangles array.
      */
     addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>): Triangle;
     addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, normal0: Readonly<vec3>, normal1: Readonly<vec3>, normal2: Readonly<vec3>): Triangle;
@@ -517,6 +532,12 @@ export class ManifoldBuilder {
         }
     }
 
+    /**
+     * Sub-divide each triangle in the MeshBuilder into 4 triangles, where the
+     * midpoints of each edge are used as the corners of the new triangles.
+     * Replaces {@link MeshBuilder#triangles} with a new array instead of
+     * modifying it in-place.
+     */
     subDivide4(): void {
         // split triangle into 4, in the same order as the original array.
         // triangles:
@@ -583,6 +604,10 @@ export class ManifoldBuilder {
         this.triangles = newTriangles;
     }
 
+    /**
+     * Normalizes each triangle in the MeshBuilder, effectively turning the mesh
+     * into a sphere.
+     */
     normalize(): void {
         for (const triangle of this.triangles) {
             triangle.normalize();
@@ -594,7 +619,7 @@ export class ManifoldBuilder {
         const triCount = triangles.length;
         // XXX this assumes the worst case; that no vertices are merged
         const indexCount = triCount * 3;
-        const [indexData, indexType] = BaseManifoldWLMesh.makeIndexBuffer(indexCount, indexCount);
+        const [indexData, indexType] = MeshGroup.makeIndexBuffer(indexCount, indexCount);
         const positions = new DynamicArray(Float32Array);
         const normals = new DynamicArray(Float32Array);
         const texCoords = new DynamicArray(Float32Array);
@@ -678,6 +703,11 @@ export class ManifoldBuilder {
         return [mesh, material];
     }
 
+    /**
+     * Check if all triangles in the MeshBuilder are connected to each-other.
+     *
+     * @return True if all triangles are conencted.
+     */
     get isConnected(): boolean {
         const visited = new BitArray(this.numTri);
         const queue: Array<number> = [0];
@@ -712,7 +742,7 @@ export class ManifoldBuilder {
     /**
      * Create a list of Wonderland Engine meshes and a manifold from the current
      * list of triangles. Helpers are expected to be set. If not, make sure to
-     * call {@link setTriangleHelpers}.
+     * call {@link MeshBuilder#setTriangleHelpers}.
      *
      * Output meshes are optimised by merging vertices with the same vertex
      * data, via indexing.
@@ -751,7 +781,7 @@ export class ManifoldBuilder {
 
             // turn groups into submeshes
             const triCount = this.numTri;
-            const submeshMap: SubmeshMap | null = generateManifold ? BaseManifoldWLMesh.makeSubmeshMapBuffer(triCount, maxSubmeshTriCount, groupedTris.size - 1) : null;
+            const submeshMap: SubmeshMap | null = generateManifold ? MeshGroup.makeSubmeshMapBuffer(triCount, maxSubmeshTriCount, groupedTris.size - 1) : null;
             let submeshIdx = 0;
 
             for (const material of sortedMaterials) {
@@ -815,6 +845,11 @@ export class ManifoldBuilder {
         }
     }
 
+    /**
+     * Translate each triangle in the MeshBuilder by a given offset.
+     *
+     * @param offset - The offset to translate by.
+     */
     translate(offset: vec3): void {
         if (offset[0] === 0 && offset[1] === 0 && offset[2] === 0) {
             return;
@@ -825,6 +860,11 @@ export class ManifoldBuilder {
         }
     }
 
+    /**
+     * Scale each triangle in the MeshBuilder by a given factor.
+     *
+     * @param factor - The factor to scale by.
+     */
     scale(factor: vec3): void {
         if (factor[0] === 1 && factor[1] === 1 && factor[2] === 1) {
             return;
@@ -835,6 +875,11 @@ export class ManifoldBuilder {
         }
     }
 
+    /**
+     * Uniformly scale each triangle in the MeshBuilder by a given factor.
+     *
+     * @param factor - The factor to scale by.
+     */
     uniformScale(factor: number): void {
         if (factor === 1) {
             return;
@@ -845,6 +890,13 @@ export class ManifoldBuilder {
         }
     }
 
+    /**
+     * Rotate each triangle in the MeshBuilder by a given rotation.
+     *
+     * @param rotation - The quaternion to rotate by.
+     * @param rotateNormal - Should the normals of each triangle be rotated? Defaults to true.
+     * @param rotateTangent - Should the tangents of each triangle be rotated? Defaults to true.
+     */
     rotate(rotation: quat, rotateNormal = true, rotateTangent = true): void {
         if (rotation[0] === 0 && rotation[1] === 0 && rotation[2] === 0 && rotation[3] === 1) {
             return;
@@ -855,13 +907,22 @@ export class ManifoldBuilder {
         }
     }
 
+    /**
+     * Transform each triangle in the MeshBuilder by a given transformation
+     * matrix.
+     *
+     * @param matrix - The transformation matrix to transform positions by.
+     * @param normalMatrix - The transformation matrix to transform normals and tangents by. Will be ignored if normals and tangents aren't transformed. If not supplied and normals or tangents are to be transformed, then it will be automatically created from the position transform matrix.
+     * @param transformNormal - Should the normals of each triangle be transformed? Defaults to true.
+     * @param transformTangent - Should the tangents of each triangle be transformed? Defaults to true.
+     */
     transform(matrix: mat4, normalMatrix?: mat3, transformNormal = true, transformTangent = true): void {
         if (mat4.exactEquals(matrix, MAT4_IDENTITY) && (!normalMatrix || mat3.exactEquals(normalMatrix, MAT3_IDENTITY))) {
             return;
         }
 
         if (!normalMatrix && (transformNormal || transformTangent)) {
-            normalMatrix = mat3.normalFromMat4(mat3.create(), matrix);
+            normalMatrix = mat3.fromMat4(mat3.create(), matrix);
         }
 
         for (const triangle of this.triangles) {
@@ -1036,11 +1097,12 @@ export class ManifoldBuilder {
      * by checking the angle between all of those triangles. Triangles that have
      * similar angles will contribute to the average normal. Triangles are
      * expected to have their helpers set. If not, make sure to call
-     * {@link setTriangleHelpers}.
+     * {@link MeshBuilder#setTriangleHelpers} (note that
+     * {@link MeshBuilder#addTriangle} already does this).
      *
-     * @param maxAngle Maximum angle, in radians, between 2 triangles for them to be considered part of the same smoothing group for a vertex
-     * @param resetNormals If true, then all vertex normals will be reset to (0,0,0) before applying the modifier
-     * @param mergeTangents Defaults to true. If true, then smoothed vertices will have their tangents merged.
+     * @param maxAngle - Maximum angle, in radians, between 2 triangles for them to be considered part of the same smoothing group for a vertex
+     * @param resetNormals - If true, then all vertex normals will be reset to (0,0,0) before applying the modifier
+     * @param mergeTangents - Defaults to true. If true, then smoothed vertices will have their tangents merged.
      */
     addSmoothNormals(maxAngle: number, resetNormals = true, mergeTangents = true) {
         // convert angle to dot product threshold
@@ -1077,6 +1139,8 @@ export class ManifoldBuilder {
     /**
      * Modify all positions on the mesh by a given function. Other vertex
      * attributes are not modified.
+     *
+     * @param transformer - The transformation function to use for warping each vertex. Should return a new position given an X, Y and Z component of the original triangle.
      */
     warpPositions(transformer: (x: number, y: number, z: number) => vec3): void {
         for (const triangle of this.triangles) {

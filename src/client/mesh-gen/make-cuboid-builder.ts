@@ -1,19 +1,28 @@
 import { vec3 } from 'gl-matrix';
-import { EdgeList, ManifoldBuilder } from './ManifoldBuilder';
+import { EdgeList, MeshBuilder } from './MeshBuilder';
 
 import type { Triangle } from './Triangle';
 import type { vec2 } from 'gl-matrix';
 import { Tuple } from '../misc/Tuple';
 
+/**
+ * A list of UVs for the corner of a cuboid's face. In order, the top-left
+ * corner UVs, top-right corner UVs, bottom-left corner UVs, and bottom-right
+ * corner UVs.
+ */
 export type CuboidFaceUVs = [tl: vec2, tr: vec2, bl: vec2, br: vec2];
+/**
+ * A world position to UV ratio to use instead of a list of UV coordinates.
+ */
 export type CuboidFaceUVPosRatio = number;
+
 type Quad = [tl: number, tr: number, bl: number, br: number, uvs: CuboidFaceUVs | CuboidFaceUVPosRatio | undefined, uSpan: number, vSpan: number, materialID: number, conEdgeMask: number, conTriMask: number];
 
 function makeUVs(uSpan: number, vSpan: number): [ tl: vec2, tr: vec2, bl: vec2, br: vec2] {
     return [ [0, vSpan], [uSpan, vSpan], [0, 0], [uSpan, 0] ];
 }
 
-function addCubeFace(builder: ManifoldBuilder, edgeList: EdgeList, connectableTriangles: Array<Triangle>, corners: Array<vec3>, quad: Quad, addTangents: boolean, subDivisions: number): WL.Mesh {
+function addCubeFace(builder: MeshBuilder, edgeList: EdgeList, connectableTriangles: Array<Triangle>, corners: Array<vec3>, quad: Quad, addTangents: boolean, subDivisions: number): WL.Mesh {
     // resolve actual uv values
     let finalUVs: CuboidFaceUVs | undefined | Tuple<undefined, 4> = undefined;
     const uvs = quad[4];
@@ -48,7 +57,31 @@ function addCubeFace(builder: ManifoldBuilder, edgeList: EdgeList, connectableTr
     builder.addSubdivQuadWithEdges(edgeList, connectableTriangles, quad[8], quad[9], tlPos, trPos, blPos, brPos, quad[7], addTangents, subDivisions, ...finalUVs);
 }
 
-export function makeCuboidBuilder(subDivisions: number, width: number, height: number, depth: number, center: boolean, addTangents = true, leftUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, rightUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, downUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio): ManifoldBuilder {
+/**
+ * Create a new MeshBuilder with the triangles and topology of a sub-divided
+ * cuboid. Triangle material IDs:
+ * 0: left
+ * 1: right
+ * 2: down
+ * 3: up
+ * 4: back
+ * 5: front
+ *
+ * @param subDivisions - The amount of sub-divisions per face. For example, 1 sub-division means that there are only 2 triangles per face, but 2 sub-divisions means that there are 8 triangles per face.
+ * @param width - The width (X length) of the cuboid.
+ * @param height - The height (Y length) of the cuboid.
+ * @param depth - The depth (Z length) of the cuboid.
+ * @param center - If true, then the cuboid will have its center of mass at (0, 0, 0), otherwise, the cuboid will have a corner at (0, 0, 0), and another corner at (width, height, depth).
+ * @param addTangents - If true (default), then tangents will be added to each triangle's vertices. Useful if you want to avoid generating tangents for optimisation purposes.
+ * @param leftUVs - UVs for the left (-X) face.
+ * @param rightUVs - UVs for the right (+X) face.
+ * @param downUVs - UVs for the down (-Y) face.
+ * @param upUVs - UVs for the up (+Y) face.
+ * @param backUVs - UVs for the back (-Z) face.
+ * @param frontUVs - UVs for the front (+Z) face.
+ * @returns A new MeshBuilder instance with the triangles and topology of a sub-divided cuboid.
+ */
+export function makeCuboidBuilder(subDivisions: number, width: number, height: number, depth: number, center: boolean, addTangents = true, leftUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, rightUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, downUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio): MeshBuilder {
     // make corners
     const right = center ? (width / 2) : width;
     const left = center ? -right : 0;
@@ -81,7 +114,7 @@ export function makeCuboidBuilder(subDivisions: number, width: number, height: n
     // add faces
     const edgeList: EdgeList = [];
     const connectableTriangles: Array<Triangle> = [];
-    const builder = new ManifoldBuilder();
+    const builder = new MeshBuilder();
     for (const face of faces) {
         addCubeFace(builder, edgeList, connectableTriangles, corners, face, addTangents, subDivisions);
     }

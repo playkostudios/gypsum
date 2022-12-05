@@ -63,7 +63,15 @@ function getLeftEdge(polyline: Array<vec2>, status: Set<number>, vertexCount: nu
     return leftEdge;
 }
 
-export default function partition2DPolygon(polyline: Array<vec2>, output?: Array<Array<vec2>>, isClockwiseHint?: boolean) {
+/**
+ * Paritition a 2D polyline into a list of monotone 2D polylines.
+ *
+ * @param polyline - The polyline to partition.
+ * @param output - An array to append the output to.
+ * @param isClockwiseHint - Is the input polyline in the clockwise winding order? For optimisation purposes only, avoids re-checking.
+ * @returns A list of polylines, where each polyline in the list is a monotone partition of the input polyline.
+ */
+export default function partition2DPolygon(polyline: Array<vec2>, output?: Array<Array<vec2>>, isClockwiseHint?: boolean): Array<Array<vec2>> {
     // using monotone polygon partitioning algorithm from a book:
     // Computational Geometry: Algorithms and Applications (second edition,
     // section 3.2), by Mark de Berg, Marc van Krefeld, and Mark Overmars

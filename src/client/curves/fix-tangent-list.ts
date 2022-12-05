@@ -4,6 +4,9 @@ import { vec3 } from 'gl-matrix';
  * Try to fix a list of tangents that will be fed to a curve frame generator,
  * in-place. Each tangent is normalized, and zero-length tangents are replaced
  * by the nearest tangent.
+ *
+ * @param tangents - A list of curve tangents (direction of the curve).
+ * @returns A new list of curve tangents without any invalid tangents.
  */
 export function fixTangentList(tangents: Array<vec3>): Array<vec3> {
     const tangentCount = tangents.length;

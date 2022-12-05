@@ -4,7 +4,18 @@ import { vec3 } from 'gl-matrix';
 import type { vec2 } from 'gl-matrix';
 import type { PrismPyramidOptions } from './PrismPyramidOptions';
 
+/**
+ * A procedural pyramid.
+ *
+ * @category Procedural Mesh
+ */
 export class PyramidMesh extends BasePrismoidPyramidMesh {
+    /**
+     * Make a new pyramid.
+     *
+     * @param polyline - Polyline used for the pyramid's base.
+     * @param options - Optional arguments for the pyramid generation.
+     */
     constructor(polyline: Array<vec2>, options?: PrismPyramidOptions) {
         super(
             polyline,

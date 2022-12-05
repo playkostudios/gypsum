@@ -3,6 +3,10 @@
 // XXX initially this used murmurhash, but there was a 100% collision rate when
 // not using uvs because having 0 as an input ruins murmurhash. now everything
 // is just xor'ed together
+
+/**
+ * A helper class which hashes vertices to check for uniqueness.
+ */
 export default class VertexHasher {
     buckets = new Map<number, [Array<Float32Array>, Array<number>]>;
     readonly byteLength: number;

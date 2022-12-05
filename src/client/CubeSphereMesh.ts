@@ -1,26 +1,41 @@
 import { makeCuboidBuilder } from './mesh-gen/make-cuboid-builder';
-import { BaseManifoldWLMesh } from './BaseManifoldWLMesh';
+import { MeshGroup } from './MeshGroup';
 import { vec3 } from 'gl-matrix';
 import { makeCuboidMaterialMap } from './mesh-gen/make-cuboid-material-map';
 
 import type { CuboidFaceUVPosRatio, CuboidFaceUVs } from './mesh-gen/make-cuboid-builder';
 import type { RadialOptions } from './RadialOptions';
 import type { vec2 } from 'gl-matrix';
-import type { ManifoldBuilder } from './mesh-gen/ManifoldBuilder';
+import type { MeshBuilder } from './mesh-gen/MeshBuilder';
 import type { CuboidMaterialOptions } from './RectangularCuboidMesh';
 
 const THIRD = 1 / 3;
 const NO_UVS: [vec2, vec2, vec2, vec2] = [[0,0],[0,0],[0,0],[0,0]];
 
+/** Optional arguments for a procedural cube sphere. */
 type CubeSphereOptions = RadialOptions & ({
+    /**
+     * Does the cube sphere have an equirectangular projection? False by
+     * default.
+     */
     equirectangular: true;
 } | {
+    /**
+     * Does the cube sphere have an equirectangular projection? False by
+     * default.
+     */
     equirectangular?: false;
+    /** The UVs for the left (-X) face. */
     leftUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+    /** The UVs for the right (+X) face. */
     rightUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+    /** The UVs for the down (-Y) face. */
     downUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+    /** The UVs for the up (+Y) face. */
     upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+    /** The UVs for the back (-Z) face. */
     backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
+    /** The UVs for the front (+Z) face. */
     frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio;
 }) & CuboidMaterialOptions;
 
@@ -43,13 +58,23 @@ function mapCubeToSphere(x: number, y: number, z: number): vec3 {
 
 export { CubeSphereOptions };
 
-export class CubeSphereMesh extends BaseManifoldWLMesh {
+/**
+ * A procedural sphere made by spherifying (not by normalizing) a cube.
+ *
+ * @category Procedural Mesh
+ */
+export class CubeSphereMesh extends MeshGroup {
+    /**
+     * Create a new cube sphere. By default, has a radius of 0.5.
+     *
+     * @param options - Optional arguments for the sphere.
+     */
     constructor(options?: CubeSphereOptions) {
         const subDivs = options?.subDivisions ?? 12;
         const radius = options?.radius ?? 0.5;
         const diameter = radius * 2;
 
-        let builder: ManifoldBuilder;
+        let builder: MeshBuilder;
         if (options?.equirectangular) {
             builder = makeCuboidBuilder(
                 subDivs, diameter, diameter, diameter, true, false,

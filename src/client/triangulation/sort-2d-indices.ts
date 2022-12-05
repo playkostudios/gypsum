@@ -1,5 +1,11 @@
 import type { vec2 } from 'gl-matrix';
 
+/**
+ * Sort the indices of a 2D polyline.
+ *
+ * @param polyline - The 2D polyline to sort.
+ * @returns A list of indices for the polyline, where each point goes from left to right, and bottom to top.
+ */
 export default function sort2DIndices(polyline: Array<vec2>): Array<number> {
     const indices = Array.from({ length: polyline.length }, (_, i) => i);
     indices.sort((aIdx, bIdx) => {

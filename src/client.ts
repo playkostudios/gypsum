@@ -3,16 +3,18 @@ export * from './client/curves/extend-curve-frames';
 export * from './client/curves/fix-tangent-list';
 export * from './client/curves/make-rotation-minimizing-frames';
 
-export * from './client/mesh-gen/ManifoldBuilder';
+export * from './client/mesh-gen/clone-mesh';
+export { CuboidFaceUVs, CuboidFaceUVPosRatio } from './client/mesh-gen/make-cuboid-builder';
+export * from './client/mesh-gen/MeshBuilder';
 export * from './client/mesh-gen/normal-from-triangle';
 export * from './client/mesh-gen/Triangle';
 
 export * from './client/misc/EPS';
 
 export * from './client/polylines/circle-polyline';
-export * from './client/polylines/cube-polyline';
 export * from './client/polylines/rectangle-polyline';
 export * from './client/polylines/regular-polyline';
+export * from './client/polylines/square-polyline';
 export * from './client/polylines/star-polyline';
 
 export * from './client/triangulation/is-clockwise-2d-polygon';
@@ -23,7 +25,6 @@ export * from './client/triangulation/split-2d-polygon';
 export * from './client/triangulation/triangulate-2d-polygon';
 export * from './client/triangulation/triangulate-monotone-2d-polygon';
 
-export * from './client/BaseManifoldWLMesh';
 export * from './client/BasePrismoidPyramidMesh';
 export * from './client/ConeMesh';
 export * from './client/CSGPool';
@@ -35,13 +36,20 @@ export * from './client/FrustumMesh';
 export * from './client/IcosahedronMesh';
 export * from './client/IcosphereMesh';
 export * from './client/LinearExtrusionMesh';
-export * from './client/ManifoldWLMesh';
+export * from './client/MeshGroup';
 export * from './client/PrismMesh';
 export * from './client/PrismoidMesh';
 export * from './client/PrismPyramidOptions';
 export * from './client/PyramidMesh';
+export * from './client/RadialOptions';
 export * from './client/RectangularCuboidMesh';
 export * from './client/SmoothNormalsOptions';
 export * from './client/SolidOfRevolutionMesh';
 export * from './client/TorusMesh';
 export * from './client/UVSphereMesh';
+
+export * from './common/CSGFinalOperation';
+export * from './common/CSGGeometricOperation';
+export * from './common/CSGOperation';
+export * from './common/CSGPrimitive';
+export * from './common/CSGTree';

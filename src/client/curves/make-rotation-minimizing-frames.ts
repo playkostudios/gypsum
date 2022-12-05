@@ -9,14 +9,29 @@ const tv2 = vec3.create();
 
 import type { CurveFrames } from './curve-frame';
 
+/**
+ * Optional arguments for rotation minimizing curve generation.
+ */
 export interface RMFOptions {
-    // end boundary condition for the RMF curve; the up direction at the end of
-    // the curve
+    /**
+     * End boundary condition for the RMF curve; the up direction at the end of
+     * the curve.
+     */
     endNormal?: vec3;
-    // how many twists should be added to the curve. 0 by default
+    /** How many twists should be added to the curve. 0 by default. */
     twists?: number;
 }
 
+/**
+ * Generate a list of rotation-minimizing CurveFrames from a given list of
+ * curve points, curve tangents and a starting normal.
+ *
+ * @param positions - The list of points in the curve.
+ * @param tangents - The list of tangents (directions) in the curve, as normalized vectors.
+ * @param startNormal - The starting normal (up direction) of the curve.
+ * @param options - Optional arguments object.
+ * @returns A list of rotation-minimizing curve frames.
+ */
 export function makeRotationMinimizingFrames(positions: Array<vec3>, tangents: Array<vec3>, startNormal: vec3, options?: RMFOptions): CurveFrames {
     // XXX startNormal should be a unit vector pointing up, or if the start is
     // rotated, then the rotated up unit vector
