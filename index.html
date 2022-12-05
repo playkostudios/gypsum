@@ -1,0 +1,442 @@
+<!DOCTYPE html><html class="default" lang="en"><head><meta charSet="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>gypsum-mesh</title><meta name="description" content="Documentation for gypsum-mesh"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="assets/style.css"/><link rel="stylesheet" href="assets/highlight.css"/><script async src="assets/search.js" id="search-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os"</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container">
+<div class="table-cell" id="tsd-search" data-base=".">
+<div class="field"><label for="tsd-search-field" class="tsd-widget tsd-toolbar-icon search no-caption"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M15.7824 13.833L12.6666 10.7177C12.5259 10.5771 12.3353 10.499 12.1353 10.499H11.6259C12.4884 9.39596 13.001 8.00859 13.001 6.49937C13.001 2.90909 10.0914 0 6.50048 0C2.90959 0 0 2.90909 0 6.49937C0 10.0896 2.90959 12.9987 6.50048 12.9987C8.00996 12.9987 9.39756 12.4863 10.5008 11.6239V12.1332C10.5008 12.3332 10.5789 12.5238 10.7195 12.6644L13.8354 15.7797C14.1292 16.0734 14.6042 16.0734 14.8948 15.7797L15.7793 14.8954C16.0731 14.6017 16.0731 14.1267 15.7824 13.833ZM6.50048 10.499C4.29094 10.499 2.50018 8.71165 2.50018 6.49937C2.50018 4.29021 4.28781 2.49976 6.50048 2.49976C8.71001 2.49976 10.5008 4.28708 10.5008 6.49937C10.5008 8.70852 8.71314 10.499 6.50048 10.499Z" fill="var(--color-text)"></path></svg></label><input type="text" id="tsd-search-field" aria-label="Search"/></div>
+<div class="field">
+<div id="tsd-toolbar-links"></div></div>
+<ul class="results">
+<li class="state loading">Preparing search index...</li>
+<li class="state failure">The search index is not available</li></ul><a href="index.html" class="title">gypsum-mesh</a></div>
+<div class="table-cell" id="tsd-widgets"><a href="#" class="tsd-widget tsd-toolbar-icon menu no-caption" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="2" fill="var(--color-text)"></rect><rect x="1" y="7" width="14" height="2" fill="var(--color-text)"></rect><rect x="1" y="11" width="14" height="2" fill="var(--color-text)"></rect></svg></a></div></div></header>
+<div class="container container-main">
+<div class="col-8 col-content">
+<div class="tsd-page-title">
+<h2>gypsum-mesh</h2></div>
+<div class="tsd-panel tsd-typography">
+<a href="#gypsum" id="gypsum" style="color: inherit; text-decoration: none;">
+  <h1>Gypsum</h1>
+</a>
+<p>A procedural mesh generation library for
+<a href="https://wonderlandengine.com/">Wonderland Engine</a>, with support for
+asynchronous Constructive Solid Geometry powered by
+<a href="https://github.com/elalish/manifold/">Manifold</a>.</p>
+
+<a href="#features" id="features" style="color: inherit; text-decoration: none;">
+  <h2>Features</h2>
+</a>
+<ul>
+<li>Multiple materials in a single manifold</li>
+<li>Automatic vertex indexing</li>
+<li>Procedural vertex normals (hard and smooth)<ul>
+<li>Automatic mesh smoothing with configurable smoothing angles is also included, which uses vertex normals weighted by triangle surface area</li>
+</ul>
+</li>
+<li>Procedural vertex tangents - required for normal mapping</li>
+<li>Procedural texture wrapping</li>
+<li>Primitive solids:<ul>
+<li>Cuboids</li>
+<li>Icosahedra</li>
+<li>Spheres (icospheres, cube spheres, UV spheres, approximate equirectangular projections)</li>
+<li>Pyramids and prismoids (pyramids, cones, frusta, cylinders, prisms, including with user-provided polylines)</li>
+<li>Basic solids of revolution (tori, including solids of revolution with user-provided polylines)</li>
+<li>Extrusions (linear or with curve frames, including with rotation minimizing frames)</li>
+</ul>
+</li>
+<li>Asynchronous CSG operations<ul>
+<li>A pool of instances of the Manifold library is created; multiple CSG operations can be done in parallel. Pool size is configurable</li>
+<li>Both primitive solids and user-provided meshes (with limitations) are supported</li>
+</ul>
+</li>
+</ul>
+
+<a href="#limitations" id="limitations" style="color: inherit; text-decoration: none;">
+  <h2>Limitations</h2>
+</a>
+<ul>
+<li>Skinned meshes are not supported. Vertex attributes related to skinning are ignored</li>
+<li>Meshes used for CSG operations must be 2-manifold. All procedural mesh generators make 2-manifold geometry, but user-provided meshes might not be 2-manifold</li>
+<li>Automatic manifold generation from user-provided meshes can&#39;t deal with singularities and shared edges</li>
+<li>No direct access to the Manifold library due to it being in a separate worker - CSG operations can be batched and sent as a tree of operations to mitigate this issue</li>
+<li>Equirectangular projections will always have artifacts near the poles because custom shaders are needed for proper equirectangular projections</li>
+<li>Extrusions can&#39;t self-intersect if they are used for CSG operations</li>
+<li>Solids of revolution can&#39;t have a polyline that comes before the middle, touches the middle, or has holes. For now, only torus-like solids of revolution are supported</li>
+<li>Extrusions can&#39;t have holes for the slice&#39;s polyline. Add them later with CSG operations</li>
+<li>Some UVs have zigzag artifacts. The only way to fix this is to use projective UVs, which require custom shaders and have 3 components (UVW) instead of 2 (UV)</li>
+</ul>
+
+<a href="#current-known-bugs" id="current-known-bugs" style="color: inherit; text-decoration: none;">
+  <h2>Current known bugs</h2>
+</a>
+<ul>
+<li>Normals and tangents aren&#39;t transformed properly by CSG operations<ul>
+<li><a href="https://github.com/elalish/manifold/issues/282">Waiting for an external API change to fix this</a></li>
+<li>In the meantime, the input meshes could be transformed before doing a CSG operation with them</li>
+</ul>
+</li>
+<li>Looped extrusions don&#39;t connect properly if bases have different scales</li>
+</ul>
+
+<a href="#table-of-contents" id="table-of-contents" style="color: inherit; text-decoration: none;">
+  <h1>Table of contents</h1>
+</a>
+<ul>
+<li><a href="#installing">Installing</a></li>
+<li><a href="#building">Building</a></li>
+<li><a href="#usage">Usage</a><ul>
+<li><a href="#example">Example</a></li>
+<li><a href="#api-documentation">API documentation</a></li>
+<li><a href="#procedural-meshes">Procedural meshes</a><ul>
+<li><a href="#getting-submeshes">Getting submeshes</a></li>
+<li><a href="#applying-transformations">Applying transformations</a></li>
+<li><a href="#making-procedural-meshes">Making procedural meshes</a></li>
+<li><a href="#creating-meshgroups-from-user-provided-meshes">Creating MeshGroups from user-provided meshes</a></li>
+<li><a href="#memory-management">Memory management</a></li>
+</ul>
+</li>
+<li><a href="#csg-operations">CSG operations</a></li>
+</ul>
+</li>
+<li><a href="#contributing">Contributing</a></li>
+<li><a href="#future-work">Future work</a></li>
+<li><a href="#credits">Credits</a></li>
+</ul>
+
+<a href="#installing" id="installing" style="color: inherit; text-decoration: none;">
+  <h1>Installing</h1>
+</a>
+<p>TODO upload new build, publish npm package</p>
+
+<a href="#building" id="building" style="color: inherit; text-decoration: none;">
+  <h1>Building</h1>
+</a>
+<pre><code class="language-sh"><span class="hl-0">npm install</span><br/><span class="hl-0">npm run build</span>
+</code></pre>
+<p>Builds will be placed in the <code>dist</code> directory.</p>
+<p>Note that, for now, this project uses a custom build of the Manifold WebAssembly
+bindings, which can be found
+<a href="https://github.com/playkostudios/manifold/tree/package">here</a>. Once version 2
+of the Manifold bindings is released, the official build will be used.</p>
+
+<a href="#usage" id="usage" style="color: inherit; text-decoration: none;">
+  <h1>Usage</h1>
+</a>
+
+<a href="#example" id="example" style="color: inherit; text-decoration: none;">
+  <h2>Example</h2>
+</a>
+<p>An example Wonderland Engine project can be found on a
+<a href="https://github.com/playkostudios/gypsum-example">different respository</a></p>
+
+<a href="#api-documentation" id="api-documentation" style="color: inherit; text-decoration: none;">
+  <h2>API documentation</h2>
+</a>
+<p>TODO finish docstrings, add github pages, add link to documentation</p>
+
+<a href="#procedural-meshes" id="procedural-meshes" style="color: inherit; text-decoration: none;">
+  <h2>Procedural meshes</h2>
+</a>
+<p>Procedural meshes don&#39;t use the WL.Mesh class. Instead, they use their own class
+(<code>MeshGroup</code>) which contains a list of WL.Mesh and WL.Material pairs
+(submeshes), so that a single procedural mesh can have multiple materials.
+Procedural meshes also have utilities for applying transformations.</p>
+
+<a href="#getting-submeshes" id="getting-submeshes" style="color: inherit; text-decoration: none;">
+  <h3>Getting submeshes</h3>
+</a>
+<p>To get the submeshes of a procedural mesh <code>procMesh</code>, call
+<code>procMesh.getSubmeshes()</code>. This will return a list of submeshes, where each
+submesh is a pair of WL.Mesh and WL.Material instances. Note that if no material
+is provided for a submesh, then the material will be null, so make sure to
+either always specify a material, or to have a fallback material ready.</p>
+<p>Getting the submeshes is necessary for rendering the procedural mesh:</p>
+<pre><code class="language-js"><span class="hl-1">for</span><span class="hl-0"> (</span><span class="hl-2">const</span><span class="hl-0"> [</span><span class="hl-3">mesh</span><span class="hl-0">, </span><span class="hl-3">material</span><span class="hl-0">] </span><span class="hl-2">of</span><span class="hl-0"> </span><span class="hl-4">procMesh</span><span class="hl-0">.</span><span class="hl-5">getSubmeshes</span><span class="hl-0">()) {</span><br/><span class="hl-0">    </span><span class="hl-2">this</span><span class="hl-0">.</span><span class="hl-4">object</span><span class="hl-0">.</span><span class="hl-5">addComponent</span><span class="hl-0">(</span><span class="hl-6">&#39;mesh&#39;</span><span class="hl-0">, {</span><br/><span class="hl-0">        </span><span class="hl-4">mesh</span><span class="hl-0">,</span><br/><span class="hl-0">        </span><span class="hl-4">material:</span><span class="hl-0"> </span><span class="hl-4">material</span><span class="hl-0"> ?? </span><span class="hl-4">fallbackMaterial</span><br/><span class="hl-0">    });</span><br/><span class="hl-0">}</span>
+</code></pre>
+
+<a href="#applying-transformations" id="applying-transformations" style="color: inherit; text-decoration: none;">
+  <h3>Applying transformations</h3>
+</a>
+<p>A procedural mesh <code>procMesh</code> can be translated (<code>translate</code> method), scaled
+(<code>scale</code> and <code>uniformScale</code> methods) and rotated (<code>rotate</code> method). A
+<code>gl-matrix</code> transformation matrix can also be applied to a procedural mesh by
+calling the <code>transform</code> method.</p>
+<p>For example, this rotates a procedural mesh by 45 degrees around the Y axis:</p>
+<pre><code class="language-js"><span class="hl-4">procMesh</span><span class="hl-0">.</span><span class="hl-5">rotate</span><span class="hl-0">(</span><span class="hl-4">quat</span><span class="hl-0">.</span><span class="hl-5">fromEuler</span><span class="hl-0">(</span><span class="hl-4">quat</span><span class="hl-0">.</span><span class="hl-5">create</span><span class="hl-0">(), </span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">45</span><span class="hl-0"> ,</span><span class="hl-7">0</span><span class="hl-0">));</span>
+</code></pre>
+<p>Transformation methods are chainable.</p>
+
+<a href="#making-procedural-meshes" id="making-procedural-meshes" style="color: inherit; text-decoration: none;">
+  <h3>Making procedural meshes</h3>
+</a>
+<p>All procedural meshes are implemented as subclasses of the <code>MeshGroup</code> class. To
+make a new procedural mesh, simply instantiate a subclass. The constructor
+arguments usually have 1 or more required argument, and all optional arguments
+are passed in an options object which can be omitted.</p>
+<p>For example, a 1x1x1 cube can be created by creating a new <code>CubeMesh</code> instance:</p>
+<pre><code class="language-js"><span class="hl-2">const</span><span class="hl-0"> </span><span class="hl-3">procMesh</span><span class="hl-0"> = </span><span class="hl-2">new</span><span class="hl-0"> </span><span class="hl-5">CubeMesh</span><span class="hl-0">(</span><span class="hl-7">1</span><span class="hl-0">);</span>
+</code></pre>
+<p>However, more options can be passed via an options object. For example, in this
+6x6x6 cube, the cube is not centered unlike before, each face has a separate
+material, and the UVs for each face are set to each UV corner:</p>
+<pre><code class="language-js"><span class="hl-2">const</span><span class="hl-0"> </span><span class="hl-3">procMesh</span><span class="hl-0"> = </span><span class="hl-2">new</span><span class="hl-0"> </span><span class="hl-5">CubeMesh</span><span class="hl-0">(</span><span class="hl-7">6</span><span class="hl-0">, {</span><br/><span class="hl-0">  </span><span class="hl-4">center:</span><span class="hl-0"> </span><span class="hl-2">false</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-8">// supply WL.Material instances for the following properties:</span><br/><span class="hl-0">  </span><span class="hl-8">// instead of a separate material for each side, `material` can also be passed to set all sides</span><br/><span class="hl-0">  </span><span class="hl-4">leftMaterial:</span><span class="hl-0"> </span><span class="hl-2">this</span><span class="hl-0">.</span><span class="hl-4">leftMaterial</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-4">rightMaterial:</span><span class="hl-0"> </span><span class="hl-2">this</span><span class="hl-0">.</span><span class="hl-4">rightMaterial</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-4">downMaterial:</span><span class="hl-0"> </span><span class="hl-2">this</span><span class="hl-0">.</span><span class="hl-4">downMaterial</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-4">upMaterial:</span><span class="hl-0"> </span><span class="hl-2">this</span><span class="hl-0">.</span><span class="hl-4">upMaterial</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-4">backMaterial:</span><span class="hl-0"> </span><span class="hl-2">this</span><span class="hl-0">.</span><span class="hl-4">backMaterial</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-4">frontMaterial:</span><span class="hl-0"> </span><span class="hl-2">this</span><span class="hl-0">.</span><span class="hl-4">frontMaterial</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-8">// supply UV coordinates for the top-left, top-right, bottom-left and bottom-right corners of a face by passing the following properties:</span><br/><span class="hl-0">  </span><span class="hl-8">// a position-to-UV ratio can also be provided instead of an array of UVs</span><br/><span class="hl-0">  </span><span class="hl-4">leftUVs:</span><span class="hl-0"> [[</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">]],</span><br/><span class="hl-0">  </span><span class="hl-4">rightUVs:</span><span class="hl-0"> [[</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">]],</span><br/><span class="hl-0">  </span><span class="hl-4">downUVs:</span><span class="hl-0"> [[</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">]],</span><br/><span class="hl-0">  </span><span class="hl-4">upUVs:</span><span class="hl-0"> [[</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">]],</span><br/><span class="hl-0">  </span><span class="hl-4">backUVs:</span><span class="hl-0"> [[</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">]],</span><br/><span class="hl-0">  </span><span class="hl-4">frontUVs:</span><span class="hl-0"> [[</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">1</span><span class="hl-0">], [</span><span class="hl-7">0</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">], [</span><span class="hl-7">1</span><span class="hl-0">, </span><span class="hl-7">0</span><span class="hl-0">]],</span><br/><span class="hl-0">});</span>
+</code></pre>
+<p>A list of all procedural mesh classes can be found in the API documentation, in
+the <code>Procedural Mesh</code> category.</p>
+<p>Currently, the following procedural meshes are available:</p>
+<ul>
+<li>Cuboids:<ul>
+<li>Cube</li>
+<li>Rectangular cuboid</li>
+</ul>
+</li>
+<li>Extrusions:<ul>
+<li>Curve extrusion</li>
+<li>Linear extrusion</li>
+<li>Solid of revolution</li>
+</ul>
+</li>
+<li>Icosahedron</li>
+<li>Prismoids:<ul>
+<li>Cylinder</li>
+<li>Frustum</li>
+<li>Prism</li>
+<li>Prismoid</li>
+</ul>
+</li>
+<li>Pyramids:<ul>
+<li>Cone</li>
+<li>Pyramid</li>
+</ul>
+</li>
+<li>Spheres:<ul>
+<li>Cube sphere</li>
+<li>Icosphere</li>
+<li>UV sphere</li>
+</ul>
+</li>
+<li>Torus</li>
+</ul>
+
+<a href="#creating-meshgroups-from-user-provided-meshes" id="creating-meshgroups-from-user-provided-meshes" style="color: inherit; text-decoration: none;">
+  <h3>Creating MeshGroups from user-provided meshes</h3>
+</a>
+<p>User-provided meshes (as WL.Mesh instances) can be converted to <code>MeshGroup</code>
+instances if you need to trasform them:</p>
+<pre><code class="language-js"><span class="hl-8">// with material</span><br/><span class="hl-2">const</span><span class="hl-0"> </span><span class="hl-3">procMesh</span><span class="hl-0"> = </span><span class="hl-4">MeshGroup</span><span class="hl-0">.</span><span class="hl-5">fromWLEMesh</span><span class="hl-0">(</span><span class="hl-4">mesh</span><span class="hl-0">, </span><span class="hl-4">material</span><span class="hl-0">);</span><br/><span class="hl-8">// ... or without material (material will be null)</span><br/><span class="hl-8">// const procMesh = MeshGroup.fromWLEMesh(mesh);</span><br/><br/><span class="hl-8">// apply transformation to mesh group</span><br/><span class="hl-4">procMesh</span><span class="hl-0">.</span><span class="hl-5">uniformScale</span><span class="hl-0">(</span><span class="hl-7">0.01</span><span class="hl-0">);</span>
+</code></pre>
+<p>The constructor can also be used if you want to make a <code>MeshGroup</code> consisting of
+multiple user-provided meshes. In this case, a list of submeshes (mesh and
+material pairs) must be supplied:</p>
+<pre><code class="language-js"><span class="hl-2">const</span><span class="hl-0"> </span><span class="hl-3">procMesh</span><span class="hl-0"> = </span><span class="hl-2">new</span><span class="hl-0"> </span><span class="hl-5">MeshGroup</span><span class="hl-0">([</span><br/><span class="hl-0">  [</span><span class="hl-4">firstMesh</span><span class="hl-0">, </span><span class="hl-4">firstMaterial</span><span class="hl-0">],</span><br/><span class="hl-0">  [</span><span class="hl-4">secondMesh</span><span class="hl-0">, </span><span class="hl-2">null</span><span class="hl-0">], </span><span class="hl-8">// second mesh has no material, null must be passed</span><br/><span class="hl-0">  [</span><span class="hl-4">thirdMesh</span><span class="hl-0">, </span><span class="hl-4">thirdMaterial</span><span class="hl-0">],</span><br/><span class="hl-0">]);</span><br/><br/><span class="hl-8">// apply transformation to mesh group</span><br/><span class="hl-4">procMesh</span><span class="hl-0">.</span><span class="hl-5">uniformScale</span><span class="hl-0">(</span><span class="hl-7">0.01</span><span class="hl-0">);</span>
+</code></pre>
+<p>Note that creating <code>MeshGroup</code> instances with user-provided meshes can fail if
+the meshes are used for CSG operations. This is because there is no connectivity
+information in the meshes, so the connectivity between triangles must be
+guessed. Currently, a naive algorithm based on vertex distance is used for
+guessing connectivity, but this fails if singularities exist, or if there are
+shared edges between more than 2 triangles.</p>
+<p>Note that transforming <code>MeshGroup</code> instances created from user-provided meshes
+<strong>will modify the original meshes in-place</strong>. If you want to keep the original
+mesh intact, then pass a clone of the original mesh to the <code>MeshGroup</code>, instead
+of using the original mesh. A mesh clone function is available in the library
+(<code>cloneMesh</code>), but note that it does not copy skinning data.</p>
+
+<a href="#memory-management" id="memory-management" style="color: inherit; text-decoration: none;">
+  <h3>Memory management</h3>
+</a>
+<p>Procedural meshes create new <code>WL.Mesh</code> instances used for the submeshes of a
+<code>MeshGroup</code>. <code>WL.Mesh</code> instances are not automatically destroyed, as they are an
+engine resource, and therefore aren&#39;t garbage-collected.</p>
+<p>If you are creating a procedural mesh and only using it for rendering, then the
+meshes don&#39;t have to be destroyed. They only need to be destroyed after you know
+you will no longer render them.</p>
+<p>To destroy all the meshes in a <code>MeshGroup</code>, call <code>MeshGroup.dispose()</code>. For
+example, if you have a procedural mesh <code>procMesh</code>, then call
+<code>procMesh.dispose()</code>. Note that if a <code>MeshGroup</code> is created from a user-provided
+mesh, then the mesh will still be destroyed, meaning that if you passed the
+original mesh without cloning to the <code>MeshGroup</code>, then that mesh will be
+destroyed. If a clone was passed instead, then the clone will be destroyed.</p>
+<p>If you are creating a mesh that is only used for a CSG operation, and then never
+used again, then it is recommended that you set the auto-dispose flag by calling
+<code>MeshGroup.mark()</code>. For example, if you have a procedural cube <code>diffCube</code> that
+is only used for subtracting another mesh in a CSG operation, then you can mark
+the cube to be auto-disposed by calling <code>diffCube.mark()</code>, and the cube will be
+disposed after it&#39;s used for a CSG operation. Attempting to use the cube after
+it was disposed will not work. The <code>mark</code> method is chainable.</p>
+
+<a href="#csg-operations" id="csg-operations" style="color: inherit; text-decoration: none;">
+  <h2>CSG operations</h2>
+</a>
+<p>CSG operations are done by making a tree of CSG operations, sending the tree to
+a worker, and waiting for the operations to finish asynchronously. However,
+there can be more than 1 worker, and the number of workers is configurable, so
+some extra setup work needs to be done; a pool of workers needs to be created,
+with the wanted number of workers, and the CSG operations are dispatched via
+this worker pool. The worker pool will then decide which worker to send the CSG
+operation to; the CSG pool load-balances.</p>
+<p>Example (CSG pool has only 1 worker here):</p>
+<pre><code class="language-js"><span class="hl-8">// create a new pool of workers. note that the workers are not initialised until</span><br/><span class="hl-8">// the first csg operation is dispatched, or until `initialize` is called</span><br/><span class="hl-2">const</span><span class="hl-0"> </span><span class="hl-3">csg</span><span class="hl-0"> = </span><span class="hl-2">new</span><span class="hl-0"> </span><span class="hl-5">CSGPool</span><span class="hl-0">(</span><span class="hl-7">1</span><span class="hl-0">);</span><br/><br/><span class="hl-8">// if you want to make sure that the pool is initialized before the first csg</span><br/><span class="hl-8">// operation to prevent stuttering, then do the following:</span><br/><span class="hl-8">// await csg.initialize();</span><br/><br/><span class="hl-8">// subtract 2 cubes, where the subtracting cube is offset by (0.5, 0.5, 0.5)</span><br/><span class="hl-2">const</span><span class="hl-0"> </span><span class="hl-3">resultMesh</span><span class="hl-0"> = </span><span class="hl-1">await</span><span class="hl-0"> </span><span class="hl-4">csg</span><span class="hl-0">.</span><span class="hl-5">dispatch</span><span class="hl-0">({</span><br/><span class="hl-0">  </span><span class="hl-4">operation:</span><span class="hl-0"> </span><span class="hl-6">&#39;subtract&#39;</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-4">left:</span><span class="hl-0"> </span><span class="hl-2">new</span><span class="hl-0"> </span><span class="hl-5">CubeMesh</span><span class="hl-0">(</span><span class="hl-7">1</span><span class="hl-0">).</span><span class="hl-5">mark</span><span class="hl-0">(),</span><br/><span class="hl-0">  </span><span class="hl-4">right:</span><span class="hl-0"> </span><span class="hl-2">new</span><span class="hl-0"> </span><span class="hl-5">CubeMesh</span><span class="hl-0">(</span><span class="hl-7">1</span><span class="hl-0">).</span><span class="hl-5">translate</span><span class="hl-0">([</span><span class="hl-7">0.5</span><span class="hl-0">, </span><span class="hl-7">0.5</span><span class="hl-0">, </span><span class="hl-7">0.5</span><span class="hl-0">]).</span><span class="hl-5">mark</span><span class="hl-0">(),</span><br/><span class="hl-0">});</span><br/><br/><span class="hl-8">// get submeshes of the result of the CSG operation</span><br/><span class="hl-2">const</span><span class="hl-0"> </span><span class="hl-3">resultSubmeshes</span><span class="hl-0"> = </span><span class="hl-4">resultMesh</span><span class="hl-0">.</span><span class="hl-5">getSubmeshes</span><span class="hl-0">();</span><br/><br/><span class="hl-8">// add each submesh to the scene</span><br/><span class="hl-1">for</span><span class="hl-0"> (</span><span class="hl-2">const</span><span class="hl-0"> [</span><span class="hl-3">mesh</span><span class="hl-0">, </span><span class="hl-3">material</span><span class="hl-0">] </span><span class="hl-2">of</span><span class="hl-0"> </span><span class="hl-4">resultSubmeshes</span><span class="hl-0">) {</span><br/><span class="hl-0">  </span><span class="hl-2">this</span><span class="hl-0">.</span><span class="hl-4">object</span><span class="hl-0">.</span><span class="hl-5">addComponent</span><span class="hl-0">(</span><span class="hl-6">&#39;mesh&#39;</span><span class="hl-0">, {</span><br/><span class="hl-0">    </span><span class="hl-4">mesh</span><span class="hl-0">,</span><br/><span class="hl-0">    </span><span class="hl-4">material:</span><span class="hl-0"> </span><span class="hl-4">material</span><span class="hl-0"> ?? </span><span class="hl-2">this</span><span class="hl-0">.</span><span class="hl-4">fallbackMaterial</span><br/><span class="hl-0">  });</span><br/><span class="hl-0">}</span>
+</code></pre>
+<p><code>CSGPool</code> are expensive to create, and there is a limit of workers that can be
+created in a browser. Ideally, there should be only 1 <code>CSGPool</code> instance with a
+reasonable amount of workers (such as 3), and the pool should be reused accross
+all scripts that do CSG operations.</p>
+<p>If no more CSG operations will be done, then a <code>CSGPool</code> can be destroyed by
+calling the <code>dispose</code> method. For example, in a pool <code>csg</code>:</p>
+<pre><code class="language-js"><span class="hl-4">csg</span><span class="hl-0">.</span><span class="hl-5">dispose</span><span class="hl-0">();</span>
+</code></pre>
+<p>Disposing a pool will invalidate it; any operations done on a disposed pool will
+throw an error. Disposing a pool will also terminate all workers created by the
+pool.</p>
+
+<a href="#contributing" id="contributing" style="color: inherit; text-decoration: none;">
+  <h1>Contributing</h1>
+</a>
+<p>The current API is ugly and should be considered unstable; expect changes to the
+API in the future. Contributions improving the usability of the API would be
+greatly appreciated, especially around the Triangle and MeshBuilder classes.</p>
+
+<a href="#future-work" id="future-work" style="color: inherit; text-decoration: none;">
+  <h1>Future work</h1>
+</a>
+<p>The Kanban for this library can be found
+<a href="https://github.com/orgs/playkostudios/projects/6/views/1">here</a>.</p>
+<p>Summary:</p>
+<ul>
+<li>GLTF extension for edge connectivity. Need to work with the Manifold developers for this one</li>
+<li>Fix zigzag artifacts in UVs of extrusions</li>
+<li>Use angle-weighted vertex normals</li>
+<li>Improve solids of revolution:<ul>
+<li>Solid middles</li>
+<li>Self-intersecting polylines</li>
+</ul>
+</li>
+<li>Improve extrusions:<ul>
+<li>Allow slices with holes</li>
+</ul>
+</li>
+<li>Mesh decimation utilities</li>
+<li>Better mesh to manifold conversion for user-provided meshes with no edge connectivity data</li>
+</ul>
+
+<a href="#credits" id="credits" style="color: inherit; text-decoration: none;">
+  <h1>Credits</h1>
+</a>
+<p>This project depends on:</p>
+<ul>
+<li>The <a href="https://github.com/elalish/manifold/">Manifold</a> library (Apache 2.0 license)</li>
+<li><a href="https://wonderlandengine.com/">Wonderland Engine</a>, API found <a href="https://github.com/WonderlandEngine/api">here</a> (API under MIT license)</li>
+<li><a href="https://glmatrix.net/">gl-matrix</a> (MIT license)</li>
+</ul>
+<p>This projects uses following tooling:</p>
+<ul>
+<li><a href="https://www.typescriptlang.org/">TypeScript</a> (Apache 2.0 license)</li>
+<li><a href="https://esbuild.github.io/">esbuild</a> (MIT license)</li>
+<li><a href="https://typedoc.org/">TypeDoc</a> (Apache 2.0 license)</li>
+<li><a href="https://eslint.org/">ESLint</a> (MIT license)</li>
+<li><a href="https://typescript-eslint.io/">TypeScript ESLint</a> (BSD 2-clause license)</li>
+<li><a href="https://github.com/vytenisu/npm-dts">npm-dts</a> (MIT license)</li>
+<li><a href="https://github.com/isaacs/rimraf/">rimraf</a> (ISC license)</li>
+</ul>
+<p>This project reuses some procedural mesh generation code from the
+<a href="https://github.com/playkostudios/OctreeCSG-ea">OctreeCSG-ea library</a>, which is
+a fork of the <a href="https://github.com/giladdarshan/OctreeCSG">OctreeCSG library</a>.</p>
+<p>Finally, the following resources were used to implement some algorithms:</p>
+<ul>
+<li><code>Computational Geometry: Algorithms and Applications</code> (Mark de Berg, Otfried Cheong, Marc van Kerveld, Mark Overmars) - used for the triangulation algorithm</li>
+<li><code>Computation of Rotation Minimizing Frames</code> (Wenping Wang, Bert Juttler, Dayue Zheng, and Yang Liu) - used for curve frame generation</li>
+</ul>
+</div></div>
+<div class="col-4 col-menu menu-sticky-wrap menu-highlight">
+<div class="tsd-navigation settings">
+<details class="tsd-index-accordion"><summary class="tsd-accordion-summary">
+<h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4.93896 8.531L12 15.591L19.061 8.531L16.939 6.409L12 11.349L7.06098 6.409L4.93896 8.531Z" fill="var(--color-text)"></path></svg> Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility">
+<h4 class="uppercase">Member Visibility</h4><form>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-private" name="private"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Private</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></form></div>
+<div class="tsd-theme-toggle">
+<h4 class="uppercase">Theme</h4><select id="theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<nav class="tsd-navigation primary">
+<details class="tsd-index-accordion" open><summary class="tsd-accordion-summary">
+<h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4.93896 8.531L12 15.591L19.061 8.531L16.939 6.409L12 11.349L7.06098 6.409L4.93896 8.531Z" fill="var(--color-text)"></path></svg> Modules</h3></summary>
+<div class="tsd-accordion-details">
+<ul>
+<li class="current selected"><a href="modules.html">gypsum-<wbr/>mesh</a>
+<ul></ul></li></ul></div></details></nav>
+<nav class="tsd-navigation secondary menu-sticky">
+<ul>
+<li class="tsd-kind-class"><a href="classes/BasePrismoidPyramidMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><rect fill="var(--color-icon-background)" stroke="var(--color-ts-class)" stroke-width="1.5" x="1" y="1" width="22" height="22" rx="6" id="icon-128-path"></rect><path d="M11.898 16.1201C11.098 16.1201 10.466 15.8961 10.002 15.4481C9.53803 15.0001 9.30603 14.3841 9.30603 13.6001V9.64012C9.30603 8.85612 9.53803 8.24012 10.002 7.79212C10.466 7.34412 11.098 7.12012 11.898 7.12012C12.682 7.12012 13.306 7.34812 13.77 7.80412C14.234 8.25212 14.466 8.86412 14.466 9.64012H13.386C13.386 9.14412 13.254 8.76412 12.99 8.50012C12.734 8.22812 12.37 8.09212 11.898 8.09212C11.426 8.09212 11.054 8.22412 10.782 8.48812C10.518 8.75212 10.386 9.13212 10.386 9.62812V13.6001C10.386 14.0961 10.518 14.4801 10.782 14.7521C11.054 15.0161 11.426 15.1481 11.898 15.1481C12.37 15.1481 12.734 15.0161 12.99 14.7521C13.254 14.4801 13.386 14.0961 13.386 13.6001H14.466C14.466 14.3761 14.234 14.9921 13.77 15.4481C13.306 15.8961 12.682 16.1201 11.898 16.1201Z" fill="var(--color-text)" id="icon-128-text"></path></svg>Base<wbr/>Prismoid<wbr/>Pyramid<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/CSGPool.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>CSGPool</a></li>
+<li class="tsd-kind-class"><a href="classes/ConeMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Cone<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/CubeMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Cube<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/CubeSphereMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Cube<wbr/>Sphere<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/CylinderMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Cylinder<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/ExtrusionMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Extrusion<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/FrustumMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Frustum<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/IcosahedronMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Icosahedron<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/IcosphereMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Icosphere<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/LinearExtrusionMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Linear<wbr/>Extrusion<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/MeshBuilder.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Mesh<wbr/>Builder</a></li>
+<li class="tsd-kind-class"><a href="classes/MeshGroup.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Mesh<wbr/>Group</a></li>
+<li class="tsd-kind-class"><a href="classes/PrismMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Prism<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/PrismoidMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Prismoid<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/PyramidMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Pyramid<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/RectangularCuboidMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Rectangular<wbr/>Cuboid<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/SolidOfRevolutionMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Solid<wbr/>Of<wbr/>Revolution<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/TorusMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Torus<wbr/>Mesh</a></li>
+<li class="tsd-kind-class"><a href="classes/Triangle.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Triangle</a></li>
+<li class="tsd-kind-class"><a href="classes/UVSphereMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>UVSphere<wbr/>Mesh</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/ConeOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><rect fill="var(--color-icon-background)" stroke="var(--color-ts-interface)" stroke-width="1.5" x="1" y="1" width="22" height="22" rx="6" id="icon-256-path"></rect><path d="M9.51 16V15.016H11.298V8.224H9.51V7.24H14.19V8.224H12.402V15.016H14.19V16H9.51Z" fill="var(--color-text)" id="icon-256-text"></path></svg>Cone<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/CuboidMaterialOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Cuboid<wbr/>Material<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/CuboidOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Cuboid<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/CylinderOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Cylinder<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/ExtrusionMaterialOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Extrusion<wbr/>Material<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/ExtrusionOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Extrusion<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/FrustumOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Frustum<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/IcosahedronOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Icosahedron<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/IcosphereOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Icosphere<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/PrismPyramidOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Prism<wbr/>Pyramid<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/PrismoidOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Prismoid<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/RMFOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>RMFOptions</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/RadialOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Radial<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/SmoothNormalsOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Smooth<wbr/>Normals<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/SolidOfRevolutionNoOffsetOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Solid<wbr/>Of<wbr/>Revolution<wbr/>No<wbr/>Offset<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/SolidOfRevolutionOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Solid<wbr/>Of<wbr/>Revolution<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/TorusOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>Torus<wbr/>Options</a></li>
+<li class="tsd-kind-interface"><a href="interfaces/UVSphereOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-256-path"></use><use href="#icon-256-text"></use></svg>UVSphere<wbr/>Options</a></li>
+<li class="tsd-kind-type-alias"><a href="types/CSGFinalOperation.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><rect fill="var(--color-icon-background)" stroke="var(--color-ts)" stroke-width="1.5" x="1" y="1" width="22" height="22" rx="6" id="icon-4194304-path"></rect><path d="M11.31 16V8.224H8.91V7.24H14.79V8.224H12.39V16H11.31Z" fill="var(--color-text)" id="icon-4194304-text"></path></svg>CSGFinal<wbr/>Operation</a></li>
+<li class="tsd-kind-type-alias"><a href="types/CSGGeometricOperation.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>CSGGeometric<wbr/>Operation</a></li>
+<li class="tsd-kind-type-alias"><a href="types/CSGOperation.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>CSGOperation</a></li>
+<li class="tsd-kind-type-alias"><a href="types/CSGPrimitive.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>CSGPrimitive</a></li>
+<li class="tsd-kind-type-alias"><a href="types/CSGTree.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>CSGTree</a></li>
+<li class="tsd-kind-type-alias"><a href="types/CubeSphereOptions.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Cube<wbr/>Sphere<wbr/>Options</a></li>
+<li class="tsd-kind-type-alias"><a href="types/CuboidFaceUVPosRatio.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Cuboid<wbr/>FaceUVPos<wbr/>Ratio</a></li>
+<li class="tsd-kind-type-alias"><a href="types/CuboidFaceUVs.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Cuboid<wbr/>FaceUVs</a></li>
+<li class="tsd-kind-type-alias"><a href="types/CurveFrame.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Curve<wbr/>Frame</a></li>
+<li class="tsd-kind-type-alias"><a href="types/CurveFrames.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Curve<wbr/>Frames</a></li>
+<li class="tsd-kind-type-alias"><a href="types/EdgeList.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Edge<wbr/>List</a></li>
+<li class="tsd-kind-type-alias"><a href="types/Submesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Submesh</a></li>
+<li class="tsd-kind-type-alias"><a href="types/SubmeshMap.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Submesh<wbr/>Map</a></li>
+<li class="tsd-kind-type-alias"><a href="types/VertexStar.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-4194304-path"></use><use href="#icon-4194304-text"></use></svg>Vertex<wbr/>Star</a></li>
+<li class="tsd-kind-variable"><a href="variables/EPS.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><rect fill="var(--color-icon-background)" stroke="var(--color-ts-variable)" stroke-width="1.5" x="1" y="1" width="22" height="22" rx="6" id="icon-32-path"></rect><path d="M11.106 16L8.85 7.24H9.966L11.454 13.192C11.558 13.608 11.646 13.996 11.718 14.356C11.79 14.708 11.842 14.976 11.874 15.16C11.906 14.976 11.954 14.708 12.018 14.356C12.09 13.996 12.178 13.608 12.282 13.192L13.758 7.24H14.85L12.582 16H11.106Z" fill="var(--color-text)" id="icon-32-text"></path></svg>EPS</a></li>
+<li class="tsd-kind-variable"><a href="variables/VERTEX_1.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-32-path"></use><use href="#icon-32-text"></use></svg>VERTEX_<wbr/>1</a></li>
+<li class="tsd-kind-variable"><a href="variables/VERTEX_2.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-32-path"></use><use href="#icon-32-text"></use></svg>VERTEX_<wbr/>2</a></li>
+<li class="tsd-kind-variable"><a href="variables/VERTEX_STRIDE.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-32-path"></use><use href="#icon-32-text"></use></svg>VERTEX_<wbr/>STRIDE</a></li>
+<li class="tsd-kind-variable"><a href="variables/VERTEX_TOTAL.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-32-path"></use><use href="#icon-32-text"></use></svg>VERTEX_<wbr/>TOTAL</a></li>
+<li class="tsd-kind-function"><a href="functions/cloneMesh.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><rect fill="var(--color-icon-background)" stroke="var(--color-ts-function)" stroke-width="1.5" x="1" y="1" width="22" height="22" rx="6" id="icon-64-path"></rect><path d="M9.39 16V7.24H14.55V8.224H10.446V11.128H14.238V12.112H10.47V16H9.39Z" fill="var(--color-text)" id="icon-64-text"></path></svg>clone<wbr/>Mesh</a></li>
+<li class="tsd-kind-function"><a href="functions/extendCurveFrames.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-64-path"></use><use href="#icon-64-text"></use></svg>extend<wbr/>Curve<wbr/>Frames</a></li>
+<li class="tsd-kind-function"><a href="functions/fixTangentList.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-64-path"></use><use href="#icon-64-text"></use></svg>fix<wbr/>Tangent<wbr/>List</a></li>
+<li class="tsd-kind-function"><a href="functions/makeCirclePolyline.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-64-path"></use><use href="#icon-64-text"></use></svg>make<wbr/>Circle<wbr/>Polyline</a></li>
+<li class="tsd-kind-function"><a href="functions/makeRectanglePolyline.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-64-path"></use><use href="#icon-64-text"></use></svg>make<wbr/>Rectangle<wbr/>Polyline</a></li>
+<li class="tsd-kind-function"><a href="functions/makeRegularPolyline.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-64-path"></use><use href="#icon-64-text"></use></svg>make<wbr/>Regular<wbr/>Polyline</a></li>
+<li class="tsd-kind-function"><a href="functions/makeRotationMinimizingFrames.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-64-path"></use><use href="#icon-64-text"></use></svg>make<wbr/>Rotation<wbr/>Minimizing<wbr/>Frames</a></li>
+<li class="tsd-kind-function"><a href="functions/makeSquarePolyline.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-64-path"></use><use href="#icon-64-text"></use></svg>make<wbr/>Square<wbr/>Polyline</a></li>
+<li class="tsd-kind-function"><a href="functions/makeStarPolyline.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-64-path"></use><use href="#icon-64-text"></use></svg>make<wbr/>Star<wbr/>Polyline</a></li>
+<li class="tsd-kind-function"><a href="functions/normalFromTriangle.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-64-path"></use><use href="#icon-64-text"></use></svg>normal<wbr/>From<wbr/>Triangle</a></li></ul></nav></div></div>
+<div class="container tsd-generator">
+<p>Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></div>
+<div class="overlay"></div><script src="assets/main.js"></script></body></html>
