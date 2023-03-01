@@ -3,6 +3,6 @@
   "compilerOptions": {
     "lib": ["ESNext", "webworker"]
   },
-  "include": ["src/worker.ts", "types/**/*.d.ts"],
+  "include": ["src/worker.ts"],
   "exclude": ["node_modules", "lib", "src/client.ts", "src/common/**/*.ts"]
 }

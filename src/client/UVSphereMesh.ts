@@ -3,6 +3,7 @@ import { MeshGroup } from './MeshGroup';
 
 import type { RadialOptions } from './RadialOptions';
 import type { vec2 } from 'gl-matrix';
+import type * as WL from '@wonderlandengine/api';
 
 const NO_UVS: [vec2, vec2, vec2, vec2] = [[0,0],[0,0],[0,0],[0,0]];
 
@@ -23,15 +24,16 @@ export class UVSphereMesh extends MeshGroup {
      * have an approximation of equirectangular mapping if the material used is
      * textured.
      *
+     * @param engine - The Wonderland Engine instance to use this mesh for
      * @param options - Optional arguments for the sphere.
      */
-    constructor(options?: UVSphereOptions) {
+    constructor(engine: WL.WonderlandEngine, options?: UVSphereOptions) {
         const subDivs = options?.subDivisions ?? 12;
         const radius = options?.radius ?? 0.5;
         const diameter = radius * 2;
 
         const builder = makeCuboidBuilder(
-            subDivs, diameter, diameter, diameter, true, false,
+            engine, subDivs, diameter, diameter, diameter, true, false,
             NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS,
         );
 
@@ -39,7 +41,7 @@ export class UVSphereMesh extends MeshGroup {
         builder.makeEquirectUVs();
 
         const material = options?.material ?? null;
-        const materialMap = new Map<number, WL.Material>();
+        const materialMap = new Map<number, WL.Material | null>();
         for (let i = 0; i < 6; i++) {
             materialMap.set(i, material);
         }

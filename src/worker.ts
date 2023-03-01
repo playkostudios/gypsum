@@ -1,11 +1,10 @@
-// eslint-disable-next-line @typescript-eslint/triple-slash-reference
-/// <reference path="../types/globals.d.ts" />
-
 import { iterateOpTree } from './common/iterate-operation-tree';
+import ManifoldModule from 'manifold-3d';
 
 import type { StrippedMesh } from './common/StrippedMesh';
 import type { WorkerRequest, WorkerOperation } from './common/WorkerRequest';
 import type { WorkerResponse, WorkerResult, WorkerIDMap } from './common/WorkerResponse';
+import { ManifoldStatic, Manifold } from 'manifold-3d';
 
 function logWorker(callback: (message: string) => void, message: unknown) {
     callback(`[Worker ${self.name}] ${message}`);
@@ -32,25 +31,13 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
         // mesh
         // logWorker(console.debug, 'Adding mesh as manifold to stack');
 
-        // FIXME fix manifold type definitions file to have Mesh
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        const mesh = new manifold.Mesh();
-        mesh.vertPos = meshObj.vertPos;
-        mesh.triVerts = meshObj.triVerts;
+        const mesh = new manifold.Mesh({
+            numProp: 3,
+            vertProperties: meshObj.vertPos,
+            triVerts: meshObj.triVerts
+        });
 
-        // TODO make properties array with actual property data so manifold can
-        // decide which triangles to merge
-        const indexCount = meshObj.triVerts.length;
-        const triProperties = new Uint32Array(indexCount);
-        const properties = new Float32Array(indexCount);
-        const propertyTolerance = new Float32Array([1e-5]);
-        for (let i = 0; i < indexCount; i++) {
-          triProperties[i] = i;
-          properties[i] = i;
-        }
-
-        const meshManif = new manifold.Manifold(mesh, triProperties, properties, propertyTolerance);
+        const meshManif = new manifold.Manifold(mesh);
         allocatedManifolds.push(meshManif);
         idMap.push([meshManif.originalID(), meshID]);
         stack.push(meshManif);
@@ -246,12 +233,12 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
             const top = stack[0];
             const outMesh = top.getMesh();
             transfer.push(outMesh.triVerts.buffer);
-            transfer.push(outMesh.vertPos.buffer);
+            transfer.push(outMesh.vertProperties.buffer);
 
             return [
                 <StrippedMesh>{
-                    triVerts: outMesh.triVerts, vertPos: outMesh.vertPos
-                }, top.getMeshRelation(), idMap
+                    triVerts: outMesh.triVerts, vertPos: outMesh.vertProperties
+                }, outMesh.runTransform, idMap
             ];
         } else {
             throw new Error(`Unexpected number of manifolds in stack (${stack.length}) after evaluation`);
@@ -273,7 +260,7 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
                     logWorker(console.debug, `Initializing worker with libary path "${message.data.libraryPath}"`);
                     importScripts(message.data.libraryPath);
                     logWorker(console.debug, `Imported library successfuly`);
-                    manifoldModule = await Module();
+                    manifoldModule = await ManifoldModule();
                     logWorker(console.debug, `Done waiting for module`);
                     manifoldModule.setup();
                     logWorker(console.debug, `Module setup finished`);

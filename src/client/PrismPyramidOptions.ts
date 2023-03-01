@@ -1,5 +1,7 @@
 import { SmoothNormalsOptions } from './SmoothNormalsOptions';
 
+import type * as WL from '@wonderlandengine/api';
+
 /** Optional arguments for prism/pyramid generation. */
 export interface PrismPyramidOptions extends SmoothNormalsOptions {
     /** The height of the prism/pyramid. */

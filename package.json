@@ -1,10 +1,11 @@
 {
   "name": "gypsum-mesh",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Procedural mesh generation library for Wonderland Engine, with CSG powered by Manifold",
   "exports": "./dist/index.esm.min.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "wonderlandengine": {},
   "files": [
     "dist/*.js",
     "dist/*.js.map"

@@ -1,13 +1,14 @@
+import type { Box, Curvature, Properties } from 'manifold-3d';
 import type { StrippedMesh } from './StrippedMesh';
 
 /** An array which maps manifold IDs to mesh IDs. */
 export type WorkerIDMap = Array<[newID: number, originalID: number]>;
 
 /**
- * A result from a CSG operation with a serialized manifold, mesh relation and
+ * A result from a CSG operation with a serialized manifold, mesh transforms and
  * ID map.
  */
-export type WorkerResult = [strippedMesh: StrippedMesh, meshRelation: MeshRelation, idMap: WorkerIDMap] | boolean | number | Box | Properties | Curvature;
+export type WorkerResult = [strippedMesh: StrippedMesh, transforms: Float32Array | undefined, idMap: WorkerIDMap] | boolean | number | Box | Properties | Curvature;
 
 /** A response from a Gypsum worker. */
 export type WorkerResponse = {

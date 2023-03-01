@@ -2,6 +2,7 @@ import { PyramidMesh } from './PyramidMesh';
 import { makeCirclePolyline } from '../client';
 
 import type { PrismPyramidOptions } from './PrismPyramidOptions';
+import type * as WL from '@wonderlandengine/api';
 
 /** Optional arguments for cone generation. */
 export interface ConeOptions extends PrismPyramidOptions {
@@ -26,10 +27,12 @@ export class ConeMesh extends PyramidMesh {
      * Make a new cone. By default, it occupies a 1x1x1 bounding volume (radius
      * 0.5, height 1).
      *
+     * @param engine - The Wonderland Engine instance to use this mesh for
      * @param options - Optional arguments for cone generation.
      */
-    constructor(options?: ConeOptions) {
+    constructor(engine: WL.WonderlandEngine, options?: ConeOptions) {
         super(
+            engine,
             makeCirclePolyline(options?.radius ?? 0.5, false, options?.subDivisions ?? 12),
             {
                 smoothNormals: true,

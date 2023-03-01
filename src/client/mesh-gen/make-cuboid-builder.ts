@@ -1,9 +1,10 @@
 import { vec3 } from 'gl-matrix';
 import { EdgeList, MeshBuilder } from './MeshBuilder';
+import { Tuple } from '../misc/Tuple';
 
 import type { Triangle } from './Triangle';
 import type { vec2 } from 'gl-matrix';
-import { Tuple } from '../misc/Tuple';
+import type * as WL from '@wonderlandengine/api';
 
 /**
  * A list of UVs for the corner of a cuboid's face. In order, the top-left
@@ -22,7 +23,7 @@ function makeUVs(uSpan: number, vSpan: number): [ tl: vec2, tr: vec2, bl: vec2, 
     return [ [0, vSpan], [uSpan, vSpan], [0, 0], [uSpan, 0] ];
 }
 
-function addCubeFace(builder: MeshBuilder, edgeList: EdgeList, connectableTriangles: Array<Triangle>, corners: Array<vec3>, quad: Quad, addTangents: boolean, subDivisions: number): WL.Mesh {
+function addCubeFace(builder: MeshBuilder, edgeList: EdgeList, connectableTriangles: Array<Triangle>, corners: Array<vec3>, quad: Quad, addTangents: boolean, subDivisions: number): void {
     // resolve actual uv values
     let finalUVs: CuboidFaceUVs | undefined | Tuple<undefined, 4> = undefined;
     const uvs = quad[4];
@@ -81,7 +82,7 @@ function addCubeFace(builder: MeshBuilder, edgeList: EdgeList, connectableTriang
  * @param frontUVs - UVs for the front (+Z) face.
  * @returns A new MeshBuilder instance with the triangles and topology of a sub-divided cuboid.
  */
-export function makeCuboidBuilder(subDivisions: number, width: number, height: number, depth: number, center: boolean, addTangents = true, leftUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, rightUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, downUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio): MeshBuilder {
+export function makeCuboidBuilder(engine: WL.WonderlandEngine, subDivisions: number, width: number, height: number, depth: number, center: boolean, addTangents = true, leftUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, rightUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, downUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio): MeshBuilder {
     // make corners
     const right = center ? (width / 2) : width;
     const left = center ? -right : 0;
@@ -114,7 +115,7 @@ export function makeCuboidBuilder(subDivisions: number, width: number, height: n
     // add faces
     const edgeList: EdgeList = [];
     const connectableTriangles: Array<Triangle> = [];
-    const builder = new MeshBuilder();
+    const builder = new MeshBuilder(engine);
     for (const face of faces) {
         addCubeFace(builder, edgeList, connectableTriangles, corners, face, addTangents, subDivisions);
     }

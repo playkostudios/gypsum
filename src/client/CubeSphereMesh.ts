@@ -8,6 +8,7 @@ import type { RadialOptions } from './RadialOptions';
 import type { vec2 } from 'gl-matrix';
 import type { MeshBuilder } from './mesh-gen/MeshBuilder';
 import type { CuboidMaterialOptions } from './RectangularCuboidMesh';
+import type * as WL from '@wonderlandengine/api';
 
 const THIRD = 1 / 3;
 const NO_UVS: [vec2, vec2, vec2, vec2] = [[0,0],[0,0],[0,0],[0,0]];
@@ -67,9 +68,10 @@ export class CubeSphereMesh extends MeshGroup {
     /**
      * Create a new cube sphere. By default, has a radius of 0.5.
      *
+     * @param engine - The Wonderland Engine instance to use this mesh for
      * @param options - Optional arguments for the sphere.
      */
-    constructor(options?: CubeSphereOptions) {
+    constructor(engine: WL.WonderlandEngine, options?: CubeSphereOptions) {
         const subDivs = options?.subDivisions ?? 12;
         const radius = options?.radius ?? 0.5;
         const diameter = radius * 2;
@@ -77,12 +79,12 @@ export class CubeSphereMesh extends MeshGroup {
         let builder: MeshBuilder;
         if (options?.equirectangular) {
             builder = makeCuboidBuilder(
-                subDivs, diameter, diameter, diameter, true, false,
+                engine, subDivs, diameter, diameter, diameter, true, false,
                 NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS, NO_UVS,
             );
         } else {
             builder = makeCuboidBuilder(
-                subDivs, diameter, diameter, diameter, true, false,
+                engine, subDivs, diameter, diameter, diameter, true, false,
                 options?.leftUVs, options?.rightUVs, options?.downUVs,
                 options?.upUVs, options?.backUVs, options?.frontUVs,
             );

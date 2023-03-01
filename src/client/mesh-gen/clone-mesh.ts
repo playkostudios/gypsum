@@ -1,5 +1,7 @@
 import { MeshGroup } from '../MeshGroup';
 
+import * as WL from '@wonderlandengine/api';
+
 /**
  * Clone a Wonderland Engine mesh. A new, separate mesh will be created with the
  * same data as the given mesh. Useful if you want to transform a mesh without
@@ -10,7 +12,7 @@ import { MeshGroup } from '../MeshGroup';
  * @param oMesh - The original mesh to copy.
  * @returns Returns a copy of the given mesh.
  */
-export function cloneMesh(oMesh: WL.Mesh): WL.Mesh {
+export function cloneMesh(oMesh: WL.Mesh, engine: WL.WonderlandEngine): WL.Mesh {
     // clone index data
     const oIndexData = oMesh.indexData;
     const indexCount = oIndexData.length;
@@ -22,7 +24,7 @@ export function cloneMesh(oMesh: WL.Mesh): WL.Mesh {
     }
 
     // make new mesh
-    const mesh = new WL.Mesh({ indexData, indexType, vertexCount });
+    const mesh = new WL.Mesh({ indexData, indexType, vertexCount }, engine);
 
     // clone vertex attributes
     // (positions)

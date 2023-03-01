@@ -1,5 +1,6 @@
 import type { NumRange } from '../misc/NumRange';
 import type { Tuple } from '../misc/Tuple';
+import type * as WL from '@wonderlandengine/api';
 
 /**
  * Creates a map which maps the material IDs used by

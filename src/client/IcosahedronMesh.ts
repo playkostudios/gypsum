@@ -4,6 +4,7 @@ import { MeshGroup } from './MeshGroup';
 
 import type { Tuple } from './misc/Tuple';
 import type { NumRange } from './misc/NumRange';
+import type * as WL from '@wonderlandengine/api';
 
 /**
  * Optional arguments for a procedural icosahedron.
@@ -27,11 +28,12 @@ export class IcosahedronMesh extends MeshGroup {
     /**
      * Make a new icosahedron.
      *
+     * @param engine - The Wonderland Engine instance to use this mesh for
      * @param options - Optional arguments for the generation.
      */
-    constructor(options?: IcosahedronOptions) {
+    constructor(engine: WL.WonderlandEngine, options?: IcosahedronOptions) {
         // make manifold builder populated with icosahedron triangles
-        const builder = makeIcosahedronBuilder();
+        const builder = makeIcosahedronBuilder(engine);
 
         // scale
         builder.uniformScale(options?.radius ?? 0.5);

@@ -8,6 +8,7 @@ import { normalFromTriangle } from './normal-from-triangle';
 
 import type { quat } from 'gl-matrix';
 import type { StrippedMesh } from '../../common/StrippedMesh';
+import * as WL from '@wonderlandengine/api';
 
 const MAT3_IDENTITY = mat3.create();
 const MAT4_IDENTITY = mat4.create();
@@ -50,9 +51,9 @@ function getVertexMid(a: Float32Array, b: Float32Array): Float32Array {
     return result;
 }
 
-function sortMaterials(materials: Iterable<WL.Material | null>, materialMap: Map<number, WL.Material>): Array<number | null> {
+function sortMaterials(materials: Iterable<WL.Material | null>, materialMap: Map<number, WL.Material | null>): Array<WL.Material | null> {
     // reverse the material map (map materials to material IDs)
-    const revMaterialMap = new Map<WL.Material, number>();
+    const revMaterialMap = new Map<WL.Material | null, number>();
     for (const [id, material] of materialMap) {
         revMaterialMap.set(material, id);
     }
@@ -95,6 +96,9 @@ export class MeshBuilder {
      * {@link MeshBuilder#subDivide4}, a new array will be created.
      */
     triangles = new Array<Triangle>();
+
+    /** @param engine - The Wonderland Engine instance being used */
+    constructor(readonly engine: WL.WonderlandEngine) {}
 
     /**
      * Get the number of triangles in this MeshBuilder. Equivalent to getting
@@ -614,7 +618,7 @@ export class MeshBuilder {
         }
     }
 
-    private finalizeSubmesh(material: WL.Material, triangles: Array<Triangle>, submeshMap: SubmeshMap | null, submeshIdx: number): Submesh {
+    private finalizeSubmesh(material: WL.Material | null, triangles: Array<Triangle>, submeshMap: SubmeshMap | null, submeshIdx: number): Submesh {
         // make index and vertex data in advance
         const triCount = triangles.length;
         // XXX this assumes the worst case; that no vertices are merged
@@ -671,7 +675,7 @@ export class MeshBuilder {
 
         // instance one mesh
         const vertexCount = positions.length / 3;
-        const mesh = new WL.Mesh({ vertexCount, indexData, indexType });
+        const mesh = new WL.Mesh({ vertexCount, indexData, indexType }, this.engine);
 
         try {
             // upload vertex data

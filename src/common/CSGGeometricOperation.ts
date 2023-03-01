@@ -1,3 +1,4 @@
+import type { Mat4, Polygons, Vec2, Vec3 } from 'manifold-3d';
 import type { CSGTree } from './CSGTree';
 
 /**
@@ -30,7 +31,7 @@ export type CSGGeometricOperation<MeshType> = (
             factor: Vec3 | number,
         } | {
             operation: 'transform',
-            matrix: Matrix3x4,
+            matrix: Mat4,
         } | {
             operation: 'refine',
             splits: number,

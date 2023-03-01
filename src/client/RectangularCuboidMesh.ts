@@ -3,6 +3,7 @@ import { MeshGroup } from './MeshGroup';
 import { makeCuboidMaterialMap } from './mesh-gen/make-cuboid-material-map';
 
 import type { CuboidFaceUVs, CuboidFaceUVPosRatio } from './mesh-gen/make-cuboid-builder';
+import type * as WL from '@wonderlandengine/api';
 
 export interface CuboidMaterialOptions {
     /**
@@ -54,14 +55,15 @@ export class RectangularCuboidMesh extends MeshGroup {
     /**
      * Make a new procedural cuboid.
      *
+     * @param engine - The Wonderland Engine instance to use this mesh for
      * @param width - The width of the cuboid.
      * @param height - The height of the cuboid.
      * @param depth - The depth of the cuboid.
      * @param options - Optional arguments for the cuboid generation.
      */
-    constructor(width: number, height: number, depth: number, options?: CuboidOptions) {
+    constructor(engine: WL.WonderlandEngine, width: number, height: number, depth: number, options?: CuboidOptions) {
         super(...makeCuboidBuilder(
-            1, width, height, depth, options?.center ?? true, true,
+            engine, 1, width, height, depth, options?.center ?? true, true,
             options?.leftUVs, options?.rightUVs, options?.downUVs,
             options?.upUVs, options?.backUVs, options?.frontUVs,
         ).finalize(makeCuboidMaterialMap(

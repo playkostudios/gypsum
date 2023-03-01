@@ -5,6 +5,7 @@ import { MeshGroup } from './MeshGroup';
 import type { Tuple } from './misc/Tuple';
 import type { NumRange } from './misc/NumRange';
 import type { RadialOptions } from './RadialOptions';
+import type * as WL from '@wonderlandengine/api';
 
 /** Optional arguments for a procedural icosphere. */
 export interface IcosphereOptions extends RadialOptions {
@@ -30,11 +31,12 @@ export class IcosphereMesh extends MeshGroup {
     /**
      * Create a new icosphere. By default, has a radius of 0.5.
      *
+     * @param engine - The Wonderland Engine instance to use this mesh for
      * @param options - Optional arguments for the sphere.
      */
-    constructor(options?: IcosphereOptions) {
+    constructor(engine: WL.WonderlandEngine, options?: IcosphereOptions) {
         // make manifold builder populated with icosahedron triangles
-        const builder = makeIcosahedronBuilder(false);
+        const builder = makeIcosahedronBuilder(engine, false);
 
         // subdivide and normalize manifold (spherify icosahedron)
         const subDivisions = options?.subDivisions ?? 2;

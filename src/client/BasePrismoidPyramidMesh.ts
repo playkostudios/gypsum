@@ -3,10 +3,11 @@ import { MeshGroup } from './MeshGroup';
 import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
 import { vec3, vec2, vec4 } from 'gl-matrix';
 import { ExtrusionMesh } from './ExtrusionMesh';
-
-import type { CurveFrame } from '../client';
 import { EdgeList, MeshBuilder } from './mesh-gen/MeshBuilder';
 import { Triangle } from './mesh-gen/Triangle';
+
+import type { CurveFrame } from '../client';
+import type * as WL from '@wonderlandengine/api';
 
 const TAU = Math.PI * 2;
 const ZERO_NORM = vec3.create();
@@ -65,6 +66,7 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
      * Create a new prismoid/pyramid hybrid. If the mesh is a prismoid, then an
      * extrusion will be created.
      *
+     * @param engine - The Wonderland Engine instance to use this mesh for
      * @param polyline - The cross-section of the prismoid.
      * @param bottomScale - The scale of the bottom base. If 0, then an inverted pyramid will be created.
      * @param topScale - The scale of the top base. If 0, then a pyramid will be created.
@@ -74,7 +76,7 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
      * @param baseMaterial - The WL.Material to use for the base triangles.
      * @param sideMaterial - The WL.Material to use fot the side triangles.
      */
-    constructor(polyline: Array<vec2>, bottomScale: number, topScale: number, bottomOffset: vec3, topOffset: vec3, smoothNormalMaxAngle: number | null, baseMaterial: WL.Material | null = null, sideMaterial: WL.Material | null = null) {
+    constructor(engine: WL.WonderlandEngine, polyline: Array<vec2>, bottomScale: number, topScale: number, bottomOffset: vec3, topOffset: vec3, smoothNormalMaxAngle: number | null, baseMaterial: WL.Material | null = null, sideMaterial: WL.Material | null = null) {
         // validate that there is at most one apex
         if (topScale === 0 && bottomScale === 0) {
             throw new Error('Only one of the scales can be 0');
@@ -101,7 +103,7 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
             const hasTopApex = (topScale === 0);
             const apexPos = hasTopApex ? topOffset : bottomOffset;
             const apexTexCoords = vec2.fromValues(0.5, 0.5); // center of circle
-            const builder = new MeshBuilder();
+            const builder = new MeshBuilder(engine);
 
             // make transformed base vertex positions
             const basePos = makeBase(polyline, polylineLen, hasTopApex ? bottomScale : topScale, hasTopApex ? bottomOffset : topOffset);

@@ -1,3 +1,5 @@
+import type * as WL from '@wonderlandengine/api';
+
 /**
  * Creates a map which maps the material IDs used by {@link makeCuboidBuilder}
  * to actual WL.Material instances.

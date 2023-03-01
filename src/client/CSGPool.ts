@@ -1,6 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/triple-slash-reference
-/// <reference path="../../types/globals.d.ts" />
-
 import { CSGOperation } from '../common/CSGOperation';
 import { iterateOpTree } from '../common/iterate-operation-tree';
 import { WorkerResponse } from '../common/WorkerResponse';
@@ -10,13 +7,15 @@ import { MeshGroup, Submesh, SubmeshMap } from './MeshGroup';
 import type { WorkerRequest } from '../common/WorkerRequest';
 import type { OpTreeCtx } from '../common/iterate-operation-tree';
 import type { StrippedMesh } from '../common/StrippedMesh';
+import type { Box, Curvature, Properties, Vec3 } from 'manifold-3d';
+import * as WL from '@wonderlandengine/api';
 
 type WorkerTuple = [worker: Worker, jobCount: number];
 type WorkerArray = Array<WorkerTuple>;
 type JobResult = MeshGroup | boolean | number | Box | Properties | Curvature;
 type JobTuple = [resolve: (value: JobResult) => void, reject: (reason: unknown) => void, origMeshes: Array<MeshGroup | WL.Mesh>, workerID: number];
 
-function getFromBary(vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor): [aVec: Array<number>, bVec: Array<number>, cVec: Array<number>] {
+function getFromBary<B extends WL.TypedArrayCtor>(vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor<B>): [aVec: Array<number>, bVec: Array<number>, cVec: Array<number>] {
     const aOrigVal = origAccessor.get(a);
     const bOrigVal = origAccessor.get(b);
     const cOrigVal = origAccessor.get(c);
@@ -33,7 +32,7 @@ function getFromBary(vecSize: number, a: number, b: number, c: number, aBary: Ve
     return [aVec, bVec, cVec];
 }
 
-function setFromBary(i: number, vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor, buffer: Float32Array) {
+function setFromBary<B extends WL.TypedArrayCtor>(i: number, vecSize: number, a: number, b: number, c: number, aBary: Vec3, bBary: Vec3, cBary: Vec3, origAccessor: WL.MeshAttributeAccessor<B>, buffer: Float32Array) {
     const [aVec, bVec, cVec] = getFromBary(vecSize, a, b, c, aBary, bBary, cBary, origAccessor);
     buffer.set(aVec, i);
     i += vecSize;
@@ -59,11 +58,12 @@ export class CSGPool {
      * first CSG operation, or after calling and waiting for
      * {@link CSGPool#initialize}.
      *
+     * @param engine - The Wonderland Engine instance being used
      * @param workerCount - The wanted amount of workers. Note that this is a target, not a requirement. If all but one worker fails to be created, no error will be thrown.
      * @param workerPath - The path to the Gypsum<->Manifold worker script. Points to "gypsum-manifold.worker.min.js" by default.
      * @param manifoldPath - The path to the Manifold WASM bindings library. Points to "manifold.js" by default.
      */
-    constructor(workerCount: number | null = null, workerPath = 'gypsum-manifold.worker.min.js', manifoldPath = 'manifold.js') {
+    constructor(readonly engine: WL.WonderlandEngine, workerCount: number | null = null, workerPath = 'gypsum-manifold.worker.min.js', manifoldPath = 'manifold.js') {
         this.wantedWorkerCount = Math.max(
             1, workerCount ?? Math.ceil(navigator.hardwareConcurrency / 2)
         );
@@ -99,7 +99,7 @@ export class CSGPool {
         }
     }
 
-    private strippedMeshToMeshGroup(mesh: StrippedMesh, meshRelation: MeshRelation, meshIDMap: Map<number, MeshGroup | WL.Mesh>): MeshGroup {
+    private strippedMeshToMeshGroup(mesh: StrippedMesh, transforms: Float32Array | undefined, meshIDMap: Map<number, MeshGroup | WL.Mesh>): MeshGroup {
         // validate triangle count
         const triCount = mesh.triVerts.length / 3;
 
@@ -115,14 +115,14 @@ export class CSGPool {
             const triBary = meshRelation.triBary[iTri];
             const origMesh = meshIDMap.get(triBary.originalID);
             let wleMesh: WL.Mesh | null;
-            let material: WL.Material;
+            let material: WL.Material | null;
             let iTriOrig = iTri;
 
             if (origMesh instanceof MeshGroup) {
                 [[wleMesh, material], iTriOrig] = origMesh.getTriBarySubmesh(triBary.tri);
             } else {
                 material = null;
-                wleMesh = origMesh;
+                wleMesh = origMesh ?? null;
             }
 
             // get vertex array map (wle mesh -> va)
@@ -146,7 +146,7 @@ export class CSGPool {
         // count biggest submesh triangle count, and triangle count for each
         // vertex array
         let maxSubmeshTriCount = 0;
-        const vaTriCounts = new Map<WL.Material, number>();
+        const vaTriCounts = new Map<WL.Material | null, number>();
         for (const [material, vaMap] of vertexArrays) {
             let vaTotalTriCount = 0;
             for (const va of vaMap.values()) {
@@ -173,15 +173,19 @@ export class CSGPool {
             }
 
             // make mesh from index buffer
-            const wleMesh = new WL.Mesh({ vertexCount, indexType, indexData });
+            const wleMesh = new WL.Mesh({ vertexCount, indexType, indexData }, this.engine);
             const positions = wleMesh.attribute(WL.MeshAttribute.Position);
+
+            if (!positions) {
+                throw new Error('Unexpected missing positions mesh attribute');
+            }
 
             const tangents = wleMesh.attribute(WL.MeshAttribute.Tangent);
             const normals = wleMesh.attribute(WL.MeshAttribute.Normal);
             const texCoords = wleMesh.attribute(WL.MeshAttribute.TextureCoordinate);
             const colors = wleMesh.attribute(WL.MeshAttribute.Color);
             // TODO joint support?
-            const hasExtra: boolean = (tangents || normals || texCoords || colors);
+            const hasExtra = !!(tangents || normals || texCoords || colors);
             let needsFlip = false;
 
             const positionBuffer = new Float32Array(vertexCount * 3);
@@ -266,6 +270,9 @@ export class CSGPool {
                         // future manifold api
                         if (tangentBuffer || normalBuffer) {
                             const origPositions = origMesh.attribute(WL.MeshAttribute.Position);
+                            if (!origPositions) {
+                                throw new Error('Unexpected missing positions attribute');
+                            }
 
                             // get original face normal
                             const bOrig = origPositions.get(b);
@@ -357,21 +364,20 @@ export class CSGPool {
 
             positions.set(0, positionBuffer);
 
+            /* eslint-disable @typescript-eslint/no-non-null-assertion */
             if (tangentBuffer) {
-                tangents.set(0, tangentBuffer);
+                tangents!.set(0, tangentBuffer);
             }
-
             if (normalBuffer) {
-                normals.set(0, normalBuffer);
+                normals!.set(0, normalBuffer);
             }
-
             if (texCoordBuffer) {
-                texCoords.set(0, texCoordBuffer);
+                texCoords!.set(0, texCoordBuffer);
             }
-
             if (colorBuffer) {
-                colors.set(0, colorBuffer);
+                colors!.set(0, colorBuffer);
             }
+            /* eslint-enable @typescript-eslint/no-non-null-assertion */
 
             submeshes.push([wleMesh, material]);
         }
@@ -461,7 +467,7 @@ export class CSGPool {
                         const result = event.data.result;
 
                         if (Array.isArray(result)) {
-                            const [mesh, meshRelation, meshIDMap] = result;
+                            const [mesh, transforms, meshIDMap] = result;
                             const mappedOrigMap = new Map<number, MeshGroup | WL.Mesh>();
 
                             for (const [src, dst] of meshIDMap) {
@@ -471,7 +477,7 @@ export class CSGPool {
                                 }
                             }
 
-                            jobResolve(this.strippedMeshToMeshGroup(mesh, meshRelation, mappedOrigMap));
+                            jobResolve(this.strippedMeshToMeshGroup(mesh, transforms, mappedOrigMap));
                         } else {
                             jobResolve(result);
                         }

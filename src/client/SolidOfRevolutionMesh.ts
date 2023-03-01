@@ -3,6 +3,7 @@ import { ExtrusionMesh } from './ExtrusionMesh';
 
 import type { CurveFrames } from './curves/curve-frame';
 import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
+import type * as WL from '@wonderlandengine/api';
 
 const TAU = Math.PI * 2;
 
@@ -36,10 +37,11 @@ export class SolidOfRevolutionMesh extends ExtrusionMesh {
      * Make a solid of revolution from a slice. Slices are revolved around the
      * Y axis.
      *
+     * @param engine - The Wonderland Engine instance to use this mesh for
      * @param polyline - The polyline for the slice of the solid.
      * @param options - Optional arguments for the solid of revolution generation.
      */
-    constructor(polyline: Array<vec2>, options?: SolidOfRevolutionOptions) {
+    constructor(engine: WL.WonderlandEngine, polyline: Array<vec2>, options?: SolidOfRevolutionOptions) {
         const offset = options?.offset ?? vec2.create();
         const segments = options?.segments ?? 16;
 
@@ -99,6 +101,6 @@ export class SolidOfRevolutionMesh extends ExtrusionMesh {
         frames[segments] = frames[0];
 
         // do looped extrusion
-        super(polyline, curvePositions, frames, { ...options });
+        super(engine, polyline, curvePositions, frames, { ...options });
     }
 }

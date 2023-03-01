@@ -1,6 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/triple-slash-reference
-/// <reference path="../../types/globals.d.ts" />
-
 import { mat4, vec2, vec3, vec4 } from 'gl-matrix';
 import { MeshGroup } from './MeshGroup';
 import triangulate2DPolygon from './triangulation/triangulate-2d-polygon';
@@ -9,6 +6,8 @@ import { Triangle } from './mesh-gen/Triangle';
 
 import type { CurveFrames } from './curves/curve-frame';
 import type { EdgeList } from './mesh-gen/MeshBuilder';
+import type { Vec3 } from 'manifold-3d';
+import type * as WL from '@wonderlandengine/api';
 
 const RIGHT = vec3.fromValues(1, 0, 0);
 
@@ -106,12 +105,13 @@ export class ExtrusionMesh extends MeshGroup {
      * Create a new extrusion by copying slices along a curve, and connecting
      * points with new faces.
      *
+     * @param engine - The Wonderland Engine instance to use this mesh for
      * @param polyline - A polyline with the slice of the extrusion.
      * @param curvePositions - The positions of each slice of the extrusion.
      * @param curveFrames - The curve frames of each slice of the extrusion. Contains orientation information.
      * @param options - Optional arguments for the extrusion.
      */
-    constructor(polyline: Array<vec2>, curvePositions: Array<vec3>, curveFrames: CurveFrames, options?: ExtrusionOptions) {
+    constructor(engine: WL.WonderlandEngine, polyline: Array<vec2>, curvePositions: Array<vec3>, curveFrames: CurveFrames, options?: ExtrusionOptions) {
         // validate curve
         const pointCount = curvePositions.length;
         const loopLen = polyline.length;
@@ -221,7 +221,7 @@ export class ExtrusionMesh extends MeshGroup {
         const hasSmoothNormals = options?.smoothNormals ?? false;
         const invExtrusionLen = 1 / extrusionLength;
         let segEndLen = 0, segStartV = -1, segEndV = vStart;
-        const builder = new MeshBuilder();
+        const builder = new MeshBuilder(engine);
 
         for (let s = 0, i = 0, j = loopLen; s < segmentCount; s++, i += loopLen, j += loopLen) {
             segEndLen += vec3.distance(curvePositions[s], curvePositions[s + 1]);

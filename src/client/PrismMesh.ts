@@ -3,6 +3,7 @@ import { vec3 } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
 import type { PrismPyramidOptions } from './PrismPyramidOptions';
+import type * as WL from '@wonderlandengine/api';
 
 /**
  * A procedural prism which extrudes along the Y direction.
@@ -13,13 +14,15 @@ export class PrismMesh extends BasePrismoidPyramidMesh {
     /**
      * Make a new prism which extrudes along the Y direction.
      *
+     * @param engine - The Wonderland Engine instance to use this mesh for
      * @param polyline - The polyline to use for the base.
      * @param options - Optional arguments for the prism generation.
      */
-    constructor(polyline: Array<vec2>, options?: PrismPyramidOptions) {
+    constructor(engine: WL.WonderlandEngine, polyline: Array<vec2>, options?: PrismPyramidOptions) {
         const baseScale = options?.baseScale ?? 1;
 
         super(
+            engine,
             polyline,
             baseScale,
             baseScale,

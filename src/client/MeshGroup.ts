@@ -1,6 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/triple-slash-reference
-/// <reference path="../../types/globals.d.ts" />
-
 import VertexHasher from './mesh-gen/VertexHasher';
 import { DynamicArray } from './mesh-gen/DynamicArray';
 import { EPS } from './misc/EPS';
@@ -8,6 +5,7 @@ import { mat3, mat4, vec3, vec4 } from 'gl-matrix';
 
 import type { StrippedMesh } from '../common/StrippedMesh';
 import type { quat } from 'gl-matrix';
+import * as WL from '@wonderlandengine/api';
 
 const MAX_INDEX = 0xFFFFFFFF;
 
@@ -26,7 +24,7 @@ export type SubmeshMap = Uint8Array | Uint16Array | Uint32Array;
 /**
  * A pair containing a WL.Mesh instance and it's assigned WL.Material.
  */
-export type Submesh = [mesh: WL.Mesh, material: WL.Material];
+export type Submesh = [mesh: WL.Mesh, material: WL.Material | null];
 
 /**
  * A helper class which acts as a single mesh, but contains a list of submeshes,
@@ -67,7 +65,7 @@ export class MeshGroup {
      * @param mesh - A WL.Mesh instance.
      * @param material - A WL.Material instance. Null by default.
      */
-    static fromWLEMesh(mesh: WL.Mesh, material: WL.Material = null) {
+    static fromWLEMesh(mesh: WL.Mesh, material: WL.Material | null = null) {
         return new MeshGroup([[ mesh, material ]]);
     }
 
@@ -214,6 +212,11 @@ export class MeshGroup {
             // prepare accessors
             const wleMesh = wleMeshes[submeshIdx];
             const positions = wleMesh.attribute(WL.MeshAttribute.Position);
+
+            if (positions === null) {
+                throw new Error('Unexpected null mesh positions');
+            }
+
             const packedVertexCount = wleMesh.vertexCount;
             const indexData = wleMesh.indexData;
             const vertexCount = indexData === null ? packedVertexCount : indexData.length;
