@@ -4,7 +4,7 @@ import ManifoldModule from 'manifold-3d';
 import type { StrippedMesh } from './common/StrippedMesh';
 import type { WorkerRequest, WorkerOperation } from './common/WorkerRequest';
 import type { WorkerResponse, WorkerResult, WorkerIDMap } from './common/WorkerResponse';
-import { ManifoldStatic, Manifold } from 'manifold-3d';
+import type { ManifoldStatic, Manifold } from 'manifold-3d';
 
 function logWorker(callback: (message: string) => void, message: unknown) {
     callback(`[Worker ${self.name}] ${message}`);
@@ -257,9 +257,14 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
         case 'initialize':
             if (!manifoldModule) {
                 try {
-                    logWorker(console.debug, `Initializing worker with libary path "${message.data.libraryPath}"`);
-                    importScripts(message.data.libraryPath);
-                    logWorker(console.debug, `Imported library successfuly`);
+                    // XXX we are now bundling instead of importing because
+                    // manifold is an es6 module, and firefox doesnt support
+                    // importing es6 modules in workers. it will be added in
+                    // firefox 111, but we still need some reverse compatibility
+                    // instead of just supporting the bleeding edge
+                    logWorker(console.debug, 'Initializing worker'); // `Initializing worker with libary path "${message.data.libraryPath}"`
+                    // importScripts(message.data.libraryPath);
+                    // logWorker(console.debug, `Imported library successfuly`);
                     manifoldModule = await ManifoldModule();
                     logWorker(console.debug, `Done waiting for module`);
                     manifoldModule.setup();
