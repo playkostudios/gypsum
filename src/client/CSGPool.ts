@@ -1,6 +1,6 @@
 import { CSGOperation } from '../common/CSGOperation';
 import { iterateOpTree } from '../common/iterate-operation-tree';
-import { WorkerResponse } from '../common/WorkerResponse';
+import { MeshGroupMapping, WorkerResponse } from '../common/WorkerResponse';
 import { vec3 } from 'gl-matrix';
 import { MeshGroup, Submesh, SubmeshMap } from './MeshGroup';
 
@@ -99,7 +99,7 @@ export class CSGPool {
         }
     }
 
-    private strippedMeshToMeshGroup(mesh: StrippedMesh, transforms: Float32Array | undefined, meshIDMap: Map<number, MeshGroup | WL.Mesh>): MeshGroup {
+    private strippedMeshToMeshGroup(mesh: StrippedMesh, mapping: MeshGroupMapping, meshIDMap: Map<number, MeshGroup | WL.Mesh>): MeshGroup {
         // validate triangle count
         const triCount = mesh.triVerts.length / 3;
 
@@ -467,17 +467,17 @@ export class CSGPool {
                         const result = event.data.result;
 
                         if (Array.isArray(result)) {
-                            const [mesh, transforms, meshIDMap] = result;
-                            const mappedOrigMap = new Map<number, MeshGroup | WL.Mesh>();
+                            const [mesh, mapping] = result;
+                            const runMeshes = new Map<number, MeshGroup | WL.Mesh>();
 
-                            for (const [src, dst] of meshIDMap) {
-                                const orig = origMap[dst];
+                            for (const meshID of mapping.runMappedID) {
+                                const orig = origMap[meshID];
                                 if (orig) {
-                                    mappedOrigMap.set(src, orig);
+                                    runMeshes.set(meshID, orig);
                                 }
                             }
 
-                            jobResolve(this.strippedMeshToMeshGroup(mesh, transforms, mappedOrigMap));
+                            jobResolve(this.strippedMeshToMeshGroup(mesh, mapping, runMeshes));
                         } else {
                             jobResolve(result);
                         }

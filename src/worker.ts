@@ -3,7 +3,7 @@ import ManifoldModule from 'manifold-3d';
 
 import type { StrippedMesh } from './common/StrippedMesh';
 import type { WorkerRequest, WorkerOperation } from './common/WorkerRequest';
-import type { WorkerResponse, WorkerResult, WorkerIDMap } from './common/WorkerResponse';
+import type { MeshGroupMapping, WorkerResponse, WorkerResult } from './common/WorkerResponse';
 import type { ManifoldStatic, Manifold } from 'manifold-3d';
 
 function logWorker(callback: (message: string) => void, message: unknown) {
@@ -25,21 +25,23 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
     const manifold = manifoldModule as ManifoldStatic;
     const stack = new Array<Manifold>();
     let result: WorkerResult | undefined = undefined;
-    const idMap: WorkerIDMap = [];
+    const idMap = new Map<number, number>();
 
     iterateOpTree(tree, (_context, _key, [meshID, meshObj]) => {
         // mesh
         // logWorker(console.debug, 'Adding mesh as manifold to stack');
 
+        const originalID = manifold.reserveIDs(1);
         const mesh = new manifold.Mesh({
             numProp: 3,
             vertProperties: meshObj.vertPos,
-            triVerts: meshObj.triVerts
+            triVerts: meshObj.triVerts,
+            runOriginalID: new Uint32Array([originalID]),
         });
 
         const meshManif = new manifold.Manifold(mesh);
         allocatedManifolds.push(meshManif);
-        idMap.push([meshManif.originalID(), meshID]);
+        idMap.set(originalID, meshID);
         stack.push(meshManif);
     }, (_context, _key, node) => {
         // primitive
@@ -232,13 +234,54 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
         if (stack.length === 1) {
             const top = stack[0];
             const outMesh = top.getMesh();
+
+            const faceID = outMesh.faceID;
+            if (faceID === undefined) {
+                throw new Error('Missing faceID in resulting MeshJS object');
+            }
+
+            const runIndex = outMesh.runIndex;
+            if (runIndex === undefined) {
+                throw new Error('Missing runIndex in resulting MeshJS object');
+            }
+
+            const runOriginalID = outMesh.runOriginalID;
+            if (runOriginalID === undefined) {
+                throw new Error('Missing runOriginalID in resulting MeshJS object');
+            }
+
+            const runTransform = outMesh.runTransform;
+            if (runTransform === undefined) {
+                throw new Error('Missing runTransform in resulting MeshJS object');
+            }
+
+            const meshCount = runOriginalID.length;
+            const runMappedID = new Uint32Array(meshCount);
+            for (let i = 0; i < meshCount; i++) {
+                const originalID = runOriginalID[i];
+                const meshID = idMap.get(originalID);
+                if (meshID === undefined) {
+                    // XXX should there be a fallback to null or something, and
+                    // use plain arrays instead of uint32array?
+                    throw new Error(`originalID ${originalID} has no mapped meshID`);
+                }
+
+                runMappedID[i] = meshID;
+            }
+
             transfer.push(outMesh.triVerts.buffer);
             transfer.push(outMesh.vertProperties.buffer);
+            transfer.push(faceID.buffer);
+            transfer.push(runIndex.buffer);
+            transfer.push(runMappedID.buffer);
+            transfer.push(runTransform.buffer);
 
             return [
                 <StrippedMesh>{
                     triVerts: outMesh.triVerts, vertPos: outMesh.vertProperties
-                }, outMesh.runTransform, idMap
+                }, <MeshGroupMapping>{
+                    faceID, runIndex, runMappedID, runTransform
+                }
             ];
         } else {
             throw new Error(`Unexpected number of manifolds in stack (${stack.length}) after evaluation`);

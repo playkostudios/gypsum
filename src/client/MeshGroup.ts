@@ -2,10 +2,13 @@ import VertexHasher from './mesh-gen/VertexHasher';
 import { DynamicArray } from './mesh-gen/DynamicArray';
 import { EPS } from './misc/EPS';
 import { mat3, mat4, vec3, vec4 } from 'gl-matrix';
+import * as WL from '@wonderlandengine/api';
 
 import type { StrippedMesh } from '../common/StrippedMesh';
 import type { quat } from 'gl-matrix';
-import * as WL from '@wonderlandengine/api';
+import type { EncodedMeshGroup } from '../common/EncodedMeshGroup';
+import type { AllowedExtraMeshAttributes } from '../common/AllowedExtraMeshAttributes';
+import type { EncodedSubmesh } from '../common/EncodedSubmesh';
 
 const MAX_INDEX = 0xFFFFFFFF;
 
@@ -22,9 +25,15 @@ const MAX_INDEX = 0xFFFFFFFF;
 export type SubmeshMap = Uint8Array | Uint16Array | Uint32Array;
 
 /**
- * A pair containing a WL.Mesh instance and it's assigned WL.Material.
+ * A pair containing a WL.Mesh instance, its assigned WL.Material and an
+ * optional list of extra mesh attribute hints.
+ *
+ * The extra mesh attributes list defines the list of attributes that need to be
+ * handled. If none is passed, then all mesh attributes will be handled,
+ * including mesh attributes that are potentially not used, since the available
+ * attributes are dictated by the existing pipelines, not by each mesh.
  */
-export type Submesh = [mesh: WL.Mesh, material: WL.Material | null];
+export type Submesh = [mesh: WL.Mesh, material: WL.Material | null, extraAttributesHint?: Set<AllowedExtraMeshAttributes>];
 
 /**
  * A helper class which acts as a single mesh, but contains a list of submeshes,
@@ -462,5 +471,94 @@ export class MeshGroup {
     rotate(rotation: quat): this {
         this.transform(mat4.fromQuat(mat4.create(), rotation));
         return this;
+    }
+
+    /**
+     * Encode into a format that is passable to the Manifold worker, along with
+     * a numeric mapping for materials.
+     */
+    encode(): [EncodedMeshGroup, Array<WL.Material>] {
+        // get manifold mesh and submesh map
+        const srcManifoldMesh = this.manifoldMesh;
+
+        if (!this.submeshMap) {
+            throw new Error('Missing submesh map');
+        }
+
+        const srcSubmeshMap = this.submeshMap;
+
+        // clone buffers of both
+        const manifTriVertsBuf = new ArrayBuffer(srcManifoldMesh.triVerts.byteLength);
+        const manifTriVerts = new Uint32Array(manifTriVertsBuf);
+        manifTriVerts.set(srcManifoldMesh.triVerts);
+
+        const manifVertPosBuf = new ArrayBuffer(srcManifoldMesh.vertPos.byteLength);
+        const manifVertPos = new Float32Array(manifVertPosBuf);
+        manifVertPos.set(srcManifoldMesh.vertPos);
+
+        const submeshMapBuf = new ArrayBuffer(srcSubmeshMap.byteLength);
+        let submeshMap: Uint8Array | Uint16Array | Uint32Array;
+        if (srcSubmeshMap.BYTES_PER_ELEMENT === 1) {
+            submeshMap = new Uint8Array(submeshMapBuf);
+        } else if (srcSubmeshMap.BYTES_PER_ELEMENT === 2) {
+            submeshMap = new Uint16Array(submeshMapBuf);
+        } else if (srcSubmeshMap.BYTES_PER_ELEMENT === 4) {
+            submeshMap = new Uint32Array(submeshMapBuf);
+        } else {
+            throw new Error(`Unexpected ${srcSubmeshMap.BYTES_PER_ELEMENT * 8}-bit submesh map`);
+        }
+
+        submeshMap.set(srcSubmeshMap);
+
+        // clone submeshes
+        const materials = new Array<WL.Material>();
+        const submeshes = new Array<EncodedSubmesh>();
+        for (const submesh of this.submeshes) {
+            // get material ID
+            let materialID: number | null = null;
+            const material = submesh[1];
+            if (material !== null) {
+                materialID = materials.indexOf(material);
+
+                if (materialID === -1) {
+                    materialID = materials.length;
+                    materials.push(material);
+                }
+            }
+
+            // get positions for mesh
+            const mesh = submesh[0];
+            const positions = mesh.attribute(WL.MeshAttribute.Position);
+            if (positions === null) {
+                throw new Error('Unexpected missing positions mesh attribute');
+            }
+
+            // TODO continue positions
+            const encPositions = new Float32Array()
+
+            // get extra attributes
+            const extraAttributes = new Array<[AllowedExtraMeshAttributes, Float32Array]>();
+            // TODO
+
+            // convert to object
+            submeshes.push({
+                positions: encPositions,
+                extraAttributes,
+                materialID
+            });
+        }
+
+        // make encoded meshgroup object
+        return [
+            {
+                manifoldMesh: {
+                    triVerts: manifTriVerts,
+                    vertPos: manifVertPos
+                },
+                submeshes,
+                submeshMap
+            },
+            materials
+        ];
     }
 }
