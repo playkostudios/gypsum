@@ -281,7 +281,7 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
             transfer.push(runMappedID.buffer);
             transfer.push(runTransform.buffer);
             // TODO generate encoded meshgroup
-            const meshGroup: EncodedMeshGroup;
+            const meshGroup: EncodedMeshGroup = null;
 
             return [WorkerResultType.MeshGroup, meshGroup];
         } else {
