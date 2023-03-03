@@ -1,17 +1,20 @@
 import { iterateOpTree } from './common/iterate-operation-tree';
 import ManifoldModule from 'manifold-3d';
 import { WorkerResultType } from './common/WorkerResponse';
+import { MeshAttribute } from '@wonderlandengine/api';
+import { getComponentCount } from './common/getComponentCount';
 
 import type { WorkerRequest, WorkerOperation } from './common/WorkerRequest';
 import type { WorkerResponse, WorkerResult, WorkerResultPassthroughValue } from './common/WorkerResponse';
 import type { ManifoldStatic, Manifold } from 'manifold-3d';
 import type { EncodedMeshGroup } from './common/EncodedMeshGroup';
+import type { AllowedExtraMeshAttribute } from './common/AllowedExtraMeshAttribute';
 
 function logWorker(callback: (message: string) => void, message: unknown) {
     callback(`[Worker ${self.name}] ${message}`);
 }
 
-let manifoldModule: ManifoldStatic | null = null;
+let globalManifoldModule: ManifoldStatic | null = null;
 
 const boolOpMap: Record<string, 'union' | 'difference' | 'intersection'> = {
     add: 'union',
@@ -22,28 +25,158 @@ const boolOpMap: Record<string, 'union' | 'difference' | 'intersection'> = {
     intersection: 'intersection',
 };
 
-function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, allocatedManifolds: Array<Manifold>): WorkerResult {
-    const manifold = manifoldModule as ManifoldStatic;
+function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, transfer: Array<Transferable>, allocatedManifolds: Array<Manifold>): WorkerResult {
+    // create a common mapping for MeshGroup extra mesh attributes
+    const attributeMapping = new Array<[attrType: AllowedExtraMeshAttribute, offset: number, componentSize: number]>();
+    let numProp = 3;
+    iterateOpTree(tree, (_context, _key, encodedMeshGroup) => {
+        for (const submesh of encodedMeshGroup.submeshes) {
+            for (const [attrType, _attrArray] of submesh.extraAttributes) {
+                let found = false;
+                for (const [oAttrType, _oOffset] of attributeMapping) {
+                    if (attrType === oAttrType) {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (found) {
+                    continue;
+                }
+
+                const componentSize = getComponentCount(attrType);
+                attributeMapping.push([attrType, numProp, componentSize]);
+                numProp += componentSize;
+            }
+        }
+    });
+
+    // evaluate operation tree
     const stack = new Array<Manifold>();
     let result: WorkerResult | undefined = undefined;
-    const idMap = new Map<number, number>();
+    const materialMap = new Map<number, number>();
 
     iterateOpTree(tree, (_context, _key, encodedMeshGroup) => {
-        // mesh
+        // meshgroup
         // logWorker(console.debug, 'Adding mesh as manifold to stack');
 
-        // TODO
-        const originalID = manifold.reserveIDs(1);
-        const mesh = new manifold.Mesh({
-            numProp: 3,
-            vertProperties: meshObj.vertPos,
-            triVerts: meshObj.triVerts,
-            runOriginalID: new Uint32Array([originalID]),
+        // convert encoded meshgroup to manifold
+        const submeshes = encodedMeshGroup.submeshes;
+        const submeshCount = submeshes.length;
+        const originalIDStart = submeshCount > 0 ? manifoldModule.reserveIDs(submeshCount) : null;
+        let mergeFromVert: Uint32Array | undefined;
+        let mergeToVert: Uint32Array | undefined;
+        let runOriginalID: Uint32Array | undefined;
+        let runIndex: Uint32Array | undefined;
+        let vertProperties: Float32Array;
+        let triVerts: Uint32Array;
+
+        if (originalIDStart !== null) {
+            // calculate total vertex/index count
+            let totalVertexCount = 0;
+            let totalIndexCount = 0;
+            for (const submesh of submeshes) {
+                const vertexCount = submesh.positions.length / 3;
+                totalVertexCount += vertexCount;
+                const indices = submesh.indices;
+                totalIndexCount += indices === null ? vertexCount : indices.length;
+            }
+
+            // convert to buffers usable by MeshJS
+            vertProperties = new Float32Array(totalVertexCount * numProp);
+            triVerts = new Uint32Array(totalIndexCount);
+            runOriginalID = new Uint32Array(submeshCount);
+            let indexOffset = 0;
+            let vertexOffset = 0;
+
+            for (let i = 0; i < submeshCount; i++) {
+                // save manifold ids and map manifold ids back to material ids
+                const encodedSubmesh = submeshes[i];
+                const originalID = originalIDStart + i;
+                const materialID = encodedSubmesh.materialID;
+                runOriginalID[i] = originalID;
+
+                if (materialID !== null) {
+                    materialMap.set(originalID, materialID);
+                }
+
+                // store indices in common mesh. if mesh is not indexed, make
+                // it. move index offset too
+                const indices = encodedSubmesh.indices;
+                const positions = encodedSubmesh.positions;
+                const posCompCount = positions.length;
+                const vertexCount = posCompCount / 3;
+
+                if (indices === null) {
+                    for (let j = 0; j < vertexCount; j++) {
+                        triVerts[indexOffset + j] = vertexOffset + j;
+                    }
+
+                    indexOffset += vertexCount;
+                } else {
+                    const indexCount = indices.length;
+                    for (let j = 0; j < indexCount; j++) {
+                        triVerts[indexOffset + j] = vertexOffset + indices[j];
+                    }
+
+                    indexOffset += indices.length;
+                }
+
+                // interlace positions into common mesh
+                for (let j = 0, offset = vertexOffset; j < posCompCount; offset += numProp) {
+                    vertProperties[offset    ] = positions[j++];
+                    vertProperties[offset + 1] = positions[j++];
+                    vertProperties[offset + 2] = positions[j++];
+                }
+
+                // interlace extra attributes into common mesh
+                for (const [attrType, attrArray] of encodedSubmesh.extraAttributes) {
+                    // get per-vertex offset of attribute type
+                    let attrOffset: number | null = null;
+                    let attrCompSize: number | null = null;
+                    for (const [oAttrType, oAttrOffset, oAttrCompSize] of attributeMapping) {
+                        if (attrType === oAttrType) {
+                            attrOffset = oAttrOffset;
+                            attrCompSize = oAttrCompSize;
+                            break;
+                        }
+                    }
+
+                    if (attrOffset === null || attrCompSize === null) {
+                        throw new Error(`Unexpected missing attribute type ID ${attrType}, which should have been previously mapped. This is a bug, please report it`);
+                    }
+
+                    // interlace
+                    const attrArrayLen = attrArray.length;
+                    for (let j = 0, offset = vertexOffset + attrOffset; j < attrArrayLen; offset += numProp) {
+                        for (let k = 0; k < attrCompSize; k++) {
+                            vertProperties[offset + k] = attrArray[j++];
+                        }
+                    }
+                }
+
+                // move vertex offset
+                vertexOffset += vertexCount;
+            }
+
+            // extract merge map
+            if (encodedMeshGroup.mergeMap) {
+                [mergeFromVert, mergeToVert] = encodedMeshGroup.mergeMap;
+            }
+        } else {
+            // empty mesh
+            vertProperties = new Float32Array();
+            triVerts = new Uint32Array();
+        }
+
+        // convert meshgroup -> meshjs -> manifold
+        const mesh = new manifoldModule.Mesh({
+            numProp, vertProperties, triVerts, runIndex, runOriginalID,
+            mergeFromVert, mergeToVert
         });
 
-        const meshManif = new manifold.Manifold(mesh);
+        const meshManif = new manifoldModule.Manifold(mesh);
         allocatedManifolds.push(meshManif);
-        idMap.set(originalID, meshID);
         stack.push(meshManif);
     }, (_context, _key, node) => {
         // primitive
@@ -52,23 +185,23 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
 
         switch (node.primitive) {
             case 'cube':
-                primitiveManifold = manifold.cube(
+                primitiveManifold = manifoldModule.cube(
                     node.size, node.center
                 );
                 break;
             case 'cylinder':
-                primitiveManifold = manifold.cylinder(
+                primitiveManifold = manifoldModule.cylinder(
                     node.height, node.radiusLow, node.radiusHigh,
                     node.circularSegments, node.center
                 );
                 break;
             case 'sphere':
-                primitiveManifold = manifold.sphere(
+                primitiveManifold = manifoldModule.sphere(
                     node.radius, node.circularSegments
                 );
                 break;
             case 'tetrahedron':
-                primitiveManifold = manifold.tetrahedron();
+                primitiveManifold = manifoldModule.tetrahedron();
                 break;
             default:
                 throw new Error(`Unknown primitive: ${(node as {primitive: string}).primitive}`);
@@ -88,7 +221,7 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
             case 'difference':
             case 'intersect':
             case 'intersection': {
-                const opFunc = manifold[boolOpMap[node.operation]];
+                const opFunc = manifoldModule[boolOpMap[node.operation]];
 
                 if ('manifolds' in node) {
                     const wantedCount = node.manifolds.length;
@@ -158,7 +291,7 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
             case 'extrude':
                 // logWorker(console.debug, 'Pushing 1 manifold');
 
-                res = manifold.extrude(
+                res = manifoldModule.extrude(
                     node.crossSection, node.height, node.nDivisions,
                     node.twistDegrees, node.scaleTop
                 );
@@ -166,7 +299,7 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
             case 'revolve':
                 // logWorker(console.debug, 'Pushing 1 manifold');
 
-                res = manifold.revolve(
+                res = manifoldModule.revolve(
                     node.crossSection, node.circularSegments
                 );
                 break;
@@ -299,7 +432,7 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
 globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
     switch(message.data.type) {
         case 'initialize':
-            if (!manifoldModule) {
+            if (!globalManifoldModule) {
                 try {
                     // XXX we are now bundling instead of importing because
                     // manifold is an es6 module, and firefox doesnt support
@@ -309,13 +442,13 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
                     logWorker(console.debug, 'Initializing worker'); // `Initializing worker with libary path "${message.data.libraryPath}"`
                     // importScripts(message.data.libraryPath);
                     // logWorker(console.debug, `Imported library successfuly`);
-                    manifoldModule = await ManifoldModule();
+                    globalManifoldModule = await ManifoldModule();
                     logWorker(console.debug, `Done waiting for module`);
-                    manifoldModule.setup();
+                    globalManifoldModule.setup();
                     logWorker(console.debug, `Module setup finished`);
                 } catch(error) {
                     // XXX not sure what else can be done to clean up
-                    manifoldModule = null;
+                    globalManifoldModule = null;
                     logWorker(console.debug, 'Initialization failed');
                     logWorker(console.error, error);
                     postMessage(<WorkerResponse>{ type: 'crash', error });
@@ -328,12 +461,12 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
             return;
         case 'terminate':
             // XXX not sure what else can be done to clean up
-            manifoldModule = null;
+            globalManifoldModule = null;
             logWorker(console.debug, 'Terminated');
             postMessage(<WorkerResponse>{ type: 'terminated' });
             return;
         case 'operation': {
-            if (!manifoldModule) {
+            if (!globalManifoldModule) {
                 postMessage(<WorkerResponse>{
                     type: 'result',
                     success: false,
@@ -348,7 +481,13 @@ globalThis.onmessage = async function(message: MessageEvent<WorkerRequest>) {
 
             try {
                 const transfer = new Array<Transferable>();
-                const result = evaluateOpTree(message.data.operation, transfer, allocatedManifolds);
+                const result = evaluateOpTree(
+                    globalManifoldModule,
+                    message.data.operation,
+                    transfer,
+                    allocatedManifolds
+                );
+
                 postMessage(<WorkerResponse>{
                     type: 'result',
                     success: true,

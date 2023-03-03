@@ -1,9 +1,6 @@
-import type { SubmeshMap } from '../client/MeshGroup';
 import type { EncodedSubmesh } from './EncodedSubmesh';
-import type { EncodedManifoldMesh } from './EncodedManifoldMesh';
 
 export interface EncodedMeshGroup {
-    manifoldMesh: EncodedManifoldMesh;
+    mergeMap: [from: Uint32Array, to: Uint32Array] | null;
     submeshes: Array<EncodedSubmesh>;
-    submeshMap: SubmeshMap;
 }

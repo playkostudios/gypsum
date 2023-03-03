@@ -3,10 +3,11 @@ import { DynamicArray } from './mesh-gen/DynamicArray';
 import { EPS } from './misc/EPS';
 import { mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import * as WL from '@wonderlandengine/api';
+import { getComponentCount } from '../common/getComponentCount';
 
 import type { quat } from 'gl-matrix';
 import type { EncodedMeshGroup } from '../common/EncodedMeshGroup';
-import type { AllowedExtraMeshAttributes } from '../common/AllowedExtraMeshAttributes';
+import type { AllowedExtraMeshAttribute } from '../common/AllowedExtraMeshAttribute';
 import type { EncodedSubmesh } from '../common/EncodedSubmesh';
 import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 import type { EncodedManifoldMesh } from '../common/EncodedManifoldMesh';
@@ -34,7 +35,7 @@ export type SubmeshMap = Uint8Array | Uint16Array | Uint32Array;
  * including mesh attributes that are potentially not used, since the available
  * attributes are dictated by the existing pipelines, not by each mesh.
  */
-export type Submesh = [mesh: WL.Mesh, material: WL.Material | null, extraAttributesHint?: Set<AllowedExtraMeshAttributes>];
+export type Submesh = [mesh: WL.Mesh, material: WL.Material | null, extraAttributesHint?: Set<AllowedExtraMeshAttribute>];
 
 /**
  * A helper class which acts as a single mesh, but contains a list of submeshes,
@@ -169,7 +170,7 @@ export class MeshGroup {
      * yet, then a manifold will be automatically generated and cached. Note
      * that this process can throw.
      */
-    get manifoldMesh(): EncodedManifoldMesh {
+    get (): EncodedManifoldMesh {
         if (!this.premadeManifoldMesh) {
             const wleMeshes = new Array<WL.Mesh>(this.submeshes.length);
 
@@ -623,8 +624,8 @@ export class MeshGroup {
 
             // get which extra attributes need to be copied, or generate the
             // list of attributes if no hints are provided
-            const attrs = new Array<[type: AllowedExtraMeshAttributes, accessor: MeshAttributeAccessor, componentCount: number]>();
-            let hints: Iterable<AllowedExtraMeshAttributes> | undefined = submesh[2];
+            const attrs = new Array<[type: AllowedExtraMeshAttribute, accessor: MeshAttributeAccessor, componentCount: number]>();
+            let hints: Iterable<AllowedExtraMeshAttribute> | undefined = submesh[2];
             let failOnMissing = true;
 
             if (hints === undefined) {
@@ -633,22 +634,7 @@ export class MeshGroup {
             }
 
             for (const attrType of hints) {
-                let componentCount: number;
-                switch (attrType) {
-                case WL.MeshAttribute.Tangent:
-                case WL.MeshAttribute.Color:
-                    componentCount = 4;
-                    break;
-                case WL.MeshAttribute.Normal:
-                    componentCount = 3;
-                    break;
-                case WL.MeshAttribute.TextureCoordinate:
-                    componentCount = 2;
-                    break;
-                default:
-                    throw new Error(`Unknown or disallowed mesh attribute with type ID ${attrType}`);
-                }
-
+                const componentCount = getComponentCount(attrType);
                 const accessor = mesh.attribute(attrType);
                 if (accessor === null) {
                     if (failOnMissing) {
@@ -662,7 +648,7 @@ export class MeshGroup {
             }
 
             // get extra attributes
-            const extraAttributes = new Array<[AllowedExtraMeshAttributes, Float32Array]>();
+            const extraAttributes = new Array<[AllowedExtraMeshAttribute, Float32Array]>();
             for (const [attrType, attrAccessor, componentCount] of attrs) {
                 const attrArray = new Float32Array(vertexCount * componentCount);
                 attrAccessor.get(0, attrArray);
