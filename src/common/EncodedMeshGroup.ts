@@ -1,6 +1,7 @@
 import type { EncodedSubmesh } from './EncodedSubmesh';
+import type { MergeMap } from './MergeMap';
 
 export interface EncodedMeshGroup {
-    mergeMap: [from: Uint32Array, to: Uint32Array] | null;
+    mergeMap: MergeMap | null;
     submeshes: Array<EncodedSubmesh>;
 }

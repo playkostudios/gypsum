@@ -3,15 +3,15 @@ import ManifoldModule, { Vec3 } from 'manifold-3d';
 import { WorkerResultType } from './common/WorkerResponse';
 import { MeshAttribute } from '@wonderlandengine/api';
 import { getComponentCount } from './common/getComponentCount';
+import { getIndexBufferType, makeIndexBuffer, makeIndexBufferForType } from './client';
+import { DynamicArray } from './common/DynamicArray';
 
 import type { WorkerRequest, WorkerOperation } from './common/WorkerRequest';
 import type { WorkerResponse, WorkerResult, WorkerResultPassthroughValue } from './common/WorkerResponse';
 import type { ManifoldStatic, Manifold } from 'manifold-3d';
-import type { EncodedMeshGroup } from './common/EncodedMeshGroup';
 import type { AllowedExtraMeshAttribute } from './common/AllowedExtraMeshAttribute';
-import { EncodedSubmesh } from './common/EncodedSubmesh';
-import { getIndexBufferType, makeIndexBuffer, makeIndexBufferForType } from './client';
-import { DynamicArray } from './common/DynamicArray';
+import type { EncodedSubmesh } from './common/EncodedSubmesh';
+import type { MergeMap } from './common/MergeMap';
 
 function logWorker(callback: (message: string) => void, message: unknown) {
     callback(`[Worker ${self.name}] ${message}`);
@@ -423,9 +423,12 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
             const vertProperties = outMesh.vertProperties;
 
             // extract merge map if present
-            let mergeMap: [from: Uint32Array, to: Uint32Array] | null = null;
+            let mergeMap: MergeMap | null = null;
             if (outMesh.mergeFromVert && outMesh.mergeToVert) {
+                // TODO do we have to copy this, or is it safe as-is?
                 mergeMap = [outMesh.mergeFromVert, outMesh.mergeToVert];
+                transfer.push(mergeMap[0].buffer);
+                transfer.push(mergeMap[1].buffer);
             }
 
             // deinterlace meshjs -> encodedmeshgroup
@@ -471,6 +474,8 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                     indices.set(transIndexBuffer);
                 }
 
+                transfer.push(indices.buffer);
+
                 // deinterlace position
                 const positions = new Float32Array(vertexCount * 3);
                 for (let i = 0, o = 0; i < vertexCount; i++) {
@@ -479,6 +484,8 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                     positions[o++] = vertProperties[iManif++];
                     positions[o++] = vertProperties[iManif];
                 }
+
+                transfer.push(positions.buffer);
 
                 // deinterlace extra attributes
                 const submeshWantedExtra = wantedExtraAttributes.get(originalID);
@@ -499,6 +506,7 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                     }
 
                     extraAttributes.push([attrType, attrArray]);
+                    transfer.push(attrArray.buffer);
                 }
 
                 // make encoded submesh
