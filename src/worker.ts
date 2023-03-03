@@ -1,10 +1,11 @@
 import { iterateOpTree } from './common/iterate-operation-tree';
 import ManifoldModule from 'manifold-3d';
+import { WorkerResultType } from './common/WorkerResponse';
 
-import type { StrippedMesh } from './common/StrippedMesh';
 import type { WorkerRequest, WorkerOperation } from './common/WorkerRequest';
-import type { MeshGroupMapping, WorkerResponse, WorkerResult } from './common/WorkerResponse';
+import type { WorkerResponse, WorkerResult, WorkerResultPassthroughValue } from './common/WorkerResponse';
 import type { ManifoldStatic, Manifold } from 'manifold-3d';
+import type { EncodedMeshGroup } from './common/EncodedMeshGroup';
 
 function logWorker(callback: (message: string) => void, message: unknown) {
     callback(`[Worker ${self.name}] ${message}`);
@@ -27,10 +28,11 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
     let result: WorkerResult | undefined = undefined;
     const idMap = new Map<number, number>();
 
-    iterateOpTree(tree, (_context, _key, [meshID, meshObj]) => {
+    iterateOpTree(tree, (_context, _key, encodedMeshGroup) => {
         // mesh
         // logWorker(console.debug, 'Adding mesh as manifold to stack');
 
+        // TODO
         const originalID = manifold.reserveIDs(1);
         const mesh = new manifold.Mesh({
             numProp: 3,
@@ -194,40 +196,43 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
         }
 
         const top = stack.pop() as Manifold;
+        let resValue: WorkerResultPassthroughValue;
         switch (root.operation) {
             case 'isEmpty':
-                result = top.isEmpty();
+                resValue = top.isEmpty();
                 break;
             case 'numVert':
-                result = top.numVert();
+                resValue = top.numVert();
                 break;
             case 'numTri':
-                result = top.numTri();
+                resValue = top.numTri();
                 break;
             case 'numEdge':
-                result = top.numEdge();
+                resValue = top.numEdge();
                 break;
             case 'boundingBox':
-                result = top.boundingBox();
+                resValue = top.boundingBox();
                 break;
             case 'precision':
-                result = top.precision();
+                resValue = top.precision();
                 break;
             case 'genus':
-                result = top.genus();
+                resValue = top.genus();
                 break;
             case 'getProperties':
-                result = top.getProperties();
+                resValue = top.getProperties();
                 break;
             case 'getCurvature':
-                result = top.getCurvature();
+                resValue = top.getCurvature();
                 break;
             case 'originalID':
-                result = top.originalID();
+                resValue = top.originalID();
                 break;
             default:
                 throw new Error(`Unknown top operation: ${(root as {operation: string}).operation}`);
         }
+
+        result = [WorkerResultType.Passthrough, resValue];
     });
 
     if (result === undefined) {
@@ -275,14 +280,10 @@ function evaluateOpTree(tree: WorkerOperation, transfer: Array<Transferable>, al
             transfer.push(runIndex.buffer);
             transfer.push(runMappedID.buffer);
             transfer.push(runTransform.buffer);
+            // TODO generate encoded meshgroup
+            const meshGroup: EncodedMeshGroup;
 
-            return [
-                <StrippedMesh>{
-                    triVerts: outMesh.triVerts, vertPos: outMesh.vertProperties
-                }, <MeshGroupMapping>{
-                    faceID, runIndex, runMappedID, runTransform
-                }
-            ];
+            return [WorkerResultType.MeshGroup, meshGroup];
         } else {
             throw new Error(`Unexpected number of manifolds in stack (${stack.length}) after evaluation`);
         }

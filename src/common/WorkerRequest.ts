@@ -1,8 +1,8 @@
-import type { StrippedMesh } from './StrippedMesh';
 import type { CSGOperation } from './CSGOperation';
+import type { EncodedMeshGroup } from './EncodedMeshGroup';
 
 /** A CSG operation tree with serialized meshes. */
-export type WorkerOperation = CSGOperation<[meshID: number, mesh: StrippedMesh]>;
+export type WorkerOperation = CSGOperation<EncodedMeshGroup>;
 
 /** A request to a Gypsum worker. */
 export type WorkerRequest = {

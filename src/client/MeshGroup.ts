@@ -4,12 +4,12 @@ import { EPS } from './misc/EPS';
 import { mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import * as WL from '@wonderlandengine/api';
 
-import type { StrippedMesh } from '../common/StrippedMesh';
 import type { quat } from 'gl-matrix';
 import type { EncodedMeshGroup } from '../common/EncodedMeshGroup';
 import type { AllowedExtraMeshAttributes } from '../common/AllowedExtraMeshAttributes';
 import type { EncodedSubmesh } from '../common/EncodedSubmesh';
-import { MeshAttributeAccessor } from '@wonderlandengine/api';
+import type { MeshAttributeAccessor } from '@wonderlandengine/api';
+import type { EncodedManifoldMesh } from '../common/EncodedManifoldMesh';
 
 const MAX_INDEX = 0xFFFFFFFF;
 
@@ -62,7 +62,7 @@ export class MeshGroup {
      * @param premadeManifoldMesh - A manifold which defines the topology of the submeshes.
      * @param submeshMap - A map which maps triangles in the manifold to triangles in a submesh.
      */
-    constructor(protected submeshes: Array<Submesh> = [], protected premadeManifoldMesh: StrippedMesh | null = null, protected submeshMap: SubmeshMap | null = null) {}
+    constructor(protected submeshes: Array<Submesh> = [], protected premadeManifoldMesh: EncodedManifoldMesh | null = null, protected submeshMap: SubmeshMap | null = null) {}
 
     /**
      * Create a new MeshGroup from a WL.Mesh.
@@ -112,7 +112,7 @@ export class MeshGroup {
                     } else if (elemBytes === 4) {
                         indexType = WL.MeshIndexType.UnsignedInt;
                     } else {
-                        throw new Error(`Unexpected BYTES_PER_ELEMENT (${elemBytes}) for encoded submesh indices`);
+                        throw new Error(`Unexpected ${elemBytes * 8}-bit encoded submesh indices`);
                     }
                 }
 
@@ -156,7 +156,7 @@ export class MeshGroup {
     static makeEmpty() {
         return new MeshGroup(
             [],
-            <StrippedMesh>{
+            <EncodedManifoldMesh>{
                 vertPos: new Float32Array(0),
                 triVerts: new Uint32Array(0),
             },
@@ -169,7 +169,7 @@ export class MeshGroup {
      * yet, then a manifold will be automatically generated and cached. Note
      * that this process can throw.
      */
-    get manifoldMesh(): StrippedMesh {
+    get manifoldMesh(): EncodedManifoldMesh {
         if (!this.premadeManifoldMesh) {
             const wleMeshes = new Array<WL.Mesh>(this.submeshes.length);
 
@@ -254,7 +254,7 @@ export class MeshGroup {
      * @param genSubmeshMap - Should the submesh map be generated? True by default.
      * @returns Returns a tuple containing the submesh map, and a manifold. If genSubmeshMap is false, then the submesh map will be null.
      */
-    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap = true): [submeshMap: SubmeshMap | null, manifoldMesh: StrippedMesh] {
+    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap = true): [submeshMap: SubmeshMap | null, manifoldMesh: EncodedManifoldMesh] {
         if (!Array.isArray(wleMeshes)) {
             wleMeshes = [wleMeshes];
         }
@@ -362,7 +362,7 @@ export class MeshGroup {
             throw new Error('Unexpected manifold triangle count');
         }
 
-        const mesh = <StrippedMesh>{ vertPos: vertPos.finalize(), triVerts };
+        const mesh = <EncodedManifoldMesh>{ vertPos: vertPos.finalize(), triVerts };
 
         if (submeshMap) {
             if (js !== submeshMap.length) {
@@ -548,7 +548,7 @@ export class MeshGroup {
      * Encode into a format that is passable to the Manifold worker, along with
      * a numeric mapping for materials.
      */
-    encode(): [EncodedMeshGroup, Array<WL.Material>] {
+    encode(materials: Array<WL.Material>, transferables: Array<Transferable>): EncodedMeshGroup {
         // get manifold mesh and submesh map
         const srcManifoldMesh = this.manifoldMesh;
 
@@ -562,10 +562,12 @@ export class MeshGroup {
         const manifTriVertsBuf = new ArrayBuffer(srcManifoldMesh.triVerts.byteLength);
         const manifTriVerts = new Uint32Array(manifTriVertsBuf);
         manifTriVerts.set(srcManifoldMesh.triVerts);
+        transferables.push(manifTriVertsBuf);
 
         const manifVertPosBuf = new ArrayBuffer(srcManifoldMesh.vertPos.byteLength);
         const manifVertPos = new Float32Array(manifVertPosBuf);
         manifVertPos.set(srcManifoldMesh.vertPos);
+        transferables.push(manifVertPosBuf);
 
         const submeshMapBuf = new ArrayBuffer(srcSubmeshMap.byteLength);
         let submeshMap: Uint8Array | Uint16Array | Uint32Array;
@@ -580,9 +582,9 @@ export class MeshGroup {
         }
 
         submeshMap.set(srcSubmeshMap);
+        transferables.push(submeshMapBuf);
 
         // clone submeshes
-        const materials = new Array<WL.Material>();
         const submeshes = new Array<EncodedSubmesh>();
         for (const submesh of this.submeshes) {
             // get material ID
@@ -605,6 +607,7 @@ export class MeshGroup {
             if (indexData !== null) {
                 indices = new Uint32Array(indexData.length);
                 indices.set(indexData);
+                transferables.push(indices.buffer);
             }
 
             // get positions for mesh
@@ -616,6 +619,7 @@ export class MeshGroup {
             const vertexCount = mesh.vertexCount;
             const positions = new Float32Array(vertexCount * 3);
             origPositions.get(0, positions);
+            transferables.push(positions.buffer);
 
             // get which extra attributes need to be copied, or generate the
             // list of attributes if no hints are provided
@@ -663,6 +667,7 @@ export class MeshGroup {
                 const buffer = new Float32Array(vertexCount * componentCount);
                 attrAccessor.get(0, buffer);
                 extraAttributes.push([attrType, buffer]);
+                transferables.push(buffer);
             }
 
             // convert to object

@@ -1,22 +1,22 @@
 import type { Box, Curvature, Properties } from 'manifold-3d';
-import type { StrippedMesh } from './StrippedMesh';
+import type { EncodedMeshGroup } from './EncodedMeshGroup';
+
+/** The type of a {@link WorkerResult} */
+export enum WorkerResultType {
+    /** The value should be returned as-is, without any decoding */
+    Passthrough,
+    /** The value should be decoded as a MeshGroup */
+    MeshGroup,
+}
+
+/** A {@link WorkerResult} value that is passed through as-is */
+export type WorkerResultPassthroughValue = boolean | number | Box | Properties | Curvature;
 
 /**
- * An object that contains all information required to map a MeshJS from a
- * Manifold back to a MeshGroup.
+ * A result from a CSG operation; either a value that is passed-through, or a
+ * MeshGroup that needs to be decoded.
  */
-export type MeshGroupMapping = {
-    faceID: Uint32Array,
-    runIndex: Uint32Array,
-    runMappedID: Uint32Array,
-    runTransform: Float32Array,
-};
-
-/**
- * A result from a CSG operation with a serialized manifold, mesh transforms and
- * ID map.
- */
-export type WorkerResult = [strippedMesh: StrippedMesh, mapping: MeshGroupMapping] | boolean | number | Box | Properties | Curvature;
+export type WorkerResult = [type: WorkerResultType.Passthrough, value: WorkerResultPassthroughValue] | [type: WorkerResultType.MeshGroup, value: EncodedMeshGroup];
 
 /** A response from a Gypsum worker. */
 export type WorkerResponse = {

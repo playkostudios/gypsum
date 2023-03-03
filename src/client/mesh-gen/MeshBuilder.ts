@@ -7,7 +7,7 @@ import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';
 
 import type { quat } from 'gl-matrix';
-import type { StrippedMesh } from '../../common/StrippedMesh';
+import type { EncodedManifoldMesh } from '../../common/EncodedManifoldMesh';
 import * as WL from '@wonderlandengine/api';
 
 const MAT3_IDENTITY = mat3.create();
@@ -754,9 +754,9 @@ export class MeshBuilder {
      * @param materialMap Maps each material index to a Wonderland Engine material. Triangles with different material will be put in separate meshes, but in the same manifold. A null material is equivalent to the material being missing in the material map. Materials missing from the material map will use null as the material so they can be replaced later with a fallback material.
      * @param generateManifold True by default. If true, a manifold and a submesh map will also be generated, otherwise, these will be null. Note than if a manifold is generated, then the triangles must form a 2-manifold surface, but if a manifold is not generated, then even a triangle soup is supported.
      */
-    finalize(materialMap: Map<number, WL.Material | null>, generateManifold?: true): [ submeshes: Array<Submesh>, manifoldMesh: StrippedMesh, submeshMap: SubmeshMap ];
+    finalize(materialMap: Map<number, WL.Material | null>, generateManifold?: true): [ submeshes: Array<Submesh>, manifoldMesh: EncodedManifoldMesh, submeshMap: SubmeshMap ];
     finalize(materialMap: Map<number, WL.Material | null>, generateManifold: false): [ submeshes: Array<Submesh>, manifoldMesh: null, submeshMap: null ];
-    finalize(materialMap: Map<number, WL.Material | null>, generateManifold = true): [ submeshes: Array<Submesh>, manifoldMesh: StrippedMesh | null, submeshMap: SubmeshMap | null ] {
+    finalize(materialMap: Map<number, WL.Material | null>, generateManifold = true): [ submeshes: Array<Submesh>, manifoldMesh: EncodedManifoldMesh | null, submeshMap: SubmeshMap | null ] {
         const submeshes = new Array<Submesh>();
 
         try {
@@ -833,7 +833,7 @@ export class MeshBuilder {
                 }
             }
 
-            const manifoldMesh = <StrippedMesh>{
+            const manifoldMesh = <EncodedManifoldMesh>{
                 triVerts: indices,
                 vertPos: positions.finalize()
             };

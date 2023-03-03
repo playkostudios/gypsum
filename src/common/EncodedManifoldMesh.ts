@@ -1,5 +1,5 @@
 /** An internal object for storing serialized manifolds. */
-export interface StrippedMesh {
+export interface EncodedManifoldMesh {
     vertPos: Float32Array;
     triVerts: Uint32Array;
 }
