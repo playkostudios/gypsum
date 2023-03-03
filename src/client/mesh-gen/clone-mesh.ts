@@ -24,7 +24,7 @@ export function cloneMesh(oMesh: WL.Mesh, engine: WL.WonderlandEngine): WL.Mesh 
     }
 
     // make new mesh
-    const mesh = new WL.Mesh({ indexData, indexType, vertexCount }, engine);
+    const mesh = new WL.Mesh(engine, { indexData, indexType, vertexCount });
 
     // clone vertex attributes
     // (positions)

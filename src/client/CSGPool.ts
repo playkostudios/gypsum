@@ -173,7 +173,7 @@ export class CSGPool {
             }
 
             // make mesh from index buffer
-            const wleMesh = new WL.Mesh({ vertexCount, indexType, indexData }, this.engine);
+            const wleMesh = new WL.Mesh(this.engine, { vertexCount, indexType, indexData });
             const positions = wleMesh.attribute(WL.MeshAttribute.Position);
 
             if (!positions) {

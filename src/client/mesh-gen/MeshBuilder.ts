@@ -675,7 +675,7 @@ export class MeshBuilder {
 
         // instance one mesh
         const vertexCount = positions.length / 3;
-        const mesh = new WL.Mesh({ vertexCount, indexData, indexType }, this.engine);
+        const mesh = new WL.Mesh(this.engine, { vertexCount, indexData, indexType });
 
         try {
             // upload vertex data

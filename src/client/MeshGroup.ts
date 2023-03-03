@@ -9,6 +9,7 @@ import type { quat } from 'gl-matrix';
 import type { EncodedMeshGroup } from '../common/EncodedMeshGroup';
 import type { AllowedExtraMeshAttributes } from '../common/AllowedExtraMeshAttributes';
 import type { EncodedSubmesh } from '../common/EncodedSubmesh';
+import { MeshAttributeAccessor } from '@wonderlandengine/api';
 
 const MAX_INDEX = 0xFFFFFFFF;
 
@@ -526,26 +527,76 @@ export class MeshGroup {
                 }
             }
 
-            // get positions for mesh
+            // get indices for mesh (if mesh is indexed)
             const mesh = submesh[0];
-            const positions = mesh.attribute(WL.MeshAttribute.Position);
-            if (positions === null) {
+            const indexData = mesh.indexData;
+            let indices: Uint32Array | null = null;
+
+            if (indexData !== null) {
+                indices = new Uint32Array(indexData.length);
+                indices.set(indexData);
+            }
+
+            // get positions for mesh
+            const origPositions = mesh.attribute(WL.MeshAttribute.Position);
+            if (origPositions === null) {
                 throw new Error('Unexpected missing positions mesh attribute');
             }
 
-            // TODO continue positions
-            const encPositions = new Float32Array()
+            const vertexCount = mesh.vertexCount;
+            const positions = new Float32Array(vertexCount * 3);
+            origPositions.get(0, positions);
+
+            // get which extra attributes need to be copied, or generate the
+            // list of attributes if no hints are provided
+            const attrs = new Array<[type: AllowedExtraMeshAttributes, accessor: MeshAttributeAccessor, componentCount: number]>();
+            let hints: Iterable<AllowedExtraMeshAttributes> | undefined = submesh[2];
+            let failOnMissing = true;
+
+            if (hints === undefined) {
+                failOnMissing = false;
+                hints = [WL.MeshAttribute.Tangent, WL.MeshAttribute.Normal, WL.MeshAttribute.TextureCoordinate, WL.MeshAttribute.Color];
+            }
+
+            for (const attrType of hints) {
+                let componentCount: number;
+                switch (attrType) {
+                case WL.MeshAttribute.Tangent:
+                case WL.MeshAttribute.Color:
+                    componentCount = 4;
+                    break;
+                case WL.MeshAttribute.Normal:
+                    componentCount = 3;
+                    break;
+                case WL.MeshAttribute.TextureCoordinate:
+                    componentCount = 2;
+                    break;
+                default:
+                    throw new Error(`Unknown or disallowed mesh attribute with type ID ${attrType}`);
+                }
+
+                const accessor = mesh.attribute(attrType);
+                if (accessor === null) {
+                    if (failOnMissing) {
+                        throw new Error(`Unexpected missing mesh attribute with type ID ${attrType}`);
+                    } else {
+                        continue;
+                    }
+                }
+
+                attrs.push([attrType, accessor, componentCount]);
+            }
 
             // get extra attributes
             const extraAttributes = new Array<[AllowedExtraMeshAttributes, Float32Array]>();
-            // TODO
+            for (const [attrType, attrAccessor, componentCount] of attrs) {
+                const buffer = new Float32Array(vertexCount * componentCount);
+                attrAccessor.get(0, buffer);
+                extraAttributes.push([attrType, buffer]);
+            }
 
             // convert to object
-            submeshes.push({
-                positions: encPositions,
-                extraAttributes,
-                materialID
-            });
+            submeshes.push({ indices, positions, extraAttributes, materialID });
         }
 
         // make encoded meshgroup object
