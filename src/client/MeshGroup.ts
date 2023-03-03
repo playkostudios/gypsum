@@ -664,10 +664,10 @@ export class MeshGroup {
             // get extra attributes
             const extraAttributes = new Array<[AllowedExtraMeshAttributes, Float32Array]>();
             for (const [attrType, attrAccessor, componentCount] of attrs) {
-                const buffer = new Float32Array(vertexCount * componentCount);
-                attrAccessor.get(0, buffer);
-                extraAttributes.push([attrType, buffer]);
-                transferables.push(buffer);
+                const attrArray = new Float32Array(vertexCount * componentCount);
+                attrAccessor.get(0, attrArray);
+                extraAttributes.push([attrType, attrArray]);
+                transferables.push(attrArray.buffer);
             }
 
             // convert to object
@@ -675,16 +675,13 @@ export class MeshGroup {
         }
 
         // make encoded meshgroup object
-        return [
-            {
-                manifoldMesh: {
-                    triVerts: manifTriVerts,
-                    vertPos: manifVertPos
-                },
-                submeshes,
-                submeshMap
+        return {
+            manifoldMesh: {
+                triVerts: manifTriVerts,
+                vertPos: manifVertPos
             },
-            materials
-        ];
+            submeshes,
+            submeshMap
+        };
     }
 }
