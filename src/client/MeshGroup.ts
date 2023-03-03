@@ -79,6 +79,76 @@ export class MeshGroup {
         return new MeshGroup([[ mesh, material ]]);
     }
 
+    /** Create a new MeshGroup from an EncodedMeshGroup. */
+    static fromEncodedMeshGroup(engine: WL.WonderlandEngine, encodedMeshGroup: EncodedMeshGroup, materials: Array<WL.Material>): MeshGroup {
+        // decode submeshes
+        const submeshes = new Array<Submesh>();
+        try {
+            for (const encSubmesh of encodedMeshGroup.submeshes) {
+                // get mapped submesh material
+                const materialID = encSubmesh.materialID;
+                let material: WL.Material | null = null;
+
+                if (materialID !== null) {
+                    material = materials[materialID];
+                    if (material === undefined) {
+                        throw new Error(`Material ID ${materialID} is not mapped`);
+                    }
+                }
+
+                // get index buffer
+                let indexType: WL.MeshIndexType | undefined;
+                let indexData: Uint8Array | Uint16Array | Uint32Array | undefined;
+                const vertexCount = encSubmesh.positions.length / 3;
+
+                if (encSubmesh.indices) {
+                    indexData = encSubmesh.indices;
+                    const elemBytes = indexData.BYTES_PER_ELEMENT;
+
+                    if (elemBytes === 1) {
+                        indexType = WL.MeshIndexType.UnsignedByte;
+                    } else if (elemBytes === 2) {
+                        indexType = WL.MeshIndexType.UnsignedShort;
+                    } else if (elemBytes === 4) {
+                        indexType = WL.MeshIndexType.UnsignedInt;
+                    } else {
+                        throw new Error(`Unexpected BYTES_PER_ELEMENT (${elemBytes}) for encoded submesh indices`);
+                    }
+                }
+
+                // make mesh
+                const mesh = new WL.Mesh(engine, {
+                    indexData, indexType, vertexCount
+                });
+                submeshes.push([ mesh, material ]);
+
+                // add mesh attributes
+                const attrs: Array<[WL.MeshAttribute, Float32Array]> = [
+                    [WL.MeshAttribute.Position, encSubmesh.positions],
+                    ...encSubmesh.extraAttributes
+                ];
+
+                for (const [attrType, buffer] of attrs) {
+                    const accessor = mesh.attribute(attrType);
+                    if (accessor === null) {
+                        throw new Error(`Unexpected missing mesh attribute accessor with ID ${attrType}`);
+                    }
+
+                    accessor.set(0, buffer);
+                }
+            }
+        } catch(err) {
+            for (const [mesh, _material] of submeshes) {
+                mesh.destroy();
+            }
+
+            throw err;
+        }
+
+        // pass everything else through
+        return new MeshGroup(submeshes, encodedMeshGroup.manifoldMesh, encodedMeshGroup.submeshMap);
+    }
+
     /**
      * Create a new empty MeshGroup. Useless on its own, only ever appears as a
      * fallback for CSG operations with no result.
