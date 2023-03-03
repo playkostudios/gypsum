@@ -1,5 +1,5 @@
 import { iterateOpTree } from './common/iterate-operation-tree';
-import ManifoldModule from 'manifold-3d';
+import ManifoldModule, { Vec3 } from 'manifold-3d';
 import { WorkerResultType } from './common/WorkerResponse';
 import { MeshAttribute } from '@wonderlandengine/api';
 import { getComponentCount } from './common/getComponentCount';
@@ -9,6 +9,9 @@ import type { WorkerResponse, WorkerResult, WorkerResultPassthroughValue } from 
 import type { ManifoldStatic, Manifold } from 'manifold-3d';
 import type { EncodedMeshGroup } from './common/EncodedMeshGroup';
 import type { AllowedExtraMeshAttribute } from './common/AllowedExtraMeshAttribute';
+import { EncodedSubmesh } from './common/EncodedSubmesh';
+import { getIndexBufferType, makeIndexBuffer, makeIndexBufferForType } from './client';
+import { DynamicArray } from './common/DynamicArray';
 
 function logWorker(callback: (message: string) => void, message: unknown) {
     callback(`[Worker ${self.name}] ${message}`);
@@ -51,10 +54,13 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
         }
     });
 
+    const commonAttrCount = attributeMapping.length;
+
     // evaluate operation tree
     const stack = new Array<Manifold>();
     let result: WorkerResult | undefined = undefined;
     const materialMap = new Map<number, number>();
+    const wantedExtraAttributes = new Map<number, Array<number>>();
 
     iterateOpTree(tree, (_context, _key, encodedMeshGroup) => {
         // meshgroup
@@ -99,6 +105,20 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                 if (materialID !== null) {
                     materialMap.set(originalID, materialID);
                 }
+
+                // save wanted attributes
+                const wanted = new Array<number>();
+                for (const [attrType, _attrArray] of encodedSubmesh.extraAttributes) {
+                    for (let a = 0; a < commonAttrCount; a++) {
+                        const oAttrType = attributeMapping[a][0];
+                        if (attrType === oAttrType) {
+                            wanted.push(a);
+                            break;
+                        }
+                    }
+                }
+
+                wantedExtraAttributes.set(originalID, wanted);
 
                 // store indices in common mesh. if mesh is not indexed, make
                 // it. move index offset too
@@ -370,12 +390,22 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
 
     if (result === undefined) {
         if (stack.length === 1) {
-            const top = stack[0];
-            const outMesh = top.getMesh();
+            // convert manifold -> meshjs, and transform normals
+            let normalIdx: Vec3 | undefined;
+            for (const [attrType, attrOffset, _attrCompSize] of attributeMapping) {
+                if (attrType === MeshAttribute.Normal) {
+                    normalIdx = [attrOffset, attrOffset + 1, attrOffset + 2];
+                    break;
+                }
+            }
 
-            const faceID = outMesh.faceID;
-            if (faceID === undefined) {
-                throw new Error('Missing faceID in resulting MeshJS object');
+            const top = stack[0];
+            const outMesh = top.getMesh(normalIdx);
+
+            // unpack meshjs
+            const runOriginalID = outMesh.runOriginalID;
+            if (runOriginalID === undefined) {
+                throw new Error('Missing runOriginalID in resulting MeshJS object');
             }
 
             const runIndex = outMesh.runIndex;
@@ -383,40 +413,100 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                 throw new Error('Missing runIndex in resulting MeshJS object');
             }
 
-            const runOriginalID = outMesh.runOriginalID;
-            if (runOriginalID === undefined) {
-                throw new Error('Missing runOriginalID in resulting MeshJS object');
-            }
-
             const runTransform = outMesh.runTransform;
             if (runTransform === undefined) {
                 throw new Error('Missing runTransform in resulting MeshJS object');
             }
 
-            const meshCount = runOriginalID.length;
-            const runMappedID = new Uint32Array(meshCount);
-            for (let i = 0; i < meshCount; i++) {
-                const originalID = runOriginalID[i];
-                const meshID = idMap.get(originalID);
-                if (meshID === undefined) {
-                    // XXX should there be a fallback to null or something, and
-                    // use plain arrays instead of uint32array?
-                    throw new Error(`originalID ${originalID} has no mapped meshID`);
-                }
+            const triVerts = outMesh.triVerts;
+            const outNumProp = outMesh.numProp;
+            const vertProperties = outMesh.vertProperties;
 
-                runMappedID[i] = meshID;
+            // extract merge map if present
+            let mergeMap: [from: Uint32Array, to: Uint32Array] | null = null;
+            if (outMesh.mergeFromVert && outMesh.mergeToVert) {
+                mergeMap = [outMesh.mergeFromVert, outMesh.mergeToVert];
             }
 
-            transfer.push(outMesh.triVerts.buffer);
-            transfer.push(outMesh.vertProperties.buffer);
-            transfer.push(faceID.buffer);
-            transfer.push(runIndex.buffer);
-            transfer.push(runMappedID.buffer);
-            transfer.push(runTransform.buffer);
-            // TODO generate encoded meshgroup
-            const meshGroup: EncodedMeshGroup = null;
+            // deinterlace meshjs -> encodedmeshgroup
+            const submeshes = new Array<EncodedSubmesh>();
+            const submeshCount = runOriginalID.length;
 
-            return [WorkerResultType.MeshGroup, meshGroup];
+            for (let m = 0; m < submeshCount; m++) {
+                // get material mapped to this run (submesh)
+                const originalID = runOriginalID[m];
+                const materialID = materialMap.get(originalID) ?? null;
+
+                // get list of vertices, and convert index buffer to usable
+                // format
+                const runStart = runIndex[m];
+                const runEnd = runIndex[m + 1];
+                const runLength = runEnd - runStart;
+                const vertexOffsetMap = new DynamicArray(Uint32Array);
+                // XXX this index buffer is not 100% efficient, hence why it's
+                // called the transitory index buffer; it will be converted to
+                // the final, more efficient form later (unless the target type
+                // matches)
+                const [transIndexBuffer, transIndexBufferType] = makeIndexBuffer(runLength, runLength);
+
+                for (let i = 0; i < runLength; i++) {
+                    const iManif = triVerts[runStart + i];
+                    let newIndex = vertexOffsetMap.indexOf_guarded(iManif);
+
+                    if (newIndex < 0) {
+                        newIndex = vertexOffsetMap.length;
+                        vertexOffsetMap.expandCapacity_guarded(newIndex + 1);
+                        vertexOffsetMap.pushBack_guarded(iManif);
+                    }
+
+                    transIndexBuffer[i] = newIndex;
+                }
+
+                // optimise index buffer
+                const vertexCount = vertexOffsetMap.length;
+                const optimalIndexBufferType = getIndexBufferType(vertexCount);
+                let indices = transIndexBuffer;
+                if (optimalIndexBufferType !== transIndexBufferType) {
+                    indices = makeIndexBufferForType(runLength, optimalIndexBufferType);
+                    indices.set(transIndexBuffer);
+                }
+
+                // deinterlace position
+                const positions = new Float32Array(vertexCount * 3);
+                for (let i = 0, o = 0; i < vertexCount; i++) {
+                    let iManif = vertexOffsetMap.get_guarded(i) * outNumProp;
+                    positions[o++] = vertProperties[iManif++];
+                    positions[o++] = vertProperties[iManif++];
+                    positions[o++] = vertProperties[iManif];
+                }
+
+                // deinterlace extra attributes
+                const submeshWantedExtra = wantedExtraAttributes.get(originalID);
+                if (submeshWantedExtra === undefined) {
+                    throw new Error('Mesh has no wanted extra attributes list. This is a bug, please report it');
+                }
+
+                const extraAttributes = new Array<[AllowedExtraMeshAttribute, Float32Array]>();
+                for (const a of submeshWantedExtra) {
+                    const [attrType, attrOffset, attrCompSize] = attributeMapping[a];
+                    const attrArray = new Float32Array(vertexCount * attrCompSize);
+
+                    for (let i = 0, o = 0; i < vertexCount; i++) {
+                        let iManif = vertexOffsetMap.get_guarded(i) * outNumProp + attrOffset;
+                        for (let j = 0; j < attrCompSize; j++) {
+                            attrArray[o++] = vertProperties[iManif++];
+                        }
+                    }
+
+                    extraAttributes.push([attrType, attrArray]);
+                }
+
+                // make encoded submesh
+                submeshes.push({ indices, positions, extraAttributes, materialID });
+            }
+
+            // done
+            return [WorkerResultType.MeshGroup, { mergeMap, submeshes }];
         } else {
             throw new Error(`Unexpected number of manifolds in stack (${stack.length}) after evaluation`);
         }

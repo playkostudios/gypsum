@@ -53,3 +53,4 @@ export * from './common/CSGGeometricOperation';
 export * from './common/CSGOperation';
 export * from './common/CSGPrimitive';
 export * from './common/CSGTree';
+export * from './common/makeIndexBuffer';

@@ -1,14 +1,15 @@
-import { DynamicArray } from './DynamicArray';
+import { DynamicArray } from '../../common/DynamicArray';
 import { BitArray } from './BitArray';
 import { Triangle, VERTEX_STRIDE, VERTEX_TOTAL } from './Triangle';
 import { vec2, vec3, mat4, mat3, vec4 } from 'gl-matrix';
 import { MeshGroup, Submesh, SubmeshMap } from '../MeshGroup';
 import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';
+import { makeIndexBuffer } from '../../client';
+import * as WL from '@wonderlandengine/api';
 
 import type { quat } from 'gl-matrix';
 import type { EncodedManifoldMesh } from '../../common/EncodedManifoldMesh';
-import * as WL from '@wonderlandengine/api';
 
 const MAT3_IDENTITY = mat3.create();
 const MAT4_IDENTITY = mat4.create();
@@ -623,7 +624,7 @@ export class MeshBuilder {
         const triCount = triangles.length;
         // XXX this assumes the worst case; that no vertices are merged
         const indexCount = triCount * 3;
-        const [indexData, indexType] = MeshGroup.makeIndexBuffer(indexCount, indexCount);
+        const [indexData, indexType] = makeIndexBuffer(indexCount, indexCount);
         const positions = new DynamicArray(Float32Array);
         const normals = new DynamicArray(Float32Array);
         const texCoords = new DynamicArray(Float32Array);

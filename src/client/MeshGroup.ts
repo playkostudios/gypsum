@@ -1,5 +1,5 @@
 import VertexHasher from './mesh-gen/VertexHasher';
-import { DynamicArray } from './mesh-gen/DynamicArray';
+import { DynamicArray } from '../common/DynamicArray';
 import { EPS } from './misc/EPS';
 import { mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import * as WL from '@wonderlandengine/api';
@@ -11,8 +11,6 @@ import type { AllowedExtraMeshAttribute } from '../common/AllowedExtraMeshAttrib
 import type { EncodedSubmesh } from '../common/EncodedSubmesh';
 import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 import type { EncodedManifoldMesh } from '../common/EncodedManifoldMesh';
-
-const MAX_INDEX = 0xFFFFFFFF;
 
 /**
  * Maps a manifold triangle index to a WLE submesh index. The format is:
@@ -377,29 +375,6 @@ export class MeshGroup {
     }
 
     /**
-     * Make an indexData buffer for the creation of a WL.Mesh instance.
-     * Automatically decides the most memory-efficient TypedArray for the
-     * buffer.
-     *
-     * @param size - The ammount of indices in the indexData buffer.
-     * @param vertexCount - The amount of vertices that will be indexed.
-     * @returns A tuple containing the indexData buffer, and the indexType argument to be passed to the WL.Mesh constructor.
-     */
-    static makeIndexBuffer(size: number, vertexCount: number): [indexData: Uint8Array, indexType: WL.MeshIndexType] | [indexData: Uint16Array, indexType: WL.MeshIndexType] | [indexData: Uint32Array, indexType: WL.MeshIndexType] {
-        const vertexCountM1 = vertexCount - 1;
-
-        if (vertexCountM1 <= 0xFF) {
-            return [new Uint8Array(size), WL.MeshIndexType.UnsignedByte];
-        } else if (vertexCountM1 <= 0xFFFF) {
-            return [new Uint16Array(size), WL.MeshIndexType.UnsignedShort];
-        } else if (vertexCountM1 <= MAX_INDEX) {
-            return [new Uint32Array(size), WL.MeshIndexType.UnsignedInt];
-        } else {
-            throw new Error(`Maximum index exceeded (${MAX_INDEX})`);
-        }
-    }
-
-    /**
      * Make a buffer for storing submesh map data. Automatically decides the
      * most memory-efficient TypedArray for the buffer.
      *
@@ -409,6 +384,7 @@ export class MeshGroup {
      * @returns A new buffer for storing submesh map data.
      */
     static makeSubmeshMapBuffer(triCount: number, maxSubmeshTriCount: number, maxSubmeshIdx: number): SubmeshMap {
+        const MAX_INDEX = 0xFFFFFFFF;
         const maxNum = Math.max(maxSubmeshTriCount - 1, maxSubmeshIdx);
         if (maxNum <= 0xFF) {
             return new Uint8Array(triCount * 2);

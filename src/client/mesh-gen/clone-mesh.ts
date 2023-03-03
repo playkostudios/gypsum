@@ -1,5 +1,4 @@
-import { MeshGroup } from '../MeshGroup';
-
+import { makeIndexBuffer } from '../../client';
 import * as WL from '@wonderlandengine/api';
 
 /**
@@ -17,7 +16,7 @@ export function cloneMesh(oMesh: WL.Mesh, engine: WL.WonderlandEngine): WL.Mesh 
     const oIndexData = oMesh.indexData;
     const indexCount = oIndexData.length;
     const vertexCount = oMesh.vertexCount;
-    const [indexData, indexType] = MeshGroup.makeIndexBuffer(indexCount, vertexCount);
+    const [indexData, indexType] = makeIndexBuffer(indexCount, vertexCount);
 
     for (let i = 0; i < indexCount; i++) {
         indexData[i] = oIndexData[i];

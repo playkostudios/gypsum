@@ -1,4 +1,4 @@
-import type { MappedType } from '../misc/MappedType';
+import type { MappedType } from './MappedType';
 
 const START_CAP = 0x20;
 const LINEAR_CAP_GROWTH = 0x4000;
@@ -373,6 +373,26 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
         }
 
         this.fill(fillValue, startIndex, endIndex);
+    }
+
+    /** Get the index of a value in the array, or -1 if not found. */
+    indexOf(value: TypedArrayValue<TypedArrayCtorType>, fromIndex?: number): number {
+        // XXX type inference fails here, pretend array is a float32array
+        return (this.array as Float32Array).indexOf(value as number, fromIndex);
+    }
+
+    /**
+     * Similar to {@link DynamicArray#indexOf} but guarded; will throw an error
+     * if the dynamic array has been invalidated, or fromIndex isn't valid.
+     */
+    indexOf_guarded(value: TypedArrayValue<TypedArrayCtorType>, fromIndex?: number): number {
+        this.assertValid();
+
+        if (fromIndex !== undefined) {
+            this.assertValidIndex(fromIndex);
+        }
+
+        return this.indexOf(value, fromIndex);
     }
 
     /**
