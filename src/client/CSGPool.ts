@@ -1,7 +1,7 @@
 import { CSGOperation } from '../common/CSGOperation';
 import { iterateOpTree } from '../common/iterate-operation-tree';
 import { WorkerResponse, WorkerResultType } from '../common/WorkerResponse';
-import { MeshGroup } from './MeshGroup';
+import { MeshGroup, Submesh } from './MeshGroup';
 import { Mesh } from '@wonderlandengine/api';
 
 import type { WorkerRequest } from '../common/WorkerRequest';
@@ -226,10 +226,10 @@ export class CSGPool {
      *
      * @param operation - A tree of CSG operations to send to the worker.
      */
-    async dispatch(engine: WonderlandEngine, operation: CSGOperation<MeshGroup | Mesh>): Promise<JobResult> {
+    async dispatch(engine: WonderlandEngine, operation: CSGOperation<MeshGroup | Mesh | Submesh>): Promise<JobResult> {
         // TODO don't double-iterate the tree. find a better way to clean up
         const autoDisposeList = new Array<MeshGroup>();
-        iterateOpTree<MeshGroup | Mesh>(operation, (_context: OpTreeCtx<MeshGroup | Mesh>, _key: number | string, mesh: MeshGroup | Mesh) => {
+        iterateOpTree<MeshGroup | Mesh | Submesh>(operation, (_context: OpTreeCtx<MeshGroup | Mesh | Submesh>, _key: number | string, mesh: MeshGroup | Mesh | Submesh) => {
             if (mesh instanceof MeshGroup && mesh.autoDispose) {
                 autoDisposeList.push(mesh);
             }
@@ -241,13 +241,15 @@ export class CSGPool {
             const materials = new Array<Material>();
             const transfer = new Array<Transferable>();
 
-            iterateOpTree<MeshGroup | Mesh>(operation, (context: OpTreeCtx<MeshGroup | Mesh>, key: number | string, mesh: MeshGroup | Mesh) => {
+            iterateOpTree<MeshGroup | Mesh | Submesh>(operation, (context: OpTreeCtx<MeshGroup | Mesh | Submesh>, key: number | string, mesh: MeshGroup | Mesh | Submesh) => {
                 // mesh
                 let converted: EncodedMeshGroup;
                 if (mesh instanceof MeshGroup) {
                     converted = mesh.encode(materials, transfer);
-                } else if(mesh instanceof Mesh) {
+                } else if (mesh instanceof Mesh) {
                     converted = MeshGroup.fromWLEMesh(mesh).encode(materials, transfer);
+                } else if (Array.isArray(mesh) && mesh[0] instanceof Mesh) {
+                    converted = MeshGroup.fromWLEMesh(mesh[0], mesh[1]).encode(materials, transfer);
                 } else {
                     throw new Error('Unknown mesh type');
                 }
