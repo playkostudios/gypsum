@@ -3,7 +3,7 @@ import { ExtrusionMesh } from './ExtrusionMesh';
 import type { vec2, vec3 } from 'gl-matrix';
 import type { CurveFrame } from './curves/curve-frame';
 import type { ExtrusionOptions } from './ExtrusionMesh';
-import type * as WL from '@wonderlandengine/api';
+import type { WonderlandEngine } from '@wonderlandengine/api';
 
 /**
  * A simple extrusion along the Z direction.
@@ -19,7 +19,7 @@ export class LinearExtrusionMesh extends ExtrusionMesh {
      * @param depth - The amount to extrude along the Z direction.
      * @param options - Optional arguments for the extrusion.
      */
-    constructor(engine: WL.WonderlandEngine, polyline: Array<vec2>, depth: number, options?: ExtrusionOptions) {
+    constructor(engine: WonderlandEngine, polyline: Array<vec2>, depth: number, options?: ExtrusionOptions) {
         const positions: Array<vec3> = [[0, 0, 0], [0, 0, depth]];
         const forwardFrame: CurveFrame = depth >= 0
             ? [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]

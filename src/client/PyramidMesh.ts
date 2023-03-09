@@ -3,7 +3,7 @@ import { vec3 } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
 import type { PrismPyramidOptions } from './PrismPyramidOptions';
-import type * as WL from '@wonderlandengine/api';
+import type { WonderlandEngine } from '@wonderlandengine/api';
 
 /**
  * A procedural pyramid.
@@ -18,7 +18,7 @@ export class PyramidMesh extends BasePrismoidPyramidMesh {
      * @param polyline - Polyline used for the pyramid's base.
      * @param options - Optional arguments for the pyramid generation.
      */
-    constructor(engine: WL.WonderlandEngine, polyline: Array<vec2>, options?: PrismPyramidOptions) {
+    constructor(engine: WonderlandEngine, polyline: Array<vec2>, options?: PrismPyramidOptions) {
         super(
             engine,
             polyline,

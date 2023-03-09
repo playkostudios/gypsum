@@ -1,7 +1,7 @@
 import { mat3, mat4, vec3, vec4 } from 'gl-matrix';
-import * as WL from '@wonderlandengine/api';
 import { getComponentCount } from '../common/getComponentCount';
 import { mergeMapFromWLE } from './mesh-gen/merge-map-from-wle';
+import { MeshIndexType, MeshAttribute, Mesh } from '@wonderlandengine/api';
 
 import type { quat } from 'gl-matrix';
 import type { EncodedMeshGroup } from '../common/EncodedMeshGroup';
@@ -9,6 +9,7 @@ import type { AllowedExtraMeshAttribute } from '../common/AllowedExtraMeshAttrib
 import type { EncodedSubmesh } from '../common/EncodedSubmesh';
 import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 import type { MergeMap } from '../common/MergeMap';
+import type { WonderlandEngine, Material } from '@wonderlandengine/api';
 
 /**
  * Maps a manifold triangle index to a WLE submesh index. The format is:
@@ -31,7 +32,7 @@ export type SubmeshMap = Uint8Array | Uint16Array | Uint32Array;
  * including mesh attributes that are potentially not used, since the available
  * attributes are dictated by the existing pipelines, not by each mesh.
  */
-export type Submesh = [mesh: WL.Mesh, material: WL.Material | null, extraAttributesHint?: Set<AllowedExtraMeshAttribute>];
+export type Submesh = [mesh: Mesh, material: Material | null, extraAttributesHint?: Set<AllowedExtraMeshAttribute>];
 
 /**
  * A helper class which acts as a single mesh, but contains a list of submeshes,
@@ -71,19 +72,19 @@ export class MeshGroup {
      * @param mesh - A WL.Mesh instance.
      * @param material - A WL.Material instance. Null by default.
      */
-    static fromWLEMesh(mesh: WL.Mesh, material: WL.Material | null = null) {
+    static fromWLEMesh(mesh: Mesh, material: Material | null = null) {
         return new MeshGroup([[ mesh, material ]]);
     }
 
     /** Create a new MeshGroup from an EncodedMeshGroup. */
-    static fromEncodedMeshGroup(engine: WL.WonderlandEngine, encodedMeshGroup: EncodedMeshGroup, materials: Array<WL.Material>): MeshGroup {
+    static fromEncodedMeshGroup(engine: WonderlandEngine, encodedMeshGroup: EncodedMeshGroup, materials: Array<Material>): MeshGroup {
         // decode submeshes
         const submeshes = new Array<Submesh>();
         try {
             for (const encSubmesh of encodedMeshGroup.submeshes) {
                 // get mapped submesh material
                 const materialID = encSubmesh.materialID;
-                let material: WL.Material | null = null;
+                let material: Material | null = null;
 
                 if (materialID !== null) {
                     material = materials[materialID];
@@ -93,7 +94,7 @@ export class MeshGroup {
                 }
 
                 // get index buffer
-                let indexType: WL.MeshIndexType | undefined;
+                let indexType: MeshIndexType | undefined;
                 let indexData: Uint8Array | Uint16Array | Uint32Array | undefined;
                 const vertexCount = encSubmesh.positions.length / 3;
 
@@ -102,25 +103,25 @@ export class MeshGroup {
                     const elemBytes = indexData.BYTES_PER_ELEMENT;
 
                     if (elemBytes === 1) {
-                        indexType = WL.MeshIndexType.UnsignedByte;
+                        indexType = MeshIndexType.UnsignedByte;
                     } else if (elemBytes === 2) {
-                        indexType = WL.MeshIndexType.UnsignedShort;
+                        indexType = MeshIndexType.UnsignedShort;
                     } else if (elemBytes === 4) {
-                        indexType = WL.MeshIndexType.UnsignedInt;
+                        indexType = MeshIndexType.UnsignedInt;
                     } else {
                         throw new Error(`Unexpected ${elemBytes * 8}-bit encoded submesh indices`);
                     }
                 }
 
                 // make mesh
-                const mesh = new WL.Mesh(engine, {
+                const mesh = new Mesh(engine, {
                     indexData, indexType, vertexCount
                 });
                 submeshes.push([ mesh, material ]);
 
                 // add mesh attributes
-                const attrs: Array<[WL.MeshAttribute, Float32Array]> = [
-                    [WL.MeshAttribute.Position, encSubmesh.positions],
+                const attrs: Array<[MeshAttribute, Float32Array]> = [
+                    [MeshAttribute.Position, encSubmesh.positions],
                     ...encSubmesh.extraAttributes
                 ];
 
@@ -164,7 +165,7 @@ export class MeshGroup {
     get mergeMap(): MergeMap {
         if (!this.premadeMergeMap) {
             const submeshCount = this.submeshes.length;
-            const wleMeshes = new Array<WL.Mesh>(submeshCount);
+            const wleMeshes = new Array<Mesh>(submeshCount);
             const hints = new Array<Set<AllowedExtraMeshAttribute> | undefined>(submeshCount);
 
             let i = 0;
@@ -256,13 +257,13 @@ export class MeshGroup {
         for (const [submesh, _material] of this.submeshes) {
             const vertexCount = submesh.vertexCount;
 
-            const positions = submesh.attribute(WL.MeshAttribute.Position);
+            const positions = submesh.attribute(MeshAttribute.Position);
             if (!positions) {
                 throw new Error('Could not get positions MeshAttributeAccessor');
             }
 
-            const normals = submesh.attribute(WL.MeshAttribute.Normal);
-            const tangents = submesh.attribute(WL.MeshAttribute.Tangent);
+            const normals = submesh.attribute(MeshAttribute.Normal);
+            const tangents = submesh.attribute(MeshAttribute.Tangent);
 
             for (let i = 0; i < vertexCount; i++) {
                 positions.get(i, tmp3)
@@ -326,7 +327,7 @@ export class MeshGroup {
      * Encode into a format that is passable to the Manifold worker, along with
      * a numeric mapping for materials.
      */
-    encode(materials: Array<WL.Material>, transferables: Array<Transferable>): EncodedMeshGroup {
+    encode(materials: Array<Material>, transferables: Array<Transferable>): EncodedMeshGroup {
         // get merge map
         const mergeMap = this.mergeMap;
 
@@ -368,7 +369,7 @@ export class MeshGroup {
             }
 
             // get positions for mesh
-            const origPositions = mesh.attribute(WL.MeshAttribute.Position);
+            const origPositions = mesh.attribute(MeshAttribute.Position);
             if (origPositions === null) {
                 throw new Error('Unexpected missing positions mesh attribute');
             }
@@ -386,7 +387,7 @@ export class MeshGroup {
 
             if (hints === undefined) {
                 failOnMissing = false;
-                hints = [WL.MeshAttribute.Tangent, WL.MeshAttribute.Normal, WL.MeshAttribute.TextureCoordinate, WL.MeshAttribute.Color];
+                hints = [MeshAttribute.Tangent, MeshAttribute.Normal, MeshAttribute.TextureCoordinate, MeshAttribute.Color];
             }
 
             for (const attrType of hints) {

@@ -6,8 +6,8 @@ import { autoConnectAllEdges } from './auto-connect-all-edges';
 
 import type { Triangle } from './Triangle';
 import type { vec2 } from 'gl-matrix';
-import type * as WL from '@wonderlandengine/api';
 import type { EdgeList } from './EdgeList';
+import type { WonderlandEngine } from '@wonderlandengine/api';
 
 /**
  * A list of UVs for the corner of a cuboid's face. In order, the top-left
@@ -85,7 +85,7 @@ function addCubeFace(builder: MeshBuilder, edgeList: EdgeList, connectableTriang
  * @param frontUVs - UVs for the front (+Z) face.
  * @returns A new MeshBuilder instance with the triangles and topology of a sub-divided cuboid.
  */
-export function makeCuboidBuilder(engine: WL.WonderlandEngine, subDivisions: number, width: number, height: number, depth: number, center: boolean, addTangents = true, leftUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, rightUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, downUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio): MeshBuilder {
+export function makeCuboidBuilder(engine: WonderlandEngine, subDivisions: number, width: number, height: number, depth: number, center: boolean, addTangents = true, leftUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, rightUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, downUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, upUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, backUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio, frontUVs?: CuboidFaceUVs | CuboidFaceUVPosRatio): MeshBuilder {
     // make corners
     const right = center ? (width / 2) : width;
     const left = center ? -right : 0;

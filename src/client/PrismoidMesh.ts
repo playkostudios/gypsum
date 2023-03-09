@@ -3,7 +3,7 @@ import { vec3 } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
 import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
-import type * as WL from '@wonderlandengine/api';
+import type { WonderlandEngine, Material } from '@wonderlandengine/api';
 
 /** Optional arguments for the prismoid generation. */
 export interface PrismoidOptions extends SmoothNormalsOptions {
@@ -16,9 +16,9 @@ export interface PrismoidOptions extends SmoothNormalsOptions {
     /** The scale for the top base. */
     topScale?: number;
     /** The material to use for the bases. */
-    baseMaterial?: WL.Material;
+    baseMaterial?: Material;
     /** The material to use for the sides. */
-    sideMaterial?: WL.Material;
+    sideMaterial?: Material;
 }
 
 /**
@@ -35,7 +35,7 @@ export class PrismoidMesh extends BasePrismoidPyramidMesh {
      * @param polyline - The polyline to use for the base.
      * @param options - Optional arguments for the prismoid generation.
      */
-    constructor(engine: WL.WonderlandEngine, polyline: Array<vec2>, options?: PrismoidOptions) {
+    constructor(engine: WonderlandEngine, polyline: Array<vec2>, options?: PrismoidOptions) {
         super(
             engine,
             polyline,

@@ -8,8 +8,8 @@ import { autoConnectEdges } from './mesh-gen/auto-connect-edges';
 
 import type { CurveFrames } from './curves/curve-frame';
 import type { Vec3 } from 'manifold-3d';
-import type * as WL from '@wonderlandengine/api';
 import type { EdgeList } from './mesh-gen/EdgeList';
+import type { WonderlandEngine, Material } from '@wonderlandengine/api';
 
 const RIGHT = vec3.fromValues(1, 0, 0);
 
@@ -18,11 +18,11 @@ const RIGHT = vec3.fromValues(1, 0, 0);
  */
 export interface ExtrusionMaterialOptions {
     /** The material used for the starting base of the extrusion. */
-    startMaterial?: WL.Material | null;
+    startMaterial?: Material | null;
     /** The material used for the end base of the extrusion. */
-    endMaterial?: WL.Material | null;
+    endMaterial?: Material | null;
     /** The material used for the sides (segments) of the extrusion. */
-    segmentMaterial?: WL.Material | null;
+    segmentMaterial?: Material | null;
 }
 
 /**
@@ -113,7 +113,7 @@ export class ExtrusionMesh extends MeshGroup {
      * @param curveFrames - The curve frames of each slice of the extrusion. Contains orientation information.
      * @param options - Optional arguments for the extrusion.
      */
-    constructor(engine: WL.WonderlandEngine, polyline: Array<vec2>, curvePositions: Array<vec3>, curveFrames: CurveFrames, options?: ExtrusionOptions) {
+    constructor(engine: WonderlandEngine, polyline: Array<vec2>, curvePositions: Array<vec3>, curveFrames: CurveFrames, options?: ExtrusionOptions) {
         // validate curve
         const pointCount = curvePositions.length;
         const loopLen = polyline.length;

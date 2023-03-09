@@ -3,14 +3,14 @@ import { MeshGroup } from './MeshGroup';
 
 import type { RadialOptions } from './RadialOptions';
 import type { vec2 } from 'gl-matrix';
-import type * as WL from '@wonderlandengine/api';
+import type { WonderlandEngine, Material } from '@wonderlandengine/api';
 
 const NO_UVS: [vec2, vec2, vec2, vec2] = [[0,0],[0,0],[0,0],[0,0]];
 
 /** Optional arguments for UV sphere generation. */
 export interface UVSphereOptions extends RadialOptions {
     /** The material used for all triangles in the sphere. */
-    material?: WL.Material;
+    material?: Material;
 }
 
 /**
@@ -27,7 +27,7 @@ export class UVSphereMesh extends MeshGroup {
      * @param engine - The Wonderland Engine instance to use this mesh for
      * @param options - Optional arguments for the sphere.
      */
-    constructor(engine: WL.WonderlandEngine, options?: UVSphereOptions) {
+    constructor(engine: WonderlandEngine, options?: UVSphereOptions) {
         const subDivs = options?.subDivisions ?? 12;
         const radius = options?.radius ?? 0.5;
         const diameter = radius * 2;
@@ -41,7 +41,7 @@ export class UVSphereMesh extends MeshGroup {
         builder.makeEquirectUVs();
 
         const material = options?.material ?? null;
-        const materialMap = new Map<number, WL.Material | null>();
+        const materialMap = new Map<number, Material | null>();
         for (let i = 0; i < 6; i++) {
             materialMap.set(i, material);
         }

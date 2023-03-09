@@ -3,7 +3,7 @@ import { vec3 } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
 import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
-import type * as WL from '@wonderlandengine/api';
+import type { WonderlandEngine, Material } from '@wonderlandengine/api';
 
 /**
  * Optional arguments for a procedural frustum.
@@ -12,9 +12,9 @@ export interface FrustumOptions extends SmoothNormalsOptions {
     /** The uniform scale of the base. */
     baseScale?: number;
     /** The material used for the frustum bases. */
-    baseMaterial?: WL.Material;
+    baseMaterial?: Material;
     /** The material used for the sides of the frustum. */
-    sideMaterial?: WL.Material;
+    sideMaterial?: Material;
 }
 
 /**
@@ -32,7 +32,7 @@ export class FrustumMesh extends BasePrismoidPyramidMesh {
      * @param height - The height of the frustum. The height is expected to not exceed the apex.
      * @param options - Optional arguments for the frustum generation.
      */
-    constructor(engine: WL.WonderlandEngine, polyline: Array<vec2>, apex: vec3, height: number, options?: FrustumOptions) {
+    constructor(engine: WonderlandEngine, polyline: Array<vec2>, apex: vec3, height: number, options?: FrustumOptions) {
         const baseScale = options?.baseScale ?? 1;
         const apexHeight = Math.abs(apex[1]);
         const topScale = baseScale * height / apexHeight;

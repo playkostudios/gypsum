@@ -3,7 +3,7 @@ import { PrismMesh } from './PrismMesh';
 
 import type { PrismPyramidOptions } from './PrismPyramidOptions';
 import type { RadialOptions } from './RadialOptions';
-import type * as WL from '@wonderlandengine/api';
+import type { WonderlandEngine } from '@wonderlandengine/api';
 
 export interface CylinderOptions extends RadialOptions, PrismPyramidOptions {}
 
@@ -19,7 +19,7 @@ export class CylinderMesh extends PrismMesh {
      *
      * @param engine - The Wonderland Engine instance to use this mesh for
      */
-    constructor(engine: WL.WonderlandEngine, options?: CylinderOptions) {
+    constructor(engine: WonderlandEngine, options?: CylinderOptions) {
         super(
             engine,
             makeCirclePolyline(options?.radius ?? 0.5, false, options?.subDivisions ?? 12),

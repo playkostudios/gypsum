@@ -1,6 +1,7 @@
 import { CuboidMaterialOptions, RectangularCuboidMesh } from './RectangularCuboidMesh';
 
-import type * as WL from '@wonderlandengine/api';
+import type { WonderlandEngine } from '@wonderlandengine/api';
+
 /**
  * A procedural cube with no sub-divisions.
  *
@@ -14,7 +15,7 @@ export class CubeMesh extends RectangularCuboidMesh {
      * @param length - The length of the cube.
      * @param options - Optional arguments for the cube.
      */
-    constructor(engine: WL.WonderlandEngine, length: number, options?: CuboidMaterialOptions) {
+    constructor(engine: WonderlandEngine, length: number, options?: CuboidMaterialOptions) {
         super(engine, length, length, length, options);
     }
 }

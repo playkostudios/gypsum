@@ -8,12 +8,13 @@ import { makeIndexBuffer } from '../../client';
 import { genInterlacedMergeMap } from './gen-interlaced-merge-map';
 import { deinterlaceMergeMap } from './deinterlace-merge-map';
 import { autoConnectAllEdges } from './auto-connect-all-edges';
-import * as WL from '@wonderlandengine/api';
+import { Mesh, MeshAttribute } from '@wonderlandengine/api';
 
 import type { Submesh } from '../MeshGroup';
 import type { quat } from 'gl-matrix';
 import type { MergeMap } from '../../common/MergeMap';
 import type { EdgeList } from './EdgeList';
+import type { WonderlandEngine, Material } from '@wonderlandengine/api';
 
 const MAT3_IDENTITY = mat3.create();
 const MAT4_IDENTITY = mat4.create();
@@ -54,9 +55,9 @@ function getVertexMid(a: Float32Array, b: Float32Array): Float32Array {
     return result;
 }
 
-function sortMaterials(materials: Iterable<WL.Material | null>, materialMap: Map<number, WL.Material | null>): Array<WL.Material | null> {
+function sortMaterials(materials: Iterable<Material | null>, materialMap: Map<number, Material | null>): Array<Material | null> {
     // reverse the material map (map materials to material IDs)
-    const revMaterialMap = new Map<WL.Material | null, number>();
+    const revMaterialMap = new Map<Material | null, number>();
     for (const [id, material] of materialMap) {
         revMaterialMap.set(material, id);
     }
@@ -101,7 +102,7 @@ export class MeshBuilder {
     triangles = new Array<Triangle>();
 
     /** @param engine - The Wonderland Engine instance being used */
-    constructor(readonly engine: WL.WonderlandEngine) {}
+    constructor(readonly engine: WonderlandEngine) {}
 
     /**
      * Get the number of triangles in this MeshBuilder. Equivalent to getting
@@ -493,7 +494,7 @@ export class MeshBuilder {
         }
     }
 
-    private finalizeSubmesh(material: WL.Material | null, triangles: Array<Triangle>, timOffset: number, triIdxMap: Uint32Array | null): Submesh {
+    private finalizeSubmesh(material: Material | null, triangles: Array<Triangle>, timOffset: number, triIdxMap: Uint32Array | null): Submesh {
         // make index and vertex data in advance
         const triCount = triangles.length;
         // XXX this assumes the worst case; that no vertices are merged
@@ -549,27 +550,27 @@ export class MeshBuilder {
 
         // instance one mesh
         const vertexCount = positions.length / 3;
-        const mesh = new WL.Mesh(this.engine, { vertexCount, indexData, indexType });
+        const mesh = new Mesh(this.engine, { vertexCount, indexData, indexType });
 
         try {
             // upload vertex data
-            const positionsAttr = mesh.attribute(WL.MeshAttribute.Position);
+            const positionsAttr = mesh.attribute(MeshAttribute.Position);
             if (!positionsAttr) {
                 throw new Error('Could not get position mesh attribute accessor');
             }
             positionsAttr.set(0, positions.finalize());
 
-            const normalsAttr = mesh.attribute(WL.MeshAttribute.Normal);
+            const normalsAttr = mesh.attribute(MeshAttribute.Normal);
             if (normalsAttr) {
                 normalsAttr.set(0, normals.finalize());
             }
 
-            const texCoordsAttr = mesh.attribute(WL.MeshAttribute.TextureCoordinate);
+            const texCoordsAttr = mesh.attribute(MeshAttribute.TextureCoordinate);
             if (texCoordsAttr) {
                 texCoordsAttr.set(0, texCoords.finalize());
             }
 
-            const tangentsAttr = mesh.attribute(WL.MeshAttribute.Tangent);
+            const tangentsAttr = mesh.attribute(MeshAttribute.Tangent);
             if (tangentsAttr) {
                 tangentsAttr.set(0, tangents.finalize());
             }
@@ -628,9 +629,9 @@ export class MeshBuilder {
      * @param materialMap Maps each material index to a Wonderland Engine material. Triangles with different material will be put in separate meshes, but in the same manifold. A null material is equivalent to the material being missing in the material map. Materials missing from the material map will use null as the material so they can be replaced later with a fallback material.
      * @param generateManifold True by default. If true, a manifold and a submesh map will also be generated, otherwise, these will be null. Note than if a manifold is generated, then the triangles must form a 2-manifold surface, but if a manifold is not generated, then even a triangle soup is supported.
      */
-    finalize(materialMap: Map<number, WL.Material | null>, generateManifold?: true): [ submeshes: Array<Submesh>, mergeMap: MergeMap ];
-    finalize(materialMap: Map<number, WL.Material | null>, generateManifold: false): [ submeshes: Array<Submesh>, mergeMap: null ];
-    finalize(materialMap: Map<number, WL.Material | null>, generateManifold = true): [ submeshes: Array<Submesh>, mergeMap: MergeMap | null ] {
+    finalize(materialMap: Map<number, Material | null>, generateManifold?: true): [ submeshes: Array<Submesh>, mergeMap: MergeMap ];
+    finalize(materialMap: Map<number, Material | null>, generateManifold: false): [ submeshes: Array<Submesh>, mergeMap: null ];
+    finalize(materialMap: Map<number, Material | null>, generateManifold = true): [ submeshes: Array<Submesh>, mergeMap: MergeMap | null ] {
         const triCount = this.triangles.length;
         const submeshes = new Array<Submesh>();
         const interlacedMergeMap = generateManifold ? new DynamicArray(Uint32Array) : null;
@@ -638,7 +639,7 @@ export class MeshBuilder {
         // create submeshes (and merge map if wanted)
         try {
             // group all triangles together by their materials
-            const groupedTris = new Map<WL.Material | null, Array<Triangle>>();
+            const groupedTris = new Map<Material | null, Array<Triangle>>();
 
             for (const triangle of this.triangles) {
                 const materialID = triangle.materialID;

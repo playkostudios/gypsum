@@ -1,6 +1,6 @@
 import type { NumRange } from '../misc/NumRange';
 import type { Tuple } from '../misc/Tuple';
-import type * as WL from '@wonderlandengine/api';
+import type { Material } from '@wonderlandengine/api';
 
 /**
  * Creates a map which maps the material IDs used by
@@ -9,10 +9,10 @@ import type * as WL from '@wonderlandengine/api';
  * @param faceMaterials - The material to use for each face. Can either be an array with 20 materials, or a single materials that is assigned to all faces.
  * @returns A new Map which maps a material ID to a WL.Material instance, or null if no material was available for the face.
  */
-export function makeIcosahedronMaterialMap(faceMaterials?: Tuple<WL.Material | null, NumRange<0, 20>> | WL.Material) {
+export function makeIcosahedronMaterialMap(faceMaterials?: Tuple<Material | null, NumRange<0, 20>> | Material) {
     // make materials map for each face
-    const materialMap = new Map<number, WL.Material | null>();
-    const materialsList: Array<WL.Material | null> | WL.Material = faceMaterials ?? [];
+    const materialMap = new Map<number, Material | null>();
+    const materialsList: Array<Material | null> | Material = faceMaterials ?? [];
 
     if (Array.isArray(materialsList)) {
         const materialsLen = materialsList.length;

@@ -1,6 +1,8 @@
 import { makeIndexBuffer } from '../../client';
-import * as WL from '@wonderlandengine/api';
+import { Mesh, MeshAttribute } from '@wonderlandengine/api';
+
 import type { MeshIndexType } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '@wonderlandengine/api';
 
 /**
  * Clone a Wonderland Engine mesh. A new, separate mesh will be created with the
@@ -12,7 +14,7 @@ import type { MeshIndexType } from '@wonderlandengine/api';
  * @param oMesh - The original mesh to copy.
  * @returns Returns a copy of the given mesh.
  */
-export function cloneMesh(oMesh: WL.Mesh, engine: WL.WonderlandEngine): WL.Mesh {
+export function cloneMesh(oMesh: Mesh, engine: WonderlandEngine): Mesh {
     // clone index data
     const oIndexData = oMesh.indexData;
     const vertexCount = oMesh.vertexCount;
@@ -29,16 +31,16 @@ export function cloneMesh(oMesh: WL.Mesh, engine: WL.WonderlandEngine): WL.Mesh 
     }
 
     // make new mesh
-    const mesh = new WL.Mesh(engine, { indexData, indexType, vertexCount });
+    const mesh = new Mesh(engine, { indexData, indexType, vertexCount });
 
     // clone vertex attributes
     // (positions)
-    const positions = mesh.attribute(WL.MeshAttribute.Position);
+    const positions = mesh.attribute(MeshAttribute.Position);
     if (!positions) {
         throw new Error('Could not get position mesh attribute accessor');
     }
 
-    const oPositions = oMesh.attribute(WL.MeshAttribute.Position);
+    const oPositions = oMesh.attribute(MeshAttribute.Position);
     if (!oPositions) {
         throw new Error('Could not get position mesh attribute accessor');
     }
@@ -48,8 +50,8 @@ export function cloneMesh(oMesh: WL.Mesh, engine: WL.WonderlandEngine): WL.Mesh 
     positions.set(0, posBuf);
 
     // (normals)
-    const normals = mesh.attribute(WL.MeshAttribute.Normal);
-    const oNormals = oMesh.attribute(WL.MeshAttribute.Normal);
+    const normals = mesh.attribute(MeshAttribute.Normal);
+    const oNormals = oMesh.attribute(MeshAttribute.Normal);
     if (normals && oNormals) {
         const normBuf = new Float32Array(vertexCount * 3);
         oNormals.get(0, normBuf);
@@ -57,8 +59,8 @@ export function cloneMesh(oMesh: WL.Mesh, engine: WL.WonderlandEngine): WL.Mesh 
     }
 
     // (tangents)
-    const tangents = mesh.attribute(WL.MeshAttribute.Tangent);
-    const oTangents = oMesh.attribute(WL.MeshAttribute.Tangent);
+    const tangents = mesh.attribute(MeshAttribute.Tangent);
+    const oTangents = oMesh.attribute(MeshAttribute.Tangent);
     if (tangents && oTangents) {
         const tanBuf = new Float32Array(vertexCount * 4);
         oTangents.get(0, tanBuf);
@@ -66,8 +68,8 @@ export function cloneMesh(oMesh: WL.Mesh, engine: WL.WonderlandEngine): WL.Mesh 
     }
 
     // (tex coords)
-    const uvs = mesh.attribute(WL.MeshAttribute.TextureCoordinate);
-    const oUVs = oMesh.attribute(WL.MeshAttribute.TextureCoordinate);
+    const uvs = mesh.attribute(MeshAttribute.TextureCoordinate);
+    const oUVs = oMesh.attribute(MeshAttribute.TextureCoordinate);
     if (uvs && oUVs) {
         const uvBuf = new Float32Array(vertexCount * 2);
         oUVs.get(0, uvBuf);

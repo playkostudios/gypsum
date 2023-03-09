@@ -2,17 +2,18 @@ import { CSGOperation } from '../common/CSGOperation';
 import { iterateOpTree } from '../common/iterate-operation-tree';
 import { WorkerResponse, WorkerResultType } from '../common/WorkerResponse';
 import { MeshGroup } from './MeshGroup';
-import * as WL from '@wonderlandengine/api';
+import { Mesh } from '@wonderlandengine/api';
 
 import type { WorkerRequest } from '../common/WorkerRequest';
 import type { OpTreeCtx } from '../common/iterate-operation-tree';
 import type { Box, Curvature, Properties } from 'manifold-3d';
 import type { EncodedMeshGroup } from '../common/EncodedMeshGroup';
+import type { WonderlandEngine, Material } from '@wonderlandengine/api';
 
 type WorkerTuple = [worker: Worker, jobCount: number];
 type WorkerArray = Array<WorkerTuple>;
 type JobResult = MeshGroup | boolean | number | Box | Properties | Curvature;
-type JobTuple = [resolve: (value: JobResult) => void, reject: (reason: unknown) => void, engine: WL.WonderlandEngine, materials: Array<WL.Material>, workerID: number];
+type JobTuple = [resolve: (value: JobResult) => void, reject: (reason: unknown) => void, engine: WonderlandEngine, materials: Array<Material>, workerID: number];
 
 /**
  * A pool of workers to use for CSG operation with Manifold.
@@ -225,10 +226,10 @@ export class CSGPool {
      *
      * @param operation - A tree of CSG operations to send to the worker.
      */
-    async dispatch(engine: WL.WonderlandEngine, operation: CSGOperation<MeshGroup | WL.Mesh>): Promise<JobResult> {
+    async dispatch(engine: WonderlandEngine, operation: CSGOperation<MeshGroup | Mesh>): Promise<JobResult> {
         // TODO don't double-iterate the tree. find a better way to clean up
         const autoDisposeList = new Array<MeshGroup>();
-        iterateOpTree<MeshGroup | WL.Mesh>(operation, (_context: OpTreeCtx<MeshGroup | WL.Mesh>, _key: number | string, mesh: MeshGroup | WL.Mesh) => {
+        iterateOpTree<MeshGroup | Mesh>(operation, (_context: OpTreeCtx<MeshGroup | Mesh>, _key: number | string, mesh: MeshGroup | Mesh) => {
             if (mesh instanceof MeshGroup && mesh.autoDispose) {
                 autoDisposeList.push(mesh);
             }
@@ -237,22 +238,22 @@ export class CSGPool {
         try {
             await this.initialize();
 
-            const materials = new Array<WL.Material>();
+            const materials = new Array<Material>();
             const transfer = new Array<Transferable>();
 
-            iterateOpTree<MeshGroup | WL.Mesh>(operation, (context: OpTreeCtx<MeshGroup | WL.Mesh>, key: number | string, mesh: MeshGroup | WL.Mesh) => {
+            iterateOpTree<MeshGroup | Mesh>(operation, (context: OpTreeCtx<MeshGroup | Mesh>, key: number | string, mesh: MeshGroup | Mesh) => {
                 // mesh
                 let converted: EncodedMeshGroup;
                 if (mesh instanceof MeshGroup) {
                     converted = mesh.encode(materials, transfer);
-                } else if(mesh instanceof WL.Mesh) {
+                } else if(mesh instanceof Mesh) {
                     converted = MeshGroup.fromWLEMesh(mesh).encode(materials, transfer);
                 } else {
                     throw new Error('Unknown mesh type');
                 }
 
                 // XXX this cast is safe, as we are converting the context from
-                // containing MeshGroup/WL.Mesh instances into EncodedMeshGroup
+                // containing MeshGroup/Mesh instances into EncodedMeshGroup
                 // instances only
                 (context as unknown as OpTreeCtx<EncodedMeshGroup>)[key] = converted;
             });

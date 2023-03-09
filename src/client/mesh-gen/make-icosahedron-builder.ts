@@ -1,7 +1,7 @@
 import { MeshBuilder } from './MeshBuilder';
 import { vec2, vec3 } from 'gl-matrix';
 
-import type * as WL from '@wonderlandengine/api';
+import type { WonderlandEngine } from '@wonderlandengine/api';
 
 const ICO_V: Array<Readonly<vec3>> = [
     vec3.fromValues( 0       ,  1       ,  0      ),
@@ -33,7 +33,7 @@ const BR_UV: Readonly<vec2> = vec2.fromValues(1, 0);
  *
  * @param addTangents - If true (default), then tangents will be added to each triangle's vertices. Useful if you want to avoid generating tangents for optimisation purposes.
  */
-export function makeIcosahedronBuilder(engine: WL.WonderlandEngine, addTangents = true): MeshBuilder {
+export function makeIcosahedronBuilder(engine: WonderlandEngine, addTangents = true): MeshBuilder {
     const builder = new MeshBuilder(engine);
 
     // top triangles

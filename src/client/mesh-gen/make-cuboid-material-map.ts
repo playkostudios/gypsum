@@ -1,4 +1,4 @@
-import type * as WL from '@wonderlandengine/api';
+import type { Material } from '@wonderlandengine/api';
 
 /**
  * Creates a map which maps the material IDs used by {@link makeCuboidBuilder}
@@ -13,8 +13,8 @@ import type * as WL from '@wonderlandengine/api';
  * @param frontMaterial - The material to use for the front (+Z) face.
  * @returns A new Map which maps a material ID to a WL.Material instance, or null if no material was available for the face.
  */
-export function makeCuboidMaterialMap(defaultMaterial?: WL.Material | null, leftMaterial?: WL.Material | null, rightMaterial?: WL.Material | null, downMaterial?: WL.Material | null, upMaterial?: WL.Material | null, backMaterial?: WL.Material | null, frontMaterial?: WL.Material | null): Map<number, WL.Material | null> {
-    const materialMap = new Map<number, WL.Material | null>();
+export function makeCuboidMaterialMap(defaultMaterial?: Material | null, leftMaterial?: Material | null, rightMaterial?: Material | null, downMaterial?: Material | null, upMaterial?: Material | null, backMaterial?: Material | null, frontMaterial?: Material | null): Map<number, Material | null> {
+    const materialMap = new Map<number, Material | null>();
     for (let i = 0; i < 6; i++) {
         materialMap.set(i, defaultMaterial ?? null);
     }

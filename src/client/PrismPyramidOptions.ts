@@ -1,6 +1,6 @@
 import { SmoothNormalsOptions } from './SmoothNormalsOptions';
 
-import type * as WL from '@wonderlandengine/api';
+import type { Material } from '@wonderlandengine/api';
 
 /** Optional arguments for prism/pyramid generation. */
 export interface PrismPyramidOptions extends SmoothNormalsOptions {
@@ -9,7 +9,7 @@ export interface PrismPyramidOptions extends SmoothNormalsOptions {
     /** The scale of the base. */
     baseScale?: number;
     /** The material to use for the bases. */
-    baseMaterial?: WL.Material;
+    baseMaterial?: Material;
     /** The material to use for the sides. */
-    sideMaterial?: WL.Material;
+    sideMaterial?: Material;
 }

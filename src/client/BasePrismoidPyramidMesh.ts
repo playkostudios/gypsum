@@ -9,7 +9,7 @@ import { autoConnectAllEdges } from './mesh-gen/auto-connect-all-edges';
 import { autoConnectEdges } from './mesh-gen/auto-connect-edges';
 
 import type { CurveFrame } from '../client';
-import type * as WL from '@wonderlandengine/api';
+import type { WonderlandEngine, Material } from '@wonderlandengine/api';
 import type { EdgeList } from './mesh-gen/EdgeList';
 
 const TAU = Math.PI * 2;
@@ -79,7 +79,7 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
      * @param baseMaterial - The WL.Material to use for the base triangles.
      * @param sideMaterial - The WL.Material to use fot the side triangles.
      */
-    constructor(engine: WL.WonderlandEngine, polyline: Array<vec2>, bottomScale: number, topScale: number, bottomOffset: vec3, topOffset: vec3, smoothNormalMaxAngle: number | null, baseMaterial: WL.Material | null = null, sideMaterial: WL.Material | null = null) {
+    constructor(engine: WonderlandEngine, polyline: Array<vec2>, bottomScale: number, topScale: number, bottomOffset: vec3, topOffset: vec3, smoothNormalMaxAngle: number | null, baseMaterial: Material | null = null, sideMaterial: Material | null = null) {
         // validate that there is at most one apex
         if (topScale === 0 && bottomScale === 0) {
             throw new Error('Only one of the scales can be 0');
