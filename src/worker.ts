@@ -446,6 +446,12 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                 const runStart = runIndex[m];
                 const runEnd = runIndex[m + 1];
                 const runLength = runEnd - runStart;
+
+                if (runLength === 0) {
+                    // skip empty submeshes
+                    continue;
+                }
+
                 const vertexOffsetMap = new DynamicArray(Uint32Array);
                 // XXX this index buffer is not 100% efficient, hence why it's
                 // called the transitory index buffer; it will be converted to

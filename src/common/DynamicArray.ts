@@ -378,7 +378,13 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
     /** Get the index of a value in the array, or -1 if not found. */
     indexOf(value: TypedArrayValue<TypedArrayCtorType>, fromIndex?: number): number {
         // XXX type inference fails here, pretend array is a float32array
-        return (this.array as Float32Array).indexOf(value as number, fromIndex);
+        const index = (this.array as Float32Array).indexOf(value as number, fromIndex);
+
+        if (index >= this._length) {
+            return -1;
+        } else {
+            return index;
+        }
     }
 
     /**
