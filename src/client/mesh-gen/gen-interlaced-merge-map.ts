@@ -37,8 +37,7 @@ export function genInterlacedMergeMap(triangles: Array<Triangle>, vertexCount: n
             }
 
             // visit vertex star
-            const star = triangle.getVertexStar(v);
-            for (const [oTriangle, ov] of star) {
+            for (const [oTriangle, ov] of triangle.getVertexStar(v)) {
                 if (oTriangle === triangle && v === ov) {
                     continue;
                 }
@@ -57,5 +56,9 @@ export function genInterlacedMergeMap(triangles: Array<Triangle>, vertexCount: n
                 interlacedMergeMap.pushBack_guarded(vIdx);
             }
         }
+    }
+
+    if (!visitedVertices.isAllSet()) {
+        throw new Error('Not all vertices were visited');
     }
 }

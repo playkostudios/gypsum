@@ -2,7 +2,6 @@ import { vec3 } from 'gl-matrix';
 import { MeshBuilder } from './MeshBuilder';
 import { Tuple } from '../misc/Tuple';
 import { autoConnectEdges } from './auto-connect-edges';
-import { autoConnectAllEdges } from './auto-connect-all-edges';
 
 import type { Triangle } from './Triangle';
 import type { vec2 } from 'gl-matrix';
@@ -125,9 +124,7 @@ export function makeCuboidBuilder(engine: WonderlandEngine, subDivisions: number
 
     // auto-connect triangles; edges inside quad are already connected, but
     // not between the quads
-    // FIXME
-    // autoConnectEdges(edgeList, connectableTriangles);
-    autoConnectAllEdges(connectableTriangles);
+    autoConnectEdges(edgeList, connectableTriangles);
 
     return builder;
 }

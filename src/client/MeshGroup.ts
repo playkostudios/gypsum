@@ -98,6 +98,11 @@ export class MeshGroup {
                 let indexData: Uint8Array | Uint16Array | Uint32Array | undefined;
                 const vertexCount = encSubmesh.positions.length / 3;
 
+                if (vertexCount === 0) {
+                    console.warn('Skipped empty submesh');
+                    continue;
+                }
+
                 if (encSubmesh.indices) {
                     indexData = encSubmesh.indices;
                     const elemBytes = indexData.BYTES_PER_ELEMENT;
