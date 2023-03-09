@@ -51,29 +51,46 @@ export function cloneMesh(oMesh: Mesh, engine: WonderlandEngine): Mesh {
 
     // (normals)
     const normals = mesh.attribute(MeshAttribute.Normal);
-    const oNormals = oMesh.attribute(MeshAttribute.Normal);
-    if (normals && oNormals) {
-        const normBuf = new Float32Array(vertexCount * 3);
-        oNormals.get(0, normBuf);
-        normals.set(0, normBuf);
+    if (normals) {
+        const oNormals = oMesh.attribute(MeshAttribute.Normal);
+        if (oNormals) {
+            const normBuf = new Float32Array(vertexCount * 3);
+            oNormals.get(0, normBuf);
+            normals.set(0, normBuf);
+        }
     }
 
     // (tangents)
     const tangents = mesh.attribute(MeshAttribute.Tangent);
-    const oTangents = oMesh.attribute(MeshAttribute.Tangent);
-    if (tangents && oTangents) {
-        const tanBuf = new Float32Array(vertexCount * 4);
-        oTangents.get(0, tanBuf);
-        tangents.set(0, tanBuf);
+    if (tangents) {
+        const oTangents = oMesh.attribute(MeshAttribute.Tangent);
+        if (oTangents) {
+            const tanBuf = new Float32Array(vertexCount * 4);
+            oTangents.get(0, tanBuf);
+            tangents.set(0, tanBuf);
+        }
     }
 
     // (tex coords)
     const uvs = mesh.attribute(MeshAttribute.TextureCoordinate);
-    const oUVs = oMesh.attribute(MeshAttribute.TextureCoordinate);
-    if (uvs && oUVs) {
-        const uvBuf = new Float32Array(vertexCount * 2);
-        oUVs.get(0, uvBuf);
-        uvs.set(0, uvBuf);
+    if (uvs) {
+        const oUVs = oMesh.attribute(MeshAttribute.TextureCoordinate);
+        if (oUVs) {
+            const uvBuf = new Float32Array(vertexCount * 2);
+            oUVs.get(0, uvBuf);
+            uvs.set(0, uvBuf);
+        }
+    }
+
+    // (colors)
+    const colors = mesh.attribute(MeshAttribute.Color);
+    if (colors) {
+        const oColors = oMesh.attribute(MeshAttribute.Color);
+        if (oColors) {
+            const colorBuf = new Float32Array(vertexCount * 2);
+            oColors.get(0, colorBuf);
+            colors.set(0, colorBuf);
+        }
     }
 
     return mesh;

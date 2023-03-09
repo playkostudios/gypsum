@@ -48,6 +48,7 @@ export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Set
         let normals: MeshAttributeAccessor | null;
         let uvs: MeshAttributeAccessor | null;
         let tangents: MeshAttributeAccessor | null;
+        let colors: MeshAttributeAccessor | null;
 
         const hint = hints[m];
         if (hint) {
@@ -71,10 +72,18 @@ export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Set
             } else {
                 tangents = null;
             }
+
+            if (hint.has(MeshAttribute.Color)) {
+                colors = mesh.attribute(MeshAttribute.Color);
+                // TODO should we throw if null?
+            } else {
+                colors = null;
+            }
         } else {
             normals = mesh.attribute(MeshAttribute.Normal);
             uvs = mesh.attribute(MeshAttribute.TextureCoordinate);
             tangents = mesh.attribute(MeshAttribute.Tangent);
+            colors = mesh.attribute(MeshAttribute.Color);
         }
 
         // iterate indices (or vertices if not indexed), convert to triangles
@@ -88,14 +97,14 @@ export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Set
             for (let i = 0; i < indexCount;) {
                 triangles.push(Triangle.fromMeshData(
                     indexData[i++], indexData[i++], indexData[i++],
-                    positions, normals, uvs, tangents
+                    positions, normals, uvs, tangents, colors
                 ));
             }
         } else {
             indexCount = mesh.vertexCount;
             for (let i = 0; i < indexCount;) {
                 triangles.push(Triangle.fromMeshData(
-                    i++, i++, i++, positions, normals, uvs, tangents
+                    i++, i++, i++, positions, normals, uvs, tangents, colors
                 ));
             }
         }

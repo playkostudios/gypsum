@@ -10,10 +10,15 @@ import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 const THIRD = 1 / 3;
 const tmp0 = vec3.create();
 const tmp1 = vec3.create();
-export const VERTEX_STRIDE = 12;
+export const VERTEX_STRIDE = 16;
 export const VERTEX_TOTAL = VERTEX_STRIDE * 3;
 export const VERTEX_1 = VERTEX_STRIDE;
 export const VERTEX_2 = VERTEX_STRIDE * 2;
+export const VERTEX_POS_OFFSET = 0;
+export const VERTEX_NORMAL_OFFSET = 3;
+export const VERTEX_UV_OFFSET = 6;
+export const VERTEX_TANGENT_OFFSET = 8;
+export const VERTEX_COLOR_OFFSET = 12;
 
 function validateEdgeIndex(edgeIndex: number) {
     if ([0, 1, 2].indexOf(edgeIndex) === -1) {
@@ -74,14 +79,17 @@ export class Triangle {
      * - float 3-5: vertex 0's normal
      * - float 6-7: vertex 0's UV (unused if no uvs)
      * - float 8-11: vertex 0's tangent (unused if no tangents)
-     * - float 12-14: vertex 1's position
-     * - float 15-17: vertex 1's normal
-     * - float 18-19: vertex 1's UV
-     * - float 20-23: vertex 1's tangent
-     * - float 24-26: vertex 2's position
-     * - float 27-29: vertex 2's normal
-     * - float 30-31: vertex 2's UV
-     * - float 32-35: vertex 2's tangent
+     * - float 12-15: vertex 0's color (unused if no colors)
+     * - float 16-18: vertex 1's position
+     * - float 19-21: vertex 1's normal
+     * - float 22-23: vertex 1's UV
+     * - float 24-27: vertex 1's tangent
+     * - float 28-31: vertex 1's color
+     * - float 32-34: vertex 2's position
+     * - float 35-37: vertex 2's normal
+     * - float 38-39: vertex 2's UV
+     * - float 40-43: vertex 2's tangent
+     * - float 44-47: vertex 2's color
      */
     readonly vertexData: Float32Array;
 
@@ -130,68 +138,39 @@ export class Triangle {
      * @param normals - An optional mesh attribute accessor for the mesh's vertex normals
      * @param uvs - An optional mesh attribute accessor for the mesh's vertex texture coordinates
      * @param tangents - An optional mesh attribute accessor for the mesh's vertex tangents
+     * @param colors - An optional mesh attribute accessor for the mesh's vertex colors
      */
-    static fromMeshData(idx0: number, idx1: number, idx2: number, positions: MeshAttributeAccessor, normals: MeshAttributeAccessor | null = null, uvs: MeshAttributeAccessor | null = null, tangents: MeshAttributeAccessor | null = null): Triangle {
-        const vertexData = new Float32Array(36);
+    static fromMeshData(idx0: number, idx1: number, idx2: number, positions: MeshAttributeAccessor, normals: MeshAttributeAccessor | null = null, uvs: MeshAttributeAccessor | null = null, tangents: MeshAttributeAccessor | null = null, colors: MeshAttributeAccessor | null = null): Triangle {
+        const vertexData = new Float32Array(VERTEX_TOTAL);
 
         // store positions
-        const pos0 = positions.get(idx0);
-        vertexData[0] = pos0[0];
-        vertexData[1] = pos0[1];
-        vertexData[2] = pos0[2];
-        const pos1 = positions.get(idx1);
-        vertexData[12] = pos1[0];
-        vertexData[13] = pos1[1];
-        vertexData[14] = pos1[2];
-        const pos2 = positions.get(idx2);
-        vertexData[24] = pos2[0];
-        vertexData[25] = pos2[1];
-        vertexData[26] = pos2[2];
+        vertexData.set(positions.get(idx0), VERTEX_POS_OFFSET);
+        vertexData.set(positions.get(idx1), VERTEX_POS_OFFSET + VERTEX_1);
+        vertexData.set(positions.get(idx2), VERTEX_POS_OFFSET + VERTEX_2);
 
         // store extra attributes
         if (normals) {
-            const extra0 = normals.get(idx0);
-            vertexData[3] = extra0[0];
-            vertexData[4] = extra0[1];
-            vertexData[5] = extra0[2];
-            const extra1 = normals.get(idx1);
-            vertexData[15] = extra1[0];
-            vertexData[16] = extra1[1];
-            vertexData[17] = extra1[2];
-            const extra2 = normals.get(idx2);
-            vertexData[27] = extra2[0];
-            vertexData[28] = extra2[1];
-            vertexData[29] = extra2[2];
+            vertexData.set(normals.get(idx0), VERTEX_NORMAL_OFFSET);
+            vertexData.set(normals.get(idx1), VERTEX_NORMAL_OFFSET + VERTEX_1);
+            vertexData.set(normals.get(idx2), VERTEX_NORMAL_OFFSET + VERTEX_2);
         }
 
         if (uvs) {
-            const extra0 = uvs.get(idx0);
-            vertexData[6] = extra0[0];
-            vertexData[7] = extra0[1];
-            const extra1 = uvs.get(idx1);
-            vertexData[18] = extra1[0];
-            vertexData[19] = extra1[1];
-            const extra2 = uvs.get(idx2);
-            vertexData[30] = extra2[0];
-            vertexData[31] = extra2[1];
+            vertexData.set(uvs.get(idx0), VERTEX_UV_OFFSET);
+            vertexData.set(uvs.get(idx1), VERTEX_UV_OFFSET + VERTEX_1);
+            vertexData.set(uvs.get(idx2), VERTEX_UV_OFFSET + VERTEX_2);
         }
 
         if (tangents) {
-            const extra0 = tangents.get(idx0);
-            vertexData[8] = extra0[0];
-            vertexData[9] = extra0[1];
-            vertexData[10] = extra0[2];
-            vertexData[11] = extra0[3];
-            const extra1 = tangents.get(idx1);
-            vertexData[20] = extra1[0];
-            vertexData[21] = extra1[1];
-            vertexData[22] = extra1[2];
-            vertexData[23] = extra1[3];
-            const extra2 = tangents.get(idx2);
-            vertexData[32] = extra2[0];
-            vertexData[33] = extra2[1];
-            vertexData[34] = extra2[2];
-            vertexData[35] = extra2[3];
+            vertexData.set(tangents.get(idx0), VERTEX_TANGENT_OFFSET);
+            vertexData.set(tangents.get(idx1), VERTEX_TANGENT_OFFSET + VERTEX_1);
+            vertexData.set(tangents.get(idx2), VERTEX_TANGENT_OFFSET + VERTEX_2);
+        }
+
+        if (colors) {
+            vertexData.set(colors.get(idx0), VERTEX_COLOR_OFFSET);
+            vertexData.set(colors.get(idx1), VERTEX_COLOR_OFFSET + VERTEX_1);
+            vertexData.set(colors.get(idx2), VERTEX_COLOR_OFFSET + VERTEX_2);
         }
 
         return new Triangle(vertexData);
@@ -316,7 +295,7 @@ export class Triangle {
      * @param vertexIndex - The index of the vertex, from 0 to 2. 0 is the first vertex of the triangle, etc...
      */
     getPosition(vertexIndex: number): vec3 {
-        const offset = VERTEX_STRIDE * vertexIndex;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_POS_OFFSET;
         return this.vertexData.slice(offset, offset + 3);
     }
 
@@ -326,7 +305,7 @@ export class Triangle {
      * @param vertexIndex - The index of the vertex, from 0 to 2. 0 is the first vertex of the triangle, etc...
      */
     getNormal(vertexIndex: number): vec3 {
-        const offset = VERTEX_STRIDE * vertexIndex + 3;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_NORMAL_OFFSET;
         return this.vertexData.slice(offset, offset + 3);
     }
 
@@ -337,7 +316,7 @@ export class Triangle {
      * @param vertexIndex - The index of the vertex, from 0 to 2. 0 is the first vertex of the triangle, etc...
      */
     getUV(vertexIndex: number): vec2 {
-        const offset = VERTEX_STRIDE * vertexIndex + 6;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_UV_OFFSET;
         return this.vertexData.slice(offset, offset + 2);
     }
 
@@ -347,7 +326,17 @@ export class Triangle {
      * @param vertexIndex - The index of the vertex, from 0 to 2. 0 is the first vertex of the triangle, etc...
      */
     getTangent(vertexIndex: number): vec4 {
-        const offset = VERTEX_STRIDE * vertexIndex + 8;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_TANGENT_OFFSET;
+        return this.vertexData.slice(offset, offset + 4);
+    }
+
+    /**
+     * Get a copy of the color of a vertex at a given vertex index.
+     *
+     * @param vertexIndex - The index of the vertex, from 0 to 2. 0 is the first vertex of the triangle, etc...
+     */
+    getColor(vertexIndex: number): vec4 {
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_COLOR_OFFSET;
         return this.vertexData.slice(offset, offset + 4);
     }
 
@@ -368,7 +357,7 @@ export class Triangle {
      * @param newPosition - The new position for the vertex.
      */
     setPosition(vertexIndex: number, newPosition: Readonly<vec3>) {
-        const offset = VERTEX_STRIDE * vertexIndex;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_POS_OFFSET;
         this.vertexData[offset] = newPosition[0];
         this.vertexData[offset + 1] = newPosition[1];
         this.vertexData[offset + 2] = newPosition[2];
@@ -381,7 +370,7 @@ export class Triangle {
      * @param newNormal - The new normal for the vertex.
      */
     setNormal(vertexIndex: number, newNormal: Readonly<vec3>) {
-        const offset = VERTEX_STRIDE * vertexIndex + 3;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_NORMAL_OFFSET;
         this.vertexData[offset] = newNormal[0];
         this.vertexData[offset + 1] = newNormal[1];
         this.vertexData[offset + 2] = newNormal[2];
@@ -394,7 +383,7 @@ export class Triangle {
      * @param newUV - The new texture coordinates for the vertex.
      */
     setUV(vertexIndex: number, newUV: Readonly<vec2>) {
-        const offset = VERTEX_STRIDE * vertexIndex + 6;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_UV_OFFSET;
         this.vertexData[offset] = newUV[0];
         this.vertexData[offset + 1] = newUV[1];
     }
@@ -406,11 +395,25 @@ export class Triangle {
      * @param newTangent - The new tangent for the vertex.
      */
     setTangent(vertexIndex: number, newTangent: Readonly<vec4>) {
-        const offset = VERTEX_STRIDE * vertexIndex + 8;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_TANGENT_OFFSET;
         this.vertexData[offset] = newTangent[0];
         this.vertexData[offset + 1] = newTangent[1];
         this.vertexData[offset + 2] = newTangent[2];
         this.vertexData[offset + 3] = newTangent[3];
+    }
+
+    /**
+     * Set the tangent of a vertex at a given vertex index.
+     *
+     * @param vertexIndex - The index of the vertex, from 0 to 2. 0 is the first vertex of the triangle, etc...
+     * @param newTangent - The new tangent for the vertex.
+     */
+    setColor(vertexIndex: number, newColor: Readonly<vec4>) {
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_COLOR_OFFSET;
+        this.vertexData[offset] = newColor[0];
+        this.vertexData[offset + 1] = newColor[1];
+        this.vertexData[offset + 2] = newColor[2];
+        this.vertexData[offset + 3] = newColor[3];
     }
 
     /**
@@ -428,18 +431,13 @@ export class Triangle {
             vec3.negate(tmp0, tmp0);
         }
 
-        this.vertexData[8] = tmp0[0];
-        this.vertexData[9] = tmp0[1];
-        this.vertexData[10] = tmp0[2];
-        this.vertexData[11] = 1;
-        this.vertexData[VERTEX_1 + 8] = tmp0[0];
-        this.vertexData[VERTEX_1 + 9] = tmp0[1];
-        this.vertexData[VERTEX_1 + 10] = tmp0[2];
-        this.vertexData[VERTEX_1 + 11] = 1;
-        this.vertexData[VERTEX_2 + 8] = tmp0[0];
-        this.vertexData[VERTEX_2 + 9] = tmp0[1];
-        this.vertexData[VERTEX_2 + 10] = tmp0[2];
-        this.vertexData[VERTEX_2 + 11] = 1;
+        const lastOffset = VERTEX_TANGENT_OFFSET + 3;
+        this.vertexData.set(tmp0, VERTEX_TANGENT_OFFSET);
+        this.vertexData[lastOffset] = 1;
+        this.vertexData.set(tmp0, VERTEX_TANGENT_OFFSET + VERTEX_1);
+        this.vertexData[lastOffset + VERTEX_1] = 1;
+        this.vertexData.set(tmp0, VERTEX_TANGENT_OFFSET + VERTEX_2);
+        this.vertexData[lastOffset + VERTEX_2] = 1;
     }
 
     /**
@@ -449,7 +447,7 @@ export class Triangle {
      * @returns True if the vertex normals at a given vertex index are not zero.
      */
     hasNormals(vertexIndex: number) {
-        const offset = VERTEX_STRIDE * vertexIndex + 3;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_NORMAL_OFFSET;
         return this.vertexData[offset] && this.vertexData[offset + 1] && this.vertexData[offset + 2];
     }
 
@@ -481,6 +479,7 @@ export class Triangle {
             this.vertexData[i + 2] = z;
 
             // set normals
+            this.vertexData.set([x, y, z]) // TODO finish adding color support from here on out
             this.vertexData[i + 3] = x;
             this.vertexData[i + 4] = y;
             this.vertexData[i + 5] = z;
