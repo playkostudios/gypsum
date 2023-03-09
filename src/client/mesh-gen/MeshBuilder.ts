@@ -2,20 +2,22 @@ import { DynamicArray } from '../../common/DynamicArray';
 import { BitArray } from './BitArray';
 import { Triangle, VERTEX_STRIDE, VERTEX_TOTAL } from './Triangle';
 import { vec2, vec3, mat4, mat3, vec4 } from 'gl-matrix';
-import { MeshGroup, Submesh, SubmeshMap } from '../MeshGroup';
 import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';
 import { makeIndexBuffer } from '../../client';
+import { genInterlacedMergeMap } from './gen-interlaced-merge-map';
+import { deinterlaceMergeMap } from './deinterlace-merge-map';
+import { autoConnectAllEdges } from './auto-connect-all-edges';
 import * as WL from '@wonderlandengine/api';
 
+import type { Submesh } from '../MeshGroup';
 import type { quat } from 'gl-matrix';
-import type { EncodedManifoldMesh } from '../../common/EncodedManifoldMesh';
+import type { MergeMap } from '../../common/MergeMap';
+import type { EdgeList } from './EdgeList';
 
 const MAT3_IDENTITY = mat3.create();
 const MAT4_IDENTITY = mat4.create();
 const TAU_INV = 1 / (Math.PI * 2);
-
-export type EdgeList = Array<[triangle: Triangle, edgeIdx: number]>;
 
 function getVertexMid(a: Float32Array, b: Float32Array): Float32Array {
     const result = new Float32Array(VERTEX_STRIDE);
@@ -120,139 +122,11 @@ export class MeshBuilder {
     }
 
     /**
-     * Calls {@link MeshBuilder#autoConnectAllEdgesOfSubset} with all the
-     * triangles in this builder.
+     * Calls {@link MeshBuilder#autoConnectAllEdges} with all the triangles in
+     * this builder.
      */
     autoConnectAllEdges(): void {
-        this.autoConnectAllEdgesOfSubset(this.triangles);
-    }
-
-    /**
-     * Auto-connect edges of a subset of the mesh by checking the vertex
-     * positions of each triangle in the subset. Already connected edges will
-     * not be reconnected to other edges.
-     *
-     * @param triangles - The triangles to auto-connect. All triangles in this list are assumed to be in the MeshBuilder.
-     */
-    autoConnectAllEdgesOfSubset(triangles: Array<Triangle>): void {
-        const triCount = triangles.length;
-        if (triCount === 0) {
-            return;
-        }
-
-        for (let ti = 0; ti < triCount; ti++) {
-            // check which edges need connections
-            const triangle = triangles[ti];
-            const missingEdge0 = !triangle.isEdgeConnected(0);
-            const missingEdge1 = !triangle.isEdgeConnected(1);
-            const missingEdge2 = !triangle.isEdgeConnected(2);
-            let edgesLeft = 0;
-
-            if (missingEdge0) {
-                edgesLeft++;
-            }
-            if (missingEdge1) {
-                edgesLeft++;
-            }
-            if (missingEdge2) {
-                edgesLeft++;
-            }
-
-            // no edges need connections, skip triangle
-            if (edgesLeft === 0) {
-                continue;
-            }
-
-            // some edges need connecting. get positions of each vertex and try
-            // connecting to unvisited triangles
-            const edgeHelpers: Array<[missing: boolean, a: number, b: number]> = [
-                [ missingEdge0, 0, 1 ],
-                [ missingEdge1, 1, 2 ],
-                [ missingEdge2, 2, 0 ],
-            ];
-
-            for (let oti = ti + 1; oti < triCount; oti++) {
-                // ignore if other triangle is already connected
-                const otherTriangle = triangles[oti];
-                const oMissingEdge0 = !otherTriangle.isEdgeConnected(0);
-                const oMissingEdge1 = !otherTriangle.isEdgeConnected(1);
-                const oMissingEdge2 = !otherTriangle.isEdgeConnected(2);
-                let oEdgesLeft = 0;
-
-                if (oMissingEdge0) {
-                    oEdgesLeft++;
-                }
-                if (oMissingEdge1) {
-                    oEdgesLeft++;
-                }
-                if (oMissingEdge2) {
-                    oEdgesLeft++;
-                }
-
-                if (oEdgesLeft === 0) {
-                    continue;
-                }
-
-                // connect if edge positions match
-                for (let edgeIdx = 0; edgeIdx < 3; edgeIdx++) {
-                    const edgeHelper = edgeHelpers[edgeIdx];
-                    const [ missing, a, b ] = edgeHelper;
-                    if (!missing) {
-                        continue;
-                    }
-
-                    const match = triangle.getMatchingEdge(a, b, otherTriangle);
-                    if (match !== null) {
-                        edgeHelper[0] = false;
-                        otherTriangle.connectEdge(match, edgeIdx, triangle);
-                        if (--edgesLeft === 0) {
-                            break;
-                        }
-                    }
-                }
-
-                if (edgesLeft === 0) {
-                    break;
-                }
-            }
-        }
-    }
-
-    /**
-     * Similar to {@link MeshBuilder#autoConnectAllEdgesOfSubset}, but only
-     * auto-connects a select set of edges. Edges will not replace already
-     * connected triangles. If an edge fails to auto-connect, then an error will
-     * be thrown.
-     *
-     * @param edges - The list of edges to auto-connect. If an edge is not in this list, it will not be auto-connected.
-     * @param connectableTriangles - The list of triangles that the edges in the edge list are allowed to connect to. All triangles are assumed to be part of the MeshBuilder.
-     */
-    autoConnectEdges(edges: EdgeList, connectableTriangles: Array<Triangle>): void {
-        for (const [triangle, edgeIdx] of edges) {
-            if (triangle.getConnectedEdge(edgeIdx)) {
-                continue; // edge already connected
-            }
-
-            const a = edgeIdx, b = (edgeIdx === 2) ? 0 : (edgeIdx + 1);
-
-            let disconnected = true;
-            for (const otherTriangle of connectableTriangles) {
-                if (triangle === otherTriangle) {
-                    continue;
-                }
-
-                const match = triangle.getMatchingEdge(a, b, otherTriangle);
-                if (match !== null) {
-                    otherTriangle.connectEdge(match, edgeIdx, triangle);
-                    disconnected = false;
-                    break;
-                }
-            }
-
-            if (disconnected) {
-                throw new Error('Could not auto-connect edge');
-            }
-        }
+        autoConnectAllEdges(this.triangles);
     }
 
     /**
@@ -619,10 +493,11 @@ export class MeshBuilder {
         }
     }
 
-    private finalizeSubmesh(material: WL.Material | null, triangles: Array<Triangle>, submeshMap: SubmeshMap | null, submeshIdx: number): Submesh {
+    private finalizeSubmesh(material: WL.Material | null, triangles: Array<Triangle>, timOffset: number, triIdxMap: Uint32Array | null): Submesh {
         // make index and vertex data in advance
         const triCount = triangles.length;
         // XXX this assumes the worst case; that no vertices are merged
+        // TODO optimise index buffer
         const indexCount = triCount * 3;
         const [indexData, indexType] = makeIndexBuffer(indexCount, indexCount);
         const positions = new DynamicArray(Float32Array);
@@ -635,11 +510,9 @@ export class MeshBuilder {
 
         for (let t = 0, iOffset = 0; t < triCount; t++) {
             const triangle = triangles[t];
-            const smOffset = triangle.helper * 2;
 
-            if (submeshMap) {
-                submeshMap[smOffset] = submeshIdx;
-                submeshMap[smOffset + 1] = t;
+            if (triIdxMap) {
+                triIdxMap[triangle.helper] = iOffset + timOffset;
             }
 
             for (let i = 0, offset = 0; i < 3; i++, offset += VERTEX_STRIDE) {
@@ -755,11 +628,14 @@ export class MeshBuilder {
      * @param materialMap Maps each material index to a Wonderland Engine material. Triangles with different material will be put in separate meshes, but in the same manifold. A null material is equivalent to the material being missing in the material map. Materials missing from the material map will use null as the material so they can be replaced later with a fallback material.
      * @param generateManifold True by default. If true, a manifold and a submesh map will also be generated, otherwise, these will be null. Note than if a manifold is generated, then the triangles must form a 2-manifold surface, but if a manifold is not generated, then even a triangle soup is supported.
      */
-    finalize(materialMap: Map<number, WL.Material | null>, generateManifold?: true): [ submeshes: Array<Submesh>, manifoldMesh: EncodedManifoldMesh, submeshMap: SubmeshMap ];
-    finalize(materialMap: Map<number, WL.Material | null>, generateManifold: false): [ submeshes: Array<Submesh>, manifoldMesh: null, submeshMap: null ];
-    finalize(materialMap: Map<number, WL.Material | null>, generateManifold = true): [ submeshes: Array<Submesh>, manifoldMesh: EncodedManifoldMesh | null, submeshMap: SubmeshMap | null ] {
+    finalize(materialMap: Map<number, WL.Material | null>, generateManifold?: true): [ submeshes: Array<Submesh>, mergeMap: MergeMap ];
+    finalize(materialMap: Map<number, WL.Material | null>, generateManifold: false): [ submeshes: Array<Submesh>, mergeMap: null ];
+    finalize(materialMap: Map<number, WL.Material | null>, generateManifold = true): [ submeshes: Array<Submesh>, mergeMap: MergeMap | null ] {
+        const triCount = this.triangles.length;
         const submeshes = new Array<Submesh>();
+        const interlacedMergeMap = generateManifold ? new DynamicArray(Uint32Array) : null;
 
+        // create submeshes (and merge map if wanted)
         try {
             // group all triangles together by their materials
             const groupedTris = new Map<WL.Material | null, Array<Triangle>>();
@@ -778,68 +654,27 @@ export class MeshBuilder {
             // sort materials by ascending material ID
             const sortedMaterials = sortMaterials(groupedTris.keys(), materialMap);
 
-            // count maximum triangle count for each group
-            let maxSubmeshTriCount = 0;
-            for (const triangles of groupedTris.values()) {
-                maxSubmeshTriCount = Math.max(maxSubmeshTriCount, triangles.length);
-            }
-
-            // turn groups into submeshes
-            const triCount = this.numTri;
-            const submeshMap: SubmeshMap | null = generateManifold ? MeshGroup.makeSubmeshMapBuffer(triCount, maxSubmeshTriCount, groupedTris.size - 1) : null;
-            let submeshIdx = 0;
+            // generate submeshes from triangle groups, and map triangles to
+            // submesh indices
+            const maybeTriIdxMap = interlacedMergeMap ? new Uint32Array(triCount) : null;
+            let timOffset = 0;
 
             for (const material of sortedMaterials) {
                 const triangles = groupedTris.get(material) as Array<Triangle>;
-                submeshes.push(this.finalizeSubmesh(material, triangles, submeshMap, submeshIdx++));
+                const submesh = this.finalizeSubmesh(material, triangles, timOffset, maybeTriIdxMap);
+                submeshes.push(submesh);
+
+                // XXX we know that the mesh has non-null indices... because we
+                // made that mesh. there is no type information to convey this
+                // unfortunately
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                timOffset += submesh[0].indexData!.length;
             }
 
-            // stop without generating manifold if manifold is not wanted
-            if (!generateManifold) {
-                return [ submeshes, null, null ];
+            // merge vertices in the same vertex star (generate merge map)
+            if (interlacedMergeMap) {
+                genInterlacedMergeMap(this.triangles, maybeTriIdxMap as Uint32Array, interlacedMergeMap);
             }
-
-            // prepare manifold mesh data arrays
-            const positions = new DynamicArray(Float32Array);
-            let nextPosition = 0;
-            const indices = new Uint32Array(triCount * 3);
-            const INVALID_INDEX = 0xFFFFFFFF; // max uint32
-            indices.fill(INVALID_INDEX);
-
-            // get positions for each triangle
-            for (let t = 0; t < triCount; t++) {
-                const indexOffset = t * 3;
-                const triangle = this.triangles[t];
-
-                for (let vi = 0; vi < 3; vi++) {
-                    let index = indices[indexOffset + vi];
-
-                    if (index !== INVALID_INDEX) {
-                        continue; // vertex already has shared position
-                    }
-
-                    // no shared position yet, make a new position
-                    index = nextPosition++;
-                    const i = VERTEX_STRIDE * vi;
-                    positions.expandCapacity(positions.length + 3);
-                    positions.pushBack(triangle.vertexData[i]);
-                    positions.pushBack(triangle.vertexData[i + 1]);
-                    positions.pushBack(triangle.vertexData[i + 2]);
-
-                    // set all positions in vertex star
-                    const vertexStar = triangle.getVertexStar(vi);
-                    for (const [otherTriangle, ovi] of vertexStar) {
-                        indices[otherTriangle.helper * 3 + ovi] = index;
-                    }
-                }
-            }
-
-            const manifoldMesh = <EncodedManifoldMesh>{
-                triVerts: indices,
-                vertPos: positions.finalize()
-            };
-
-            return [ submeshes, manifoldMesh, submeshMap ];
         } catch(e) {
             // free up meshes
             for (const [mesh, _material] of submeshes) {
@@ -847,6 +682,13 @@ export class MeshBuilder {
             }
 
             throw e;
+        }
+
+        // de-interlace merge map into format wanted by Manifold
+        if (interlacedMergeMap) {
+            return [submeshes, deinterlaceMergeMap(interlacedMergeMap)];
+        } else {
+            return [submeshes, null];
         }
     }
 

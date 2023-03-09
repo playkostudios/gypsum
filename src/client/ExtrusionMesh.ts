@@ -3,11 +3,13 @@ import { MeshGroup } from './MeshGroup';
 import triangulate2DPolygon from './triangulation/triangulate-2d-polygon';
 import { MeshBuilder } from './mesh-gen/MeshBuilder';
 import { Triangle } from './mesh-gen/Triangle';
+import { autoConnectAllEdges } from './mesh-gen/auto-connect-all-edges';
+import { autoConnectEdges } from './mesh-gen/auto-connect-edges';
 
 import type { CurveFrames } from './curves/curve-frame';
-import type { EdgeList } from './mesh-gen/MeshBuilder';
 import type { Vec3 } from 'manifold-3d';
 import type * as WL from '@wonderlandengine/api';
+import type { EdgeList } from './mesh-gen/EdgeList';
 
 const RIGHT = vec3.fromValues(1, 0, 0);
 
@@ -356,8 +358,8 @@ export class ExtrusionMesh extends MeshGroup {
             // auto-connect bases
             const startBase = startBaseTris as Array<Triangle>;
             const endBase = endBaseTris as Array<Triangle>;
-            builder.autoConnectAllEdgesOfSubset(startBase);
-            builder.autoConnectAllEdgesOfSubset(endBase);
+            autoConnectAllEdges(startBase);
+            autoConnectAllEdges(endBase);
 
             // auto-connect edges between bases and segments
             const startEdges: EdgeList = new Array(loopLen);
@@ -368,8 +370,8 @@ export class ExtrusionMesh extends MeshGroup {
                 endEdges[i] = [builder.triangles[lastSegOffset + i * 2 + 1], 1];
             }
 
-            builder.autoConnectEdges(startEdges, startBase);
-            builder.autoConnectEdges(endEdges, endBase);
+            autoConnectEdges(startEdges, startBase);
+            autoConnectEdges(endEdges, endBase);
         }
 
         // add smooth normals

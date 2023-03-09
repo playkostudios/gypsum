@@ -5,6 +5,7 @@ import { NumRange } from '../misc/NumRange';
 import { EPS } from '../misc/EPS';
 
 import type { vec2 } from 'gl-matrix';
+import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 
 const THIRD = 1 / 3;
 const tmp0 = vec3.create();
@@ -73,14 +74,14 @@ export class Triangle {
      * - float 3-5: vertex 0's normal
      * - float 6-7: vertex 0's UV (unused if no uvs)
      * - float 8-11: vertex 0's tangent (unused if no tangents)
-     * - float 12-15: vertex 1's position
-     * - float 16-18: vertex 1's normal
-     * - float 19-20: vertex 1's UV
-     * - float 21-24: vertex 1's tangent
-     * - float 25-27: vertex 2's position
-     * - float 28-30: vertex 2's normal
-     * - float 31-32: vertex 2's UV
-     * - float 33-36: vertex 2's tangent
+     * - float 12-14: vertex 1's position
+     * - float 15-17: vertex 1's normal
+     * - float 18-19: vertex 1's UV
+     * - float 20-23: vertex 1's tangent
+     * - float 24-26: vertex 2's position
+     * - float 27-29: vertex 2's normal
+     * - float 30-31: vertex 2's UV
+     * - float 32-35: vertex 2's tangent
      */
     readonly vertexData: Float32Array;
 
@@ -116,6 +117,83 @@ export class Triangle {
         vertexData.set(vert0);
         vertexData.set(vert1, VERTEX_1);
         vertexData.set(vert2, VERTEX_2);
+        return new Triangle(vertexData);
+    }
+
+    /**
+     * Create a new Triangle from WL.Mesh data.
+     *
+     * @param idx0 - The index of the first vertex in the given mesh attributes
+     * @param idx1 - The index of the second vertex in the given mesh attributes
+     * @param idx2 - The index of the third vertex in the given mesh attributes
+     * @param positions - A mesh attribute accessor for the mesh's vertex positions
+     * @param normals - An optional mesh attribute accessor for the mesh's vertex normals
+     * @param uvs - An optional mesh attribute accessor for the mesh's vertex texture coordinates
+     * @param tangents - An optional mesh attribute accessor for the mesh's vertex tangents
+     */
+    static fromMeshData(idx0: number, idx1: number, idx2: number, positions: MeshAttributeAccessor, normals: MeshAttributeAccessor | null = null, uvs: MeshAttributeAccessor | null = null, tangents: MeshAttributeAccessor | null = null): Triangle {
+        const vertexData = new Float32Array(36);
+
+        // store positions
+        const pos0 = positions.get(idx0);
+        vertexData[0] = pos0[0];
+        vertexData[1] = pos0[1];
+        vertexData[2] = pos0[2];
+        const pos1 = positions.get(idx1);
+        vertexData[12] = pos1[0];
+        vertexData[13] = pos1[1];
+        vertexData[14] = pos1[2];
+        const pos2 = positions.get(idx2);
+        vertexData[24] = pos2[0];
+        vertexData[25] = pos2[1];
+        vertexData[26] = pos2[2];
+
+        // store extra attributes
+        if (normals) {
+            const extra0 = normals.get(idx0);
+            vertexData[3] = extra0[0];
+            vertexData[4] = extra0[1];
+            vertexData[5] = extra0[2];
+            const extra1 = normals.get(idx1);
+            vertexData[15] = extra1[0];
+            vertexData[16] = extra1[1];
+            vertexData[17] = extra1[2];
+            const extra2 = normals.get(idx2);
+            vertexData[27] = extra2[0];
+            vertexData[28] = extra2[1];
+            vertexData[29] = extra2[2];
+        }
+
+        if (uvs) {
+            const extra0 = uvs.get(idx0);
+            vertexData[6] = extra0[0];
+            vertexData[7] = extra0[1];
+            const extra1 = uvs.get(idx1);
+            vertexData[18] = extra1[0];
+            vertexData[19] = extra1[1];
+            const extra2 = uvs.get(idx2);
+            vertexData[30] = extra2[0];
+            vertexData[31] = extra2[1];
+        }
+
+        if (tangents) {
+            const extra0 = tangents.get(idx0);
+            vertexData[8] = extra0[0];
+            vertexData[9] = extra0[1];
+            vertexData[10] = extra0[2];
+            vertexData[11] = extra0[3];
+            const extra1 = tangents.get(idx1);
+            vertexData[20] = extra1[0];
+            vertexData[21] = extra1[1];
+            vertexData[22] = extra1[2];
+            vertexData[23] = extra1[3];
+            const extra2 = tangents.get(idx2);
+            vertexData[32] = extra2[0];
+            vertexData[33] = extra2[1];
+            vertexData[34] = extra2[2];
+            vertexData[35] = extra2[3];
+        }
+
         return new Triangle(vertexData);
     }
 

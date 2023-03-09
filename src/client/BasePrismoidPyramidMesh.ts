@@ -3,11 +3,14 @@ import { MeshGroup } from './MeshGroup';
 import { normalFromTriangle } from './mesh-gen/normal-from-triangle';
 import { vec3, vec2, vec4 } from 'gl-matrix';
 import { ExtrusionMesh } from './ExtrusionMesh';
-import { EdgeList, MeshBuilder } from './mesh-gen/MeshBuilder';
+import { MeshBuilder } from './mesh-gen/MeshBuilder';
 import { Triangle } from './mesh-gen/Triangle';
+import { autoConnectAllEdges } from './mesh-gen/auto-connect-all-edges';
+import { autoConnectEdges } from './mesh-gen/auto-connect-edges';
 
 import type { CurveFrame } from '../client';
 import type * as WL from '@wonderlandengine/api';
+import type { EdgeList } from './mesh-gen/EdgeList';
 
 const TAU = Math.PI * 2;
 const ZERO_NORM = vec3.create();
@@ -209,7 +212,7 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
             }
 
             // auto-connect base triangles
-            builder.autoConnectAllEdgesOfSubset(baseTris);
+            autoConnectAllEdges(baseTris);
 
             // auto-connect edges between base and lateral
             const baseEdges: EdgeList = new Array(polylineLen);
@@ -217,7 +220,7 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
                 baseEdges[i] = [builder.triangles[i], 1];
             }
 
-            builder.autoConnectEdges(baseEdges, baseTris);
+            autoConnectEdges(baseEdges, baseTris);
 
             // turn to mesh and manifold
             super(...builder.finalize(new Map([
@@ -231,6 +234,7 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
             const endBaseUVs = makeBaseUVs(polyline, polylineLen, false);
 
             return new ExtrusionMesh(
+                engine,
                 polyline,
                 [ bottomOffset, topOffset ],
                 [ rst, rst ],

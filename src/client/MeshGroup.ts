@@ -1,16 +1,14 @@
-import VertexHasher from './mesh-gen/VertexHasher';
-import { DynamicArray } from '../common/DynamicArray';
-import { EPS } from './misc/EPS';
 import { mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import * as WL from '@wonderlandengine/api';
 import { getComponentCount } from '../common/getComponentCount';
+import { mergeMapFromWLE } from './mesh-gen/merge-map-from-wle';
 
 import type { quat } from 'gl-matrix';
 import type { EncodedMeshGroup } from '../common/EncodedMeshGroup';
 import type { AllowedExtraMeshAttribute } from '../common/AllowedExtraMeshAttribute';
 import type { EncodedSubmesh } from '../common/EncodedSubmesh';
 import type { MeshAttributeAccessor } from '@wonderlandengine/api';
-import type { EncodedManifoldMesh } from '../common/EncodedManifoldMesh';
+import type { MergeMap } from '../common/MergeMap';
 
 /**
  * Maps a manifold triangle index to a WLE submesh index. The format is:
@@ -58,10 +56,9 @@ export class MeshGroup {
      * with this, do a deep clone of the inputs
      *
      * @param submeshes - The list of submeshes to assign to this group.
-     * @param premadeManifoldMesh - A manifold which defines the topology of the submeshes.
-     * @param submeshMap - A map which maps triangles in the manifold to triangles in a submesh.
+     * @param premadeMergeMap - A merge map that defines how to create a manifold from the submeshes.
      */
-    constructor(protected submeshes: Array<Submesh> = [], protected premadeManifoldMesh: EncodedManifoldMesh | null = null, protected submeshMap: SubmeshMap | null = null) {}
+    constructor(protected submeshes: Array<Submesh> = [], protected premadeMergeMap: MergeMap | null = null) {}
 
     /**
      * Create a new MeshGroup from a WL.Mesh.
@@ -145,7 +142,7 @@ export class MeshGroup {
         }
 
         // pass everything else through
-        return new MeshGroup(submeshes, encodedMeshGroup.manifoldMesh, encodedMeshGroup.submeshMap);
+        return new MeshGroup(submeshes, encodedMeshGroup.mergeMap);
     }
 
     /**
@@ -155,32 +152,31 @@ export class MeshGroup {
     static makeEmpty() {
         return new MeshGroup(
             [],
-            <EncodedManifoldMesh>{
-                vertPos: new Float32Array(0),
-                triVerts: new Uint32Array(0),
-            },
-            new Uint8Array(0),
+            [new Uint32Array(), new Uint32Array()],
         );
     }
 
     /**
-     * Get the manifold mesh of this MeshGroup. If the MeshGroup has no manifold
-     * yet, then a manifold will be automatically generated and cached. Note
+     * Get the merge map of this MeshGroup. If the MeshGroup has no merge map
+     * yet, then a merge map will be automatically generated and cached. Note
      * that this process can throw.
      */
-    get (): EncodedManifoldMesh {
-        if (!this.premadeManifoldMesh) {
-            const wleMeshes = new Array<WL.Mesh>(this.submeshes.length);
+    get mergeMap(): MergeMap {
+        if (!this.premadeMergeMap) {
+            const submeshCount = this.submeshes.length;
+            const wleMeshes = new Array<WL.Mesh>(submeshCount);
+            const hints = new Array<Set<AllowedExtraMeshAttribute> | undefined>(submeshCount);
 
             let i = 0;
-            for (const [wleMesh, _material] of this.submeshes) {
-                wleMeshes[i++] = wleMesh;
+            for (const [wleMesh, _material, hint] of this.submeshes) {
+                wleMeshes[i] = wleMesh;
+                hints[i++] = hint;
             }
 
-            [this.submeshMap, this.premadeManifoldMesh] = MeshGroup.manifoldFromWLE(wleMeshes);
+            this.premadeMergeMap = mergeMapFromWLE(wleMeshes, hints);
         }
 
-        return this.premadeManifoldMesh;
+        return this.premadeMergeMap;
     }
 
     /**
@@ -223,181 +219,6 @@ export class MeshGroup {
     }
 
     /**
-     * Get the submesh and triangle index which corresponds to a given manifold
-     * triangle index.
-     *
-     * If submesh map is missing, then this will throw.
-     *
-     * @param triIdx - The manifold triangle index.
-     * @returns A pair containing the submesh that this triangle index belongs to, and the triangle index in that submesh.
-     */
-    getTriBarySubmesh(triIdx: number): [submesh: Submesh, iTriOrig: number] {
-        if (!this.submeshMap) {
-            throw new Error('Missing submesh map');
-        }
-
-        const offset = triIdx * 2;
-        return [
-            this.getSubmesh(this.submeshMap[offset]),
-            this.submeshMap[offset + 1]
-        ];
-    }
-
-    /**
-     * Automatically create a manifold from given Wonderland Engine meshes. Note
-     * that this method has issues with singularities and edges shared by more
-     * than 2 triangles, since this is a vertex distance method instead of
-     * better methods such as cutting and stitching.
-     *
-     * @param wleMeshes - A Wonderland Engine mesh, or a list of Wonderland Engine meshes, to convert to a manifold
-     * @param genSubmeshMap - Should the submesh map be generated? True by default.
-     * @returns Returns a tuple containing the submesh map, and a manifold. If genSubmeshMap is false, then the submesh map will be null.
-     */
-    static manifoldFromWLE(wleMeshes: WL.Mesh | Array<WL.Mesh>, genSubmeshMap = true): [submeshMap: SubmeshMap | null, manifoldMesh: EncodedManifoldMesh] {
-        if (!Array.isArray(wleMeshes)) {
-            wleMeshes = [wleMeshes];
-        }
-
-        // try to make manifold from mesh. this will fail if there are
-        // disconnected faces that have edges with the same position (despite
-        // being different edges)
-        // validate vertex count
-        let totalVertexCount = 0;
-        let maxSubmeshTriCount = 0;
-        let indexCount = 0;
-
-        for (const wleMesh of wleMeshes) {
-            const packedVertexCount = wleMesh.vertexCount;
-            const indexData = wleMesh.indexData;
-            indexCount = indexData === null ? packedVertexCount : indexData.length;
-
-            if (indexCount % 3 !== 0) {
-                throw new Error(`Mesh has an invalid index count (${indexCount}). Must be a multiple of 3`);
-            }
-
-            totalVertexCount += indexCount;
-            maxSubmeshTriCount = Math.max(maxSubmeshTriCount, indexCount / 3);
-        }
-
-        const triVerts = new Uint32Array(totalVertexCount);
-        const vertPos = new DynamicArray(Float32Array);
-        const totalTriCount = totalVertexCount / 3;
-        const hasher = new VertexHasher();
-        const submeshMap = genSubmeshMap ? MeshGroup.makeSubmeshMapBuffer(totalTriCount, maxSubmeshTriCount, wleMeshes.length - 1) : null;
-        let jm = 0;
-        let js = 0;
-
-        for (let submeshIdx = 0; submeshIdx < wleMeshes.length; submeshIdx++) {
-            // prepare accessors
-            const wleMesh = wleMeshes[submeshIdx];
-            const positions = wleMesh.attribute(WL.MeshAttribute.Position);
-
-            if (positions === null) {
-                throw new Error('Unexpected null mesh positions');
-            }
-
-            const packedVertexCount = wleMesh.vertexCount;
-            const indexData = wleMesh.indexData;
-            const vertexCount = indexData === null ? packedVertexCount : indexData.length;
-
-            // convert positions
-            const mergedIndices = new Array<number>();
-            for (let i = 0; i < packedVertexCount; i++) {
-                const pos = positions.get(i);
-
-                if (hasher.isUnique(pos)) {
-                    mergedIndices.push(vertPos.length / 3);
-                    const offset = vertPos.length;
-                    vertPos.length += 3;
-                    vertPos.copy(offset, pos);
-                } else {
-                    const [x, y, z] = pos;
-                    let k = 0;
-                    for (; k < vertPos.length; k += 3) {
-                        if (Math.abs(vertPos.get(k) - x) < EPS
-                             && Math.abs(vertPos.get(k + 1) - y) < EPS
-                             && Math.abs(vertPos.get(k + 2) - z) < EPS) {
-                            break;
-                        }
-                    }
-
-                    mergedIndices.push(k / 3);
-
-                    if (k === vertPos.length) {
-                        vertPos.length += 3;
-                        vertPos.copy(k, pos);
-                    }
-                }
-            }
-
-            // make triangles
-            let tri = 0;
-            if (indexData === null) {
-                for (let i = 0; i < vertexCount;) {
-                    triVerts[jm++] = mergedIndices[i++];
-                    triVerts[jm++] = mergedIndices[i++];
-                    triVerts[jm++] = mergedIndices[i++];
-
-                    if (submeshMap) {
-                        submeshMap[js++] = submeshIdx;
-                        submeshMap[js++] = tri++;
-                    }
-                }
-            } else {
-                for (let i = 0; i < vertexCount;) {
-                    triVerts[jm++] = mergedIndices[indexData[i++]];
-                    triVerts[jm++] = mergedIndices[indexData[i++]];
-                    triVerts[jm++] = mergedIndices[indexData[i++]];
-
-                    if (submeshMap) {
-                        submeshMap[js++] = submeshIdx;
-                        submeshMap[js++] = tri++;
-                    }
-                }
-            }
-        }
-
-        if (jm !== triVerts.length) {
-            throw new Error('Unexpected manifold triangle count');
-        }
-
-        const mesh = <EncodedManifoldMesh>{ vertPos: vertPos.finalize(), triVerts };
-
-        if (submeshMap) {
-            if (js !== submeshMap.length) {
-                throw new Error(`Unexpected iterator position for submeshMap; expected ${submeshMap.length}, got ${js}`);
-            }
-
-            return [submeshMap, mesh];
-        } else {
-            return [null, mesh];
-        }
-    }
-
-    /**
-     * Make a buffer for storing submesh map data. Automatically decides the
-     * most memory-efficient TypedArray for the buffer.
-     *
-     * @param triCount - The ammount of triangle that will be mapped.
-     * @param maxSubmeshTriCount - The biggest amount of triangles in the submeshes.
-     * @param maxSubmeshIdx - The biggest submesh index.
-     * @returns A new buffer for storing submesh map data.
-     */
-    static makeSubmeshMapBuffer(triCount: number, maxSubmeshTriCount: number, maxSubmeshIdx: number): SubmeshMap {
-        const MAX_INDEX = 0xFFFFFFFF;
-        const maxNum = Math.max(maxSubmeshTriCount - 1, maxSubmeshIdx);
-        if (maxNum <= 0xFF) {
-            return new Uint8Array(triCount * 2);
-        } else if (maxNum <= 0xFFFF) {
-            return new Uint16Array(triCount * 2);
-        } else if (maxNum <= MAX_INDEX) {
-            return new Uint32Array(triCount * 2);
-        } else {
-            throw new Error(`Maximum index exceeded (${MAX_INDEX})`);
-        }
-    }
-
-    /**
      * Destroy the Wonderland Engine meshes stored in this object. Note that if
      * the submeshes are reused elsewhere, then this will destroy those too.
      */
@@ -407,8 +228,7 @@ export class MeshGroup {
         }
 
         this.submeshes.splice(0, this.submeshes.length);
-        this.premadeManifoldMesh = null;
-        this.submeshMap = null;
+        this.premadeMergeMap = null;
     }
 
     /**
@@ -463,25 +283,6 @@ export class MeshGroup {
             }
         }
 
-        // transform premade manifold
-        if (this.premadeManifoldMesh) {
-            const vertPos = this.premadeManifoldMesh.vertPos;
-            const vertexCount = vertPos.length;
-
-            for (let i = 0; i < vertexCount;) {
-                const iStart = i;
-                tmp3[0] = vertPos[i++];
-                tmp3[1] = vertPos[i++];
-                tmp3[2] = vertPos[i++];
-
-                vec3.transformMat4(tmp3, tmp3, matrix);
-
-                vertPos[iStart] = tmp3[0];
-                vertPos[iStart + 1] = tmp3[1];
-                vertPos[iStart + 2] = tmp3[2];
-            }
-        }
-
         return this;
     }
 
@@ -526,40 +327,19 @@ export class MeshGroup {
      * a numeric mapping for materials.
      */
     encode(materials: Array<WL.Material>, transferables: Array<Transferable>): EncodedMeshGroup {
-        // get manifold mesh and submesh map
-        const srcManifoldMesh = this.manifoldMesh;
+        // get merge map
+        const mergeMap = this.mergeMap;
 
-        if (!this.submeshMap) {
-            throw new Error('Missing submesh map');
-        }
+        // clone merge map buffers
+        const mergeFromBuf = new ArrayBuffer(mergeMap[0].byteLength);
+        const mergeFrom = new Uint32Array(mergeFromBuf);
+        mergeFrom.set(mergeMap[0]);
+        transferables.push(mergeFromBuf);
 
-        const srcSubmeshMap = this.submeshMap;
-
-        // clone buffers of both
-        const manifTriVertsBuf = new ArrayBuffer(srcManifoldMesh.triVerts.byteLength);
-        const manifTriVerts = new Uint32Array(manifTriVertsBuf);
-        manifTriVerts.set(srcManifoldMesh.triVerts);
-        transferables.push(manifTriVertsBuf);
-
-        const manifVertPosBuf = new ArrayBuffer(srcManifoldMesh.vertPos.byteLength);
-        const manifVertPos = new Float32Array(manifVertPosBuf);
-        manifVertPos.set(srcManifoldMesh.vertPos);
-        transferables.push(manifVertPosBuf);
-
-        const submeshMapBuf = new ArrayBuffer(srcSubmeshMap.byteLength);
-        let submeshMap: Uint8Array | Uint16Array | Uint32Array;
-        if (srcSubmeshMap.BYTES_PER_ELEMENT === 1) {
-            submeshMap = new Uint8Array(submeshMapBuf);
-        } else if (srcSubmeshMap.BYTES_PER_ELEMENT === 2) {
-            submeshMap = new Uint16Array(submeshMapBuf);
-        } else if (srcSubmeshMap.BYTES_PER_ELEMENT === 4) {
-            submeshMap = new Uint32Array(submeshMapBuf);
-        } else {
-            throw new Error(`Unexpected ${srcSubmeshMap.BYTES_PER_ELEMENT * 8}-bit submesh map`);
-        }
-
-        submeshMap.set(srcSubmeshMap);
-        transferables.push(submeshMapBuf);
+        const mergeToBuf = new ArrayBuffer(mergeMap[1].byteLength);
+        const mergeTo = new Uint32Array(mergeToBuf);
+        mergeTo.set(mergeMap[1]);
+        transferables.push(mergeToBuf);
 
         // clone submeshes
         const submeshes = new Array<EncodedSubmesh>();
@@ -637,13 +417,6 @@ export class MeshGroup {
         }
 
         // make encoded meshgroup object
-        return {
-            manifoldMesh: {
-                triVerts: manifTriVerts,
-                vertPos: manifVertPos
-            },
-            submeshes,
-            submeshMap
-        };
+        return { mergeMap: [mergeFrom, mergeTo], submeshes };
     }
 }
