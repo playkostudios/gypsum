@@ -190,6 +190,7 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
         }
 
         // convert meshgroup -> meshjs -> manifold
+        console.debug('!!!!!', numProp, vertProperties, triVerts, runIndex, runOriginalID, mergeFromVert, mergeToVert);
         const mesh = new manifoldModule.Mesh({
             numProp, vertProperties, triVerts, runIndex, runOriginalID,
             mergeFromVert, mergeToVert

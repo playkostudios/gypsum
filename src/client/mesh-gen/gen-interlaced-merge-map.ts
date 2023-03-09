@@ -3,8 +3,26 @@ import { BitArray } from './BitArray';
 import type { DynamicArray } from '../../common/DynamicArray';
 import type { Triangle } from './Triangle';
 
-export function genInterlacedMergeMap(triangles: Array<Triangle>, triIdxMap: Uint32Array | null, interlacedMergeMap: DynamicArray<Uint32ArrayConstructor>) {
-    const visitedVertices = new BitArray(triangles.length * 3, false);
+export type IndexRangeList = Array<[vertexStart: number, indexStart: number, indexEnd: number, indexData: Uint8Array | Uint16Array | Uint32Array | null]>;
+
+export function getResolvedIndex(index: number, indices: IndexRangeList): number {
+    for (const [vertexStart, indexStart, indexEnd, indexData] of indices) {
+        if (index < indexStart || index >= indexEnd) {
+            continue;
+        }
+
+        if (indexData === null) {
+            return index - indexStart + vertexStart;
+        } else {
+            return indexData[index - indexStart] + vertexStart;
+        }
+    }
+
+    throw new Error("Can't resolve index; index not in range");
+}
+
+export function genInterlacedMergeMap(triangles: Array<Triangle>, vertexCount: number, indices: IndexRangeList, triIdxMap: Uint32Array | null, interlacedMergeMap: DynamicArray<Uint32ArrayConstructor>) {
+    const visitedVertices = new BitArray(vertexCount, false);
     const orderedTriangles = triIdxMap === null;
 
     for (const triangle of triangles) {
@@ -13,7 +31,7 @@ export function genInterlacedMergeMap(triangles: Array<Triangle>, triIdxMap: Uin
 
         for (let v = 0; v < 3; v++) {
             // abort if visited already
-            const vIdx = indexOffset + v;
+            const vIdx = getResolvedIndex(indexOffset + v, indices);
             if (visitedVertices.getAndSet(vIdx, true)) {
                 continue;
             }
@@ -25,10 +43,11 @@ export function genInterlacedMergeMap(triangles: Array<Triangle>, triIdxMap: Uin
                     continue;
                 }
 
-                // abort if other vertex is already visited
+                // abort if other vertex is already visited, or if resolved
+                // index already matches
                 const oIndexOffset = orderedTriangles ? oTriangle.helper : triIdxMap[oTriangle.helper];
-                const ovIdx = oIndexOffset + ov;
-                if (visitedVertices.getAndSet(ovIdx, true)) {
+                const ovIdx = getResolvedIndex(oIndexOffset + ov, indices);
+                if (visitedVertices.getAndSet(ovIdx, true) || vIdx === ovIdx) {
                     continue;
                 }
 

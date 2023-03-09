@@ -1,5 +1,5 @@
 import { deinterlaceMergeMap } from './deinterlace-merge-map';
-import { genInterlacedMergeMap } from './gen-interlaced-merge-map';
+import { genInterlacedMergeMap, IndexRangeList } from './gen-interlaced-merge-map';
 import { MeshAttribute } from '@wonderlandengine/api';
 import { Triangle } from './Triangle';
 import { DynamicArray } from '../../common/DynamicArray';
@@ -33,6 +33,9 @@ export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Set
 
     // convert meshes to triangles, and map triangles to original indices
     const triangles = new Array<Triangle>();
+    const indexRangeList: IndexRangeList = [];
+    let vertexCount = 0;
+    let indexOffset = 0;
     for (let m = 0; m < meshCount; m++) {
         // get positions attr
         const mesh = wleMeshes[m];
@@ -74,11 +77,14 @@ export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Set
             tangents = mesh.attribute(MeshAttribute.Tangent);
         }
 
-        // iterate indices (or vertices if not indexed), and convert to
-        // triangles
+        // iterate indices (or vertices if not indexed), convert to triangles
+        // and build index range list
+        const indexStart = indexOffset;
         const indexData = mesh.indexData;
+        let indexCount: number;
+
         if (indexData) {
-            const indexCount = indexData.length;
+            indexCount = indexData.length;
             for (let i = 0; i < indexCount;) {
                 triangles.push(Triangle.fromMeshData(
                     indexData[i++], indexData[i++], indexData[i++],
@@ -86,18 +92,24 @@ export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Set
                 ));
             }
         } else {
-            const indexCount = mesh.vertexCount;
+            indexCount = mesh.vertexCount;
             for (let i = 0; i < indexCount;) {
                 triangles.push(Triangle.fromMeshData(
                     i++, i++, i++, positions, normals, uvs, tangents
                 ));
             }
         }
+
+        indexOffset += indexCount;
+        indexRangeList.push([vertexCount, indexStart, indexOffset, indexData]);
+
+        // count vertices
+        vertexCount += mesh.vertexCount;
     }
 
     // merge vertices. the triangles were generated in order, so no
     // triangle->index map needs to be generated
     const interlacedMergeMap = new DynamicArray(Uint32Array);
-    genInterlacedMergeMap(triangles, null, interlacedMergeMap);
+    genInterlacedMergeMap(triangles, vertexCount, indexRangeList, null, interlacedMergeMap);
     return deinterlaceMergeMap(interlacedMergeMap);
 }

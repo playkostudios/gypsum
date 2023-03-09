@@ -5,7 +5,7 @@ import { vec2, vec3, mat4, mat3, vec4 } from 'gl-matrix';
 import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';
 import { makeIndexBuffer } from '../../client';
-import { genInterlacedMergeMap } from './gen-interlaced-merge-map';
+import { genInterlacedMergeMap, IndexRangeList } from './gen-interlaced-merge-map';
 import { deinterlaceMergeMap } from './deinterlace-merge-map';
 import { autoConnectAllEdges } from './auto-connect-all-edges';
 import { Mesh, MeshAttribute } from '@wonderlandengine/api';
@@ -494,7 +494,7 @@ export class MeshBuilder {
         }
     }
 
-    private finalizeSubmesh(material: Material | null, triangles: Array<Triangle>, timOffset: number, triIdxMap: Uint32Array | null): Submesh {
+    private finalizeSubmesh(material: Material | null, triangles: Array<Triangle>, timOffset: number, triIdxMap: Uint32Array | null, totalVertexCount: number, indexRangeList: IndexRangeList): [submesh: Submesh, totalVertexCount: number] {
         // make index and vertex data in advance
         const triCount = triangles.length;
         // XXX this assumes the worst case; that no vertices are merged
@@ -548,8 +548,17 @@ export class MeshBuilder {
             }
         }
 
+        // add to index range list
+        let indexStart = 0;
+        if (indexRangeList.length > 0) {
+            indexStart = indexRangeList[indexRangeList.length - 1][2];
+        }
+
+        indexRangeList.push([totalVertexCount, indexStart, indexStart + indexData.length, indexData]);
+
         // instance one mesh
         const vertexCount = positions.length / 3;
+        totalVertexCount += vertexCount;
         const mesh = new Mesh(this.engine, { vertexCount, indexData, indexType });
 
         try {
@@ -579,7 +588,7 @@ export class MeshBuilder {
             throw e;
         }
 
-        return [mesh, material];
+        return [[mesh, material], totalVertexCount];
     }
 
     /**
@@ -658,11 +667,13 @@ export class MeshBuilder {
             // generate submeshes from triangle groups, and map triangles to
             // submesh indices
             const maybeTriIdxMap = interlacedMergeMap ? new Uint32Array(triCount) : null;
-            let timOffset = 0;
+            const indexRangeList: IndexRangeList = [];
+            let timOffset = 0, vertexCount = 0;
 
             for (const material of sortedMaterials) {
                 const triangles = groupedTris.get(material) as Array<Triangle>;
-                const submesh = this.finalizeSubmesh(material, triangles, timOffset, maybeTriIdxMap);
+                let submesh: Submesh;
+                [submesh, vertexCount] = this.finalizeSubmesh(material, triangles, timOffset, maybeTriIdxMap, vertexCount, indexRangeList);
                 submeshes.push(submesh);
 
                 // XXX we know that the mesh has non-null indices... because we
@@ -674,7 +685,7 @@ export class MeshBuilder {
 
             // merge vertices in the same vertex star (generate merge map)
             if (interlacedMergeMap) {
-                genInterlacedMergeMap(this.triangles, maybeTriIdxMap as Uint32Array, interlacedMergeMap);
+                genInterlacedMergeMap(this.triangles, vertexCount, indexRangeList, maybeTriIdxMap as Uint32Array, interlacedMergeMap);
             }
         } catch(e) {
             // free up meshes
