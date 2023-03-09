@@ -1,10 +1,13 @@
 import { vec3 } from 'gl-matrix';
-import { EdgeList, MeshBuilder } from './MeshBuilder';
+import { MeshBuilder } from './MeshBuilder';
 import { Tuple } from '../misc/Tuple';
+import { autoConnectEdges } from './auto-connect-edges';
+import { autoConnectAllEdges } from './auto-connect-all-edges';
 
 import type { Triangle } from './Triangle';
 import type { vec2 } from 'gl-matrix';
 import type * as WL from '@wonderlandengine/api';
+import type { EdgeList } from './EdgeList';
 
 /**
  * A list of UVs for the corner of a cuboid's face. In order, the top-left
@@ -122,7 +125,9 @@ export function makeCuboidBuilder(engine: WL.WonderlandEngine, subDivisions: num
 
     // auto-connect triangles; edges inside quad are already connected, but
     // not between the quads
-    builder.autoConnectEdges(edgeList, connectableTriangles);
+    // FIXME
+    // autoConnectEdges(edgeList, connectableTriangles);
+    autoConnectAllEdges(connectableTriangles);
 
     return builder;
 }

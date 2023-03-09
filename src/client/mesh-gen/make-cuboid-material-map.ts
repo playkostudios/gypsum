@@ -16,7 +16,7 @@ import type * as WL from '@wonderlandengine/api';
 export function makeCuboidMaterialMap(defaultMaterial?: WL.Material | null, leftMaterial?: WL.Material | null, rightMaterial?: WL.Material | null, downMaterial?: WL.Material | null, upMaterial?: WL.Material | null, backMaterial?: WL.Material | null, frontMaterial?: WL.Material | null): Map<number, WL.Material | null> {
     const materialMap = new Map<number, WL.Material | null>();
     for (let i = 0; i < 6; i++) {
-        materialMap.set(i, defaultMaterial);
+        materialMap.set(i, defaultMaterial ?? null);
     }
 
     if (leftMaterial) {

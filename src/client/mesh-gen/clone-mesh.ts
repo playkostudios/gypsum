@@ -1,5 +1,6 @@
 import { makeIndexBuffer } from '../../client';
 import * as WL from '@wonderlandengine/api';
+import type { MeshIndexType } from '@wonderlandengine/api';
 
 /**
  * Clone a Wonderland Engine mesh. A new, separate mesh will be created with the
@@ -14,12 +15,17 @@ import * as WL from '@wonderlandengine/api';
 export function cloneMesh(oMesh: WL.Mesh, engine: WL.WonderlandEngine): WL.Mesh {
     // clone index data
     const oIndexData = oMesh.indexData;
-    const indexCount = oIndexData.length;
     const vertexCount = oMesh.vertexCount;
-    const [indexData, indexType] = makeIndexBuffer(indexCount, vertexCount);
+    const indexCount = oIndexData === null ? vertexCount : oIndexData.length;
+    let indexData: Uint8Array | Uint16Array | Uint32Array | undefined;
+    let indexType: MeshIndexType | undefined;
 
-    for (let i = 0; i < indexCount; i++) {
-        indexData[i] = oIndexData[i];
+    if (oIndexData) {
+        [indexData, indexType] = makeIndexBuffer(indexCount, vertexCount);
+
+        for (let i = 0; i < indexCount; i++) {
+            indexData[i] = oIndexData[i];
+        }
     }
 
     // make new mesh

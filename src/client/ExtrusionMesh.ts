@@ -18,11 +18,11 @@ const RIGHT = vec3.fromValues(1, 0, 0);
  */
 export interface ExtrusionMaterialOptions {
     /** The material used for the starting base of the extrusion. */
-    startMaterial?: WL.Material;
+    startMaterial?: WL.Material | null;
     /** The material used for the end base of the extrusion. */
-    endMaterial?: WL.Material;
+    endMaterial?: WL.Material | null;
     /** The material used for the sides (segments) of the extrusion. */
-    segmentMaterial?: WL.Material;
+    segmentMaterial?: WL.Material | null;
 }
 
 /**
