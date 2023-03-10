@@ -3,7 +3,7 @@ import ManifoldModule, { Vec3 } from 'manifold-3d';
 import { WorkerResultType } from './common/WorkerResponse';
 import { MeshAttribute } from '@wonderlandengine/api';
 import { getComponentCount } from './common/getComponentCount';
-import { getIndexBufferType, makeIndexBuffer, makeIndexBufferForType } from './client';
+import { makeIndexBuffer } from './client';
 import { DynamicArray } from './common/DynamicArray';
 
 import type { WorkerRequest, WorkerOperation } from './common/WorkerRequest';
@@ -93,6 +93,8 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
             vertProperties = new Float32Array(totalVertexCount * numProp);
             triVerts = new Uint32Array(totalIndexCount);
             runOriginalID = new Uint32Array(submeshCount);
+            runIndex = new Uint32Array(submeshCount + 1);
+            runIndex[0] = 0;
             let indexOffset = 0;
             let vertexOffset = 0;
 
@@ -142,6 +144,9 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
 
                     indexOffset += indices.length;
                 }
+
+                // update runIndex
+                runIndex[i + 1] = indexOffset;
 
                 // interlace positions into common mesh
                 for (let j = 0, offset = vertexOffset; j < posCompCount; offset += numProp) {
