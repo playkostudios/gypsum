@@ -96,14 +96,14 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
             runIndex = new Uint32Array(submeshCount + 1);
             runIndex[0] = 0;
             let indexOffset = 0;
-            let vertexOffset = 0;
+            let processedVertexCount = 0;
 
-            for (let i = 0; i < submeshCount; i++) {
+            for (let m = 0; m < submeshCount; m++) {
                 // save manifold ids and map manifold ids back to material ids
-                const encodedSubmesh = submeshes[i];
-                const originalID = originalIDStart + i;
+                const encodedSubmesh = submeshes[m];
+                const originalID = originalIDStart + m;
                 const materialID = encodedSubmesh.materialID;
-                runOriginalID[i] = originalID;
+                runOriginalID[m] = originalID;
 
                 if (materialID !== null) {
                     materialMap.set(originalID, materialID);
@@ -132,24 +132,24 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
 
                 if (indices === null) {
                     for (let j = 0; j < vertexCount; j++) {
-                        triVerts[indexOffset + j] = vertexOffset + j;
+                        triVerts[indexOffset + j] = processedVertexCount + j;
                     }
 
                     indexOffset += vertexCount;
                 } else {
                     const indexCount = indices.length;
                     for (let j = 0; j < indexCount; j++) {
-                        triVerts[indexOffset + j] = vertexOffset + indices[j];
+                        triVerts[indexOffset + j] = processedVertexCount + indices[j];
                     }
 
                     indexOffset += indices.length;
                 }
 
                 // update runIndex
-                runIndex[i + 1] = indexOffset;
+                runIndex[m + 1] = indexOffset;
 
                 // interlace positions into common mesh
-                for (let j = 0, offset = vertexOffset; j < posCompCount; offset += numProp) {
+                for (let j = 0, offset = processedVertexCount * numProp; j < posCompCount; offset += numProp) {
                     vertProperties[offset    ] = positions[j++];
                     vertProperties[offset + 1] = positions[j++];
                     vertProperties[offset + 2] = positions[j++];
@@ -174,15 +174,15 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
 
                     // interlace
                     const attrArrayLen = attrArray.length;
-                    for (let j = 0, offset = vertexOffset + attrOffset; j < attrArrayLen; offset += numProp) {
+                    for (let j = 0, offset = processedVertexCount * numProp + attrOffset; j < attrArrayLen; offset += numProp) {
                         for (let k = 0; k < attrCompSize; k++) {
                             vertProperties[offset + k] = attrArray[j++];
                         }
                     }
                 }
 
-                // move vertex offset
-                vertexOffset += vertexCount;
+                // increment processed vertex count
+                processedVertexCount += vertexCount;
             }
 
             // extract merge map
@@ -196,7 +196,6 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
         }
 
         // convert meshgroup -> meshjs -> manifold
-        console.debug('!!!!!', numProp, vertProperties, triVerts, runIndex, runOriginalID, mergeFromVert, mergeToVert);
         const mesh = new manifoldModule.Mesh({
             numProp, vertProperties, triVerts, runIndex, runOriginalID,
             mergeFromVert, mergeToVert
