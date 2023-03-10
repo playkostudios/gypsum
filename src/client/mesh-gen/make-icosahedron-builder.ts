@@ -1,7 +1,7 @@
 import { MeshBuilder } from './MeshBuilder';
 import { vec2, vec3 } from 'gl-matrix';
 
-import type { WonderlandEngine } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../../common/backport-shim';
 
 const ICO_V: Array<Readonly<vec3>> = [
     vec3.fromValues( 0       ,  1       ,  0      ),

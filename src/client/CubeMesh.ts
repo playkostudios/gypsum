@@ -1,6 +1,6 @@
 import { CuboidMaterialOptions, RectangularCuboidMesh } from './RectangularCuboidMesh';
 
-import type { WonderlandEngine } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 /**
  * A procedural cube with no sub-divisions.

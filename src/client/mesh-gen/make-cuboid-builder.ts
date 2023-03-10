@@ -6,7 +6,7 @@ import { autoConnectEdges } from './auto-connect-edges';
 import type { Triangle } from './Triangle';
 import type { vec2 } from 'gl-matrix';
 import type { EdgeList } from './EdgeList';
-import type { WonderlandEngine } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../../common/backport-shim';
 
 /**
  * A list of UVs for the corner of a cuboid's face. In order, the top-left

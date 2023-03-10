@@ -3,7 +3,8 @@ import { MeshGroup } from './MeshGroup';
 
 import type { RadialOptions } from './RadialOptions';
 import type { vec2 } from 'gl-matrix';
-import type { WonderlandEngine, Material } from '@wonderlandengine/api';
+import type { Material } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 const NO_UVS: [vec2, vec2, vec2, vec2] = [[0,0],[0,0],[0,0],[0,0]];
 

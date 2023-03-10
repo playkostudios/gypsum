@@ -35,9 +35,6 @@ asynchronous Constructive Solid Geometry powered by
 - Some UVs have zigzag artifacts. The only way to fix this is to use projective UVs, which require custom shaders and have 3 components (UVW) instead of 2 (UV)
 
 ## Current known bugs
-- Normals and tangents aren't transformed properly by CSG operations
-  - [Waiting for an external API change to fix this](https://github.com/elalish/manifold/issues/282)
-  - In the meantime, the input meshes could be transformed before doing a CSG operation with them
 - Looped extrusions don't connect properly if bases have different scales
 
 # Table of contents
@@ -358,6 +355,17 @@ Summary:
   - Allow slices with holes
 - Mesh decimation utilities
 - Better mesh to manifold conversion for user-provided meshes with no edge connectivity data
+
+# Developer notes
+
+## Wonderland Engine 1.0.0 port
+
+The API port is basically done, but it was backported as it's not backwards
+compatible. To convert to 1.0.0:
+1. Replace all `newShim_Mesh` occurances with `new Mesh`
+2. Replace all `WonderlandEngine` imports from the `backport-shim.ts` file with imports from `@wonderlandengine/api`. If the file is being imported but `WonderlandEngine` is not part of the imports, remove the import line
+3. Delete `backport-shim.ts`
+4. Update the example project
 
 # Credits
 

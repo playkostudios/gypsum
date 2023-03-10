@@ -4,7 +4,8 @@ import { MeshGroup } from './MeshGroup';
 
 import type { Tuple } from './misc/Tuple';
 import type { NumRange } from './misc/NumRange';
-import type { WonderlandEngine, Material } from '@wonderlandengine/api';
+import type { Material } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 /**
  * Optional arguments for a procedural icosahedron.

@@ -3,7 +3,7 @@ import { vec3 } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
 import type { PrismPyramidOptions } from './PrismPyramidOptions';
-import type { WonderlandEngine } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 /**
  * A procedural pyramid.

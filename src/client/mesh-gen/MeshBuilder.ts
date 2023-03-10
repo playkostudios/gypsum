@@ -9,13 +9,15 @@ import { genInterlacedMergeMap, IndexRangeList } from './gen-interlaced-merge-ma
 import { deinterlaceMergeMap } from './deinterlace-merge-map';
 import { autoConnectAllEdges } from './auto-connect-all-edges';
 import { Mesh, MeshAttribute } from '@wonderlandengine/api';
+import { optimizeIndexData } from '../../common/optimize-index-data';
+import { newShim_Mesh } from '../../common/backport-shim';
 
 import type { Submesh } from '../MeshGroup';
 import type { quat } from 'gl-matrix';
 import type { MergeMap } from '../../common/MergeMap';
 import type { EdgeList } from './EdgeList';
-import type { WonderlandEngine, Material } from '@wonderlandengine/api';
-import { optimizeIndexData } from '../../common/optimize-index-data';
+import type { Material } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../../common/backport-shim';
 
 const MAT3_IDENTITY = mat3.create();
 const MAT4_IDENTITY = mat4.create();
@@ -561,7 +563,7 @@ export class MeshBuilder {
 
         // instance one mesh
         totalVertexCount += vertexCount;
-        const mesh = new Mesh(this.engine, { vertexCount, indexData, indexType });
+        const mesh = newShim_Mesh(this.engine, { vertexCount, indexData, indexType });
 
         try {
             // upload vertex data

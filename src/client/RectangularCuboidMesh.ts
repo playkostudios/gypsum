@@ -3,7 +3,8 @@ import { MeshGroup } from './MeshGroup';
 import { makeCuboidMaterialMap } from './mesh-gen/make-cuboid-material-map';
 
 import type { CuboidFaceUVs, CuboidFaceUVPosRatio } from './mesh-gen/make-cuboid-builder';
-import type { WonderlandEngine, Material } from '@wonderlandengine/api';
+import type { Material } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 export interface CuboidMaterialOptions {
     /**

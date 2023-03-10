@@ -2,7 +2,7 @@ import { PyramidMesh } from './PyramidMesh';
 import { makeCirclePolyline } from '../client';
 
 import type { PrismPyramidOptions } from './PrismPyramidOptions';
-import type { WonderlandEngine } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 /** Optional arguments for cone generation. */
 export interface ConeOptions extends PrismPyramidOptions {

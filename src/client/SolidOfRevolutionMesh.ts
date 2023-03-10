@@ -3,7 +3,7 @@ import { ExtrusionMesh } from './ExtrusionMesh';
 
 import type { CurveFrames } from './curves/curve-frame';
 import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
-import type { WonderlandEngine } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 const TAU = Math.PI * 2;
 

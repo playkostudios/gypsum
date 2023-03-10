@@ -9,7 +9,8 @@ import { autoConnectAllEdges } from './mesh-gen/auto-connect-all-edges';
 import { autoConnectEdges } from './mesh-gen/auto-connect-edges';
 
 import type { CurveFrame } from '../client';
-import type { WonderlandEngine, Material } from '@wonderlandengine/api';
+import type { Material } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 import type { EdgeList } from './mesh-gen/EdgeList';
 
 const TAU = Math.PI * 2;

@@ -9,7 +9,8 @@ import { autoConnectEdges } from './mesh-gen/auto-connect-edges';
 import type { CurveFrames } from './curves/curve-frame';
 import type { Vec3 } from 'manifold-3d';
 import type { EdgeList } from './mesh-gen/EdgeList';
-import type { WonderlandEngine, Material } from '@wonderlandengine/api';
+import type { Material } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 const RIGHT = vec3.fromValues(1, 0, 0);
 

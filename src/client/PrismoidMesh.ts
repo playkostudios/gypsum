@@ -3,7 +3,8 @@ import { vec3 } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
 import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
-import type { WonderlandEngine, Material } from '@wonderlandengine/api';
+import type { Material } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 /** Optional arguments for the prismoid generation. */
 export interface PrismoidOptions extends SmoothNormalsOptions {

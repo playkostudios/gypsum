@@ -3,7 +3,7 @@ import { PrismMesh } from './PrismMesh';
 
 import type { PrismPyramidOptions } from './PrismPyramidOptions';
 import type { RadialOptions } from './RadialOptions';
-import type { WonderlandEngine } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 export interface CylinderOptions extends RadialOptions, PrismPyramidOptions {}
 

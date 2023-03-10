@@ -8,7 +8,8 @@ import type { WorkerRequest } from '../common/WorkerRequest';
 import type { OpTreeCtx } from '../common/iterate-operation-tree';
 import type { Box, Curvature, Properties } from 'manifold-3d';
 import type { EncodedMeshGroup } from '../common/EncodedMeshGroup';
-import type { WonderlandEngine, Material } from '@wonderlandengine/api';
+import type { Material } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 type WorkerTuple = [worker: Worker, jobCount: number];
 type WorkerArray = Array<WorkerTuple>;

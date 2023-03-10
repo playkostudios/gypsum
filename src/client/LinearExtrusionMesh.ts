@@ -3,7 +3,7 @@ import { ExtrusionMesh } from './ExtrusionMesh';
 import type { vec2, vec3 } from 'gl-matrix';
 import type { CurveFrame } from './curves/curve-frame';
 import type { ExtrusionOptions } from './ExtrusionMesh';
-import type { WonderlandEngine } from '@wonderlandengine/api';
+import type { WonderlandEngine } from '../common/backport-shim';
 
 /**
  * A simple extrusion along the Z direction.
