@@ -3,6 +3,7 @@ import { Mesh, MeshAttribute } from '@wonderlandengine/api';
 
 import type { MeshIndexType } from '@wonderlandengine/api';
 import type { WonderlandEngine } from '@wonderlandengine/api';
+import type { PatchedMeshAttributeAccessor } from '../misc/PatchedMeshAttributeAccessor';
 
 /**
  * Clone a Wonderland Engine mesh. A new, separate mesh will be created with the
@@ -46,7 +47,8 @@ export function cloneMesh(oMesh: Mesh, engine: WonderlandEngine): Mesh {
     }
 
     const posBuf = new Float32Array(vertexCount * 3);
-    oPositions.get(0, posBuf);
+    // TODO remove cast once WLE types are fixed
+    (oPositions as PatchedMeshAttributeAccessor<Float32Array>).get(0, posBuf);
     positions.set(0, posBuf);
 
     // (normals)
@@ -55,7 +57,8 @@ export function cloneMesh(oMesh: Mesh, engine: WonderlandEngine): Mesh {
         const oNormals = oMesh.attribute(MeshAttribute.Normal);
         if (oNormals) {
             const normBuf = new Float32Array(vertexCount * 3);
-            oNormals.get(0, normBuf);
+            // TODO remove cast once WLE types are fixed
+            (oNormals as PatchedMeshAttributeAccessor<Float32Array>).get(0, normBuf);
             normals.set(0, normBuf);
         }
     }
@@ -66,7 +69,8 @@ export function cloneMesh(oMesh: Mesh, engine: WonderlandEngine): Mesh {
         const oTangents = oMesh.attribute(MeshAttribute.Tangent);
         if (oTangents) {
             const tanBuf = new Float32Array(vertexCount * 4);
-            oTangents.get(0, tanBuf);
+            // TODO remove cast once WLE types are fixed
+            (oTangents as PatchedMeshAttributeAccessor<Float32Array>).get(0, tanBuf);
             tangents.set(0, tanBuf);
         }
     }
@@ -77,7 +81,8 @@ export function cloneMesh(oMesh: Mesh, engine: WonderlandEngine): Mesh {
         const oUVs = oMesh.attribute(MeshAttribute.TextureCoordinate);
         if (oUVs) {
             const uvBuf = new Float32Array(vertexCount * 2);
-            oUVs.get(0, uvBuf);
+            // TODO remove cast once WLE types are fixed
+            (oUVs as PatchedMeshAttributeAccessor<Float32Array>).get(0, uvBuf);
             uvs.set(0, uvBuf);
         }
     }
@@ -88,7 +93,8 @@ export function cloneMesh(oMesh: Mesh, engine: WonderlandEngine): Mesh {
         const oColors = oMesh.attribute(MeshAttribute.Color);
         if (oColors) {
             const colorBuf = new Float32Array(vertexCount * 2);
-            oColors.get(0, colorBuf);
+            // TODO remove cast once WLE types are fixed
+            (oColors as PatchedMeshAttributeAccessor<Float32Array>).get(0, colorBuf);
             colors.set(0, colorBuf);
         }
     }

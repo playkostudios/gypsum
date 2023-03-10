@@ -2,6 +2,7 @@ import { mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import { getComponentCount } from '../common/getComponentCount';
 import { mergeMapFromWLE } from './mesh-gen/merge-map-from-wle';
 import { MeshIndexType, MeshAttribute, Mesh } from '@wonderlandengine/api';
+import { getHintAttribute } from './mesh-gen/get-hint-attribute';
 
 import type { quat } from 'gl-matrix';
 import type { EncodedMeshGroup } from '../common/EncodedMeshGroup';
@@ -10,7 +11,7 @@ import type { EncodedSubmesh } from '../common/EncodedSubmesh';
 import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 import type { MergeMap } from '../common/MergeMap';
 import type { WonderlandEngine, Material } from '@wonderlandengine/api';
-import { getHintAttribute } from './mesh-gen/get-hint-attribute';
+import type { PatchedMeshAttributeAccessor } from './misc/PatchedMeshAttributeAccessor';
 
 /**
  * Maps a manifold triangle index to a WLE submesh index. The format is:
@@ -272,18 +273,21 @@ export class MeshGroup {
             const tangents = submesh.attribute(MeshAttribute.Tangent);
 
             for (let i = 0; i < vertexCount; i++) {
-                positions.get(i, tmp3)
+                // TODO remove cast once WLE types are fixed
+                (positions as PatchedMeshAttributeAccessor<Float32Array>).get(i, tmp3);
                 vec3.transformMat4(tmp3, tmp3, matrix);
                 positions.set(i, tmp3);
 
                 if (normals) {
-                    normals.get(i, tmp3)
+                    // TODO remove cast once WLE types are fixed
+                    (normals as PatchedMeshAttributeAccessor<Float32Array>).get(i, tmp3);
                     vec3.transformMat3(tmp3, tmp3, normalMatrix);
                     normals.set(i, tmp3);
                 }
 
                 if (tangents) {
-                    tangents.get(i, tmp4)
+                    // TODO remove cast once WLE types are fixed
+                    (tangents as PatchedMeshAttributeAccessor<Float32Array>).get(i, tmp4);
                     vec3.transformMat3(tmp4 as vec3, tmp4 as vec3, normalMatrix);
                     tangents.set(i, tmp4);
                 }
@@ -382,7 +386,8 @@ export class MeshGroup {
 
             const vertexCount = mesh.vertexCount;
             const positions = new Float32Array(vertexCount * 3);
-            origPositions.get(0, positions);
+            // TODO remove cast once WLE types are fixed
+            (origPositions as PatchedMeshAttributeAccessor<Float32Array>).get(0, positions);
             transferables.push(positions.buffer);
 
             // get which extra attributes need to be copied, or generate the
@@ -410,7 +415,8 @@ export class MeshGroup {
             const extraAttributes = new Array<[AllowedExtraMeshAttribute, Float32Array]>();
             for (const [attrType, attrAccessor, componentCount] of attrs) {
                 const attrArray = new Float32Array(vertexCount * componentCount);
-                attrAccessor.get(0, attrArray);
+                // TODO remove cast once WLE types are fixed
+                (attrAccessor as PatchedMeshAttributeAccessor<Float32Array>).get(0, attrArray);
                 extraAttributes.push([attrType, attrArray]);
                 transferables.push(attrArray.buffer);
             }
