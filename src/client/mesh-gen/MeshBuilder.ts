@@ -1,6 +1,6 @@
 import { DynamicArray } from '../../common/DynamicArray';
 import { BitArray } from './BitArray';
-import { Triangle, VERTEX_STRIDE, VERTEX_TOTAL } from './Triangle';
+import { Triangle, VERTEX_NORMAL_OFFSET, VERTEX_POSITION_OFFSET, VERTEX_STRIDE, VERTEX_TANGENT_OFFSET, VERTEX_TOTAL, VERTEX_UV_OFFSET } from './Triangle';
 import { vec2, vec3, mat4, mat3, vec4 } from 'gl-matrix';
 import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';
@@ -505,6 +505,7 @@ export class MeshBuilder {
         const normals = new DynamicArray(Float32Array);
         const texCoords = new DynamicArray(Float32Array);
         const tangents = new DynamicArray(Float32Array);
+        const colors = new DynamicArray(Float32Array);
 
         const hasher = new VertexHasher(VERTEX_STRIDE);
         let nextIdx = 0;
@@ -519,27 +520,25 @@ export class MeshBuilder {
             for (let i = 0, offset = 0; i < 3; i++, offset += VERTEX_STRIDE) {
                 const auxIdx = hasher.getAuxIdx(triangle.vertexData, nextIdx, offset);
                 if (auxIdx === null) {
-                    let offsetCopy = offset;
+                    const posBufLen = positions.length;
+                    positions.setLength_guarded(posBufLen + 3);
+                    positions.copy_guarded(posBufLen, triangle.getPosition(i));
 
-                    positions.expandCapacity(positions.length + 3);
-                    positions.pushBack(triangle.vertexData[offsetCopy++]);
-                    positions.pushBack(triangle.vertexData[offsetCopy++]);
-                    positions.pushBack(triangle.vertexData[offsetCopy++]);
+                    const normBufLen = normals.length;
+                    normals.setLength_guarded(normBufLen + 3);
+                    normals.copy_guarded(normBufLen, triangle.getNormal(i));
 
-                    normals.expandCapacity(normals.length + 3);
-                    normals.pushBack(triangle.vertexData[offsetCopy++]);
-                    normals.pushBack(triangle.vertexData[offsetCopy++]);
-                    normals.pushBack(triangle.vertexData[offsetCopy++]);
+                    const uvBufLen = texCoords.length;
+                    texCoords.setLength_guarded(uvBufLen + 2);
+                    texCoords.copy_guarded(uvBufLen, triangle.getUV(i));
 
-                    texCoords.expandCapacity(texCoords.length + 2);
-                    texCoords.pushBack(triangle.vertexData[offsetCopy++]);
-                    texCoords.pushBack(triangle.vertexData[offsetCopy++]);
+                    const tanBufLen = tangents.length;
+                    tangents.setLength_guarded(tanBufLen + 4);
+                    tangents.copy_guarded(tanBufLen, triangle.getTangent(i));
 
-                    tangents.expandCapacity(tangents.length + 4);
-                    tangents.pushBack(triangle.vertexData[offsetCopy++]);
-                    tangents.pushBack(triangle.vertexData[offsetCopy++]);
-                    tangents.pushBack(triangle.vertexData[offsetCopy++]);
-                    tangents.pushBack(triangle.vertexData[offsetCopy]);
+                    const colBufLen = colors.length;
+                    colors.setLength_guarded(colBufLen + 4);
+                    colors.copy_guarded(colBufLen, triangle.getColor(i));
 
                     indexData[iOffset++] = nextIdx++;
                 } else {
@@ -582,6 +581,11 @@ export class MeshBuilder {
             const tangentsAttr = mesh.attribute(MeshAttribute.Tangent);
             if (tangentsAttr) {
                 tangentsAttr.set(0, tangents.finalize());
+            }
+
+            const colorsAttr = mesh.attribute(MeshAttribute.Color);
+            if (colorsAttr) {
+                colorsAttr.set(0, colors.finalize());
             }
         } catch(e) {
             mesh.destroy();

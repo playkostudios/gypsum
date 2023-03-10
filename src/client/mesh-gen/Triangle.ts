@@ -8,13 +8,16 @@ import type { vec2 } from 'gl-matrix';
 import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 
 const THIRD = 1 / 3;
+const DEFAULT_TANGENT = new Float32Array([1, 0, 0, 1]);
+
 const tmp0 = vec3.create();
 const tmp1 = vec3.create();
+
 export const VERTEX_STRIDE = 16;
 export const VERTEX_TOTAL = VERTEX_STRIDE * 3;
 export const VERTEX_1 = VERTEX_STRIDE;
 export const VERTEX_2 = VERTEX_STRIDE * 2;
-export const VERTEX_POS_OFFSET = 0;
+export const VERTEX_POSITION_OFFSET = 0;
 export const VERTEX_NORMAL_OFFSET = 3;
 export const VERTEX_UV_OFFSET = 6;
 export const VERTEX_TANGENT_OFFSET = 8;
@@ -144,9 +147,9 @@ export class Triangle {
         const vertexData = new Float32Array(VERTEX_TOTAL);
 
         // store positions
-        vertexData.set(positions.get(idx0), VERTEX_POS_OFFSET);
-        vertexData.set(positions.get(idx1), VERTEX_POS_OFFSET + VERTEX_1);
-        vertexData.set(positions.get(idx2), VERTEX_POS_OFFSET + VERTEX_2);
+        vertexData.set(positions.get(idx0), VERTEX_POSITION_OFFSET);
+        vertexData.set(positions.get(idx1), VERTEX_POSITION_OFFSET + VERTEX_1);
+        vertexData.set(positions.get(idx2), VERTEX_POSITION_OFFSET + VERTEX_2);
 
         // store extra attributes
         if (normals) {
@@ -295,7 +298,7 @@ export class Triangle {
      * @param vertexIndex - The index of the vertex, from 0 to 2. 0 is the first vertex of the triangle, etc...
      */
     getPosition(vertexIndex: number): vec3 {
-        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_POS_OFFSET;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_POSITION_OFFSET;
         return this.vertexData.slice(offset, offset + 3);
     }
 
@@ -357,7 +360,7 @@ export class Triangle {
      * @param newPosition - The new position for the vertex.
      */
     setPosition(vertexIndex: number, newPosition: Readonly<vec3>) {
-        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_POS_OFFSET;
+        const offset = VERTEX_STRIDE * vertexIndex + VERTEX_POSITION_OFFSET;
         this.vertexData[offset] = newPosition[0];
         this.vertexData[offset + 1] = newPosition[1];
         this.vertexData[offset + 2] = newPosition[2];
@@ -467,38 +470,37 @@ export class Triangle {
     normalize() {
         for (let i = 0; i < VERTEX_TOTAL; i += VERTEX_STRIDE) {
             // normalize positions
-            let x = this.vertexData[i];
-            let y = this.vertexData[i + 1];
-            let z = this.vertexData[i + 2];
+            const iPosOffset = i + VERTEX_POSITION_OFFSET;
+            let x = this.vertexData[iPosOffset    ];
+            let y = this.vertexData[iPosOffset + 1];
+            let z = this.vertexData[iPosOffset + 2];
             const mul = 1 / Math.sqrt(x * x + y * y + z * z);
             x *= mul;
             y *= mul;
             z *= mul;
-            this.vertexData[i] = x;
-            this.vertexData[i + 1] = y;
-            this.vertexData[i + 2] = z;
+            this.vertexData[iPosOffset    ] = x;
+            this.vertexData[iPosOffset + 1] = y;
+            this.vertexData[iPosOffset + 2] = z;
 
             // set normals
-            this.vertexData.set([x, y, z]) // TODO finish adding color support from here on out
-            this.vertexData[i + 3] = x;
-            this.vertexData[i + 4] = y;
-            this.vertexData[i + 5] = z;
+            const iNormalOffset = i + VERTEX_NORMAL_OFFSET;
+            this.vertexData[iNormalOffset    ] = x;
+            this.vertexData[iNormalOffset + 1] = y;
+            this.vertexData[iNormalOffset + 2] = z;
 
             // set tangents. in this special case, tangents are just the normals
             // (x,z) components rotated 90 deg CCW (z,-x). the y component is
             // cleared and (x,z) is normalized.
             const tLen = Math.sqrt(x * x + z * z);
+            const iTangentOffset = i + VERTEX_TANGENT_OFFSET;
             if (tLen > 0) {
                 const tDiv = 1 / tLen;
-                this.vertexData[i + 8] = z * tDiv;
-                this.vertexData[i + 9] = 0;
-                this.vertexData[i + 10] = -x * tDiv;
-                this.vertexData[i + 11] = 1;
+                this.vertexData[iTangentOffset    ] = z * tDiv;
+                this.vertexData[iTangentOffset + 1] = 0;
+                this.vertexData[iTangentOffset + 2] = -x * tDiv;
+                this.vertexData[iTangentOffset + 3] = 1;
             } else {
-                this.vertexData[i + 8] = 1;
-                this.vertexData[i + 9] = 0;
-                this.vertexData[i + 10] = 0;
-                this.vertexData[i + 11] = 1;
+                this.vertexData.set(DEFAULT_TANGENT, iTangentOffset)
             }
         }
     }
@@ -592,7 +594,7 @@ export class Triangle {
      * @param offset - The offset to translate by.
      */
     translate(offset: vec3): void {
-        for (let o = 0; o < VERTEX_TOTAL; o += VERTEX_STRIDE) {
+        for (let o = VERTEX_POSITION_OFFSET; o < VERTEX_TOTAL; o += VERTEX_STRIDE) {
             this.vertexData[o    ] += offset[0];
             this.vertexData[o + 1] += offset[1];
             this.vertexData[o + 2] += offset[2];
@@ -605,7 +607,7 @@ export class Triangle {
      * @param factor - The factor to scale by.
      */
     scale(factor: vec3): void {
-        for (let o = 0; o < VERTEX_TOTAL; o += VERTEX_STRIDE) {
+        for (let o = VERTEX_POSITION_OFFSET; o < VERTEX_TOTAL; o += VERTEX_STRIDE) {
             this.vertexData[o    ] *= factor[0];
             this.vertexData[o + 1] *= factor[1];
             this.vertexData[o + 2] *= factor[2];
@@ -618,7 +620,7 @@ export class Triangle {
      * @param factor - The factor to scale by.
      */
     uniformScale(factor: number): void {
-        for (let o = 0; o < VERTEX_TOTAL; o += VERTEX_STRIDE) {
+        for (let o = VERTEX_POSITION_OFFSET; o < VERTEX_TOTAL; o += VERTEX_STRIDE) {
             this.vertexData[o    ] *= factor;
             this.vertexData[o + 1] *= factor;
             this.vertexData[o + 2] *= factor;
@@ -778,8 +780,8 @@ export class Triangle {
      * @returns True if the position matches, false otherwise.
      */
     positionMatches(vertexIndex: number, otherVertexIndex: number, otherTriangle: Triangle): boolean {
-        const i = VERTEX_STRIDE * vertexIndex;
-        const j = VERTEX_STRIDE * otherVertexIndex;
+        const i = VERTEX_STRIDE * vertexIndex + VERTEX_POSITION_OFFSET;
+        const j = VERTEX_STRIDE * otherVertexIndex + VERTEX_POSITION_OFFSET;
 
         return Math.abs(this.vertexData[i] - otherTriangle.vertexData[j]) < EPS
             && Math.abs(this.vertexData[i + 1] - otherTriangle.vertexData[j + 1]) < EPS
