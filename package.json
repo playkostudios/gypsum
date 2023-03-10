@@ -1,9 +1,4 @@
 {
-  "//": [
-    "Using local manifold build. To use the playko github build use 'github:playkostudios/manifold#package'",
-    "`--define:import.meta.url=globalThis.location.href` is added to the worker build so that manifold can be bundled; import.meta is not defined because the worker is not an es6 module",
-    "`--external:module` is added to the worker build so that manifold can be bundled; the `module` dependency is marked as external because its dynamically imported in node environments, and esbuild doesnt remove that case in dead-code elimination, meaning it will try to bundle that dependency and fail"
-  ],
   "name": "gypsum-mesh",
   "version": "0.2.0",
   "description": "Procedural mesh generation library for Wonderland Engine, with CSG powered by Manifold",
