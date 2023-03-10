@@ -15,6 +15,7 @@ import type { quat } from 'gl-matrix';
 import type { MergeMap } from '../../common/MergeMap';
 import type { EdgeList } from './EdgeList';
 import type { WonderlandEngine, Material } from '@wonderlandengine/api';
+import { optimizeIndexData } from '../../common/optimize-index-data';
 
 const MAT3_IDENTITY = mat3.create();
 const MAT4_IDENTITY = mat4.create();
@@ -498,9 +499,8 @@ export class MeshBuilder {
         // make index and vertex data in advance
         const triCount = triangles.length;
         // XXX this assumes the worst case; that no vertices are merged
-        // TODO optimise index buffer
         const indexCount = triCount * 3;
-        const [indexData, indexType] = makeIndexBuffer(indexCount, indexCount);
+        let [indexData, indexType] = makeIndexBuffer(indexCount, indexCount);
         const positions = new DynamicArray(Float32Array);
         const normals = new DynamicArray(Float32Array);
         const texCoords = new DynamicArray(Float32Array);
@@ -547,6 +547,10 @@ export class MeshBuilder {
             }
         }
 
+        // optimise index buffer
+        const vertexCount = positions.length / 3;
+        [indexData, indexType] = optimizeIndexData(indexData, indexType, indexCount, vertexCount);
+
         // add to index range list
         let indexStart = 0;
         if (indexRangeList.length > 0) {
@@ -556,7 +560,6 @@ export class MeshBuilder {
         indexRangeList.push([totalVertexCount, indexStart, indexStart + indexData.length, indexData]);
 
         // instance one mesh
-        const vertexCount = positions.length / 3;
         totalVertexCount += vertexCount;
         const mesh = new Mesh(this.engine, { vertexCount, indexData, indexType });
 

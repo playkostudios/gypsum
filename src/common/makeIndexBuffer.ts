@@ -2,6 +2,8 @@ import { MeshIndexType } from '@wonderlandengine/api';
 
 const MAX_INDEX = 0xFFFFFFFF;
 
+export type IndexDataTypeMapping = [indexData: Uint8Array, indexType: MeshIndexType.UnsignedByte] | [indexData: Uint16Array, indexType: MeshIndexType.UnsignedShort] | [indexData: Uint32Array, indexType: MeshIndexType.UnsignedInt];
+
 export function getIndexBufferType(vertexCount: number): MeshIndexType {
     const vertexCountM1 = vertexCount - 1;
 
@@ -42,10 +44,10 @@ export function makeIndexBufferForType(size: number, meshType: MeshIndexType): U
  * @param vertexCount - The amount of vertices that will be indexed.
  * @returns A tuple containing the indexData buffer, and the indexType argument to be passed to the WL.Mesh constructor.
  */
-export function makeIndexBuffer(size: number, vertexCount: number): [indexData: Uint8Array, indexType: MeshIndexType.UnsignedByte] | [indexData: Uint16Array, indexType: MeshIndexType.UnsignedShort] | [indexData: Uint32Array, indexType: MeshIndexType.UnsignedInt] {
+export function makeIndexBuffer(size: number, vertexCount: number): IndexDataTypeMapping {
     const meshType = getIndexBufferType(vertexCount);
     const buf = makeIndexBufferForType(size, meshType);
     // XXX i don't know how typescript can fail at such a basic type inference,
     // but you've done it. congratulations typescript
-    return [buf, meshType] as [indexData: Uint8Array, indexType: MeshIndexType.UnsignedByte] | [indexData: Uint16Array, indexType: MeshIndexType.UnsignedShort] | [indexData: Uint32Array, indexType: MeshIndexType.UnsignedInt];
+    return [buf, meshType] as IndexDataTypeMapping;
 }

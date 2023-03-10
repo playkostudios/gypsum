@@ -12,6 +12,7 @@ import type { ManifoldStatic, Manifold } from 'manifold-3d';
 import type { AllowedExtraMeshAttribute } from './common/AllowedExtraMeshAttribute';
 import type { EncodedSubmesh } from './common/EncodedSubmesh';
 import type { MergeMap } from './common/MergeMap';
+import { optimizeIndexData } from './common/optimize-index-data';
 
 function logWorker(callback: (message: string) => void, message: unknown) {
     callback(`[Worker ${self.name}] ${message}`);
@@ -457,7 +458,7 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                 // called the transitory index buffer; it will be converted to
                 // the final, more efficient form later (unless the target type
                 // matches)
-                const [transIndexBuffer, transIndexBufferType] = makeIndexBuffer(runLength, runLength);
+                let [indices, indexType] = makeIndexBuffer(runLength, runLength);
 
                 for (let i = 0; i < runLength; i++) {
                     const iManif = triVerts[runStart + i];
@@ -469,17 +470,12 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                         vertexOffsetMap.pushBack_guarded(iManif);
                     }
 
-                    transIndexBuffer[i] = newIndex;
+                    indices[i] = newIndex;
                 }
 
                 // optimise index buffer
                 const vertexCount = vertexOffsetMap.length;
-                const optimalIndexBufferType = getIndexBufferType(vertexCount);
-                let indices = transIndexBuffer;
-                if (optimalIndexBufferType !== transIndexBufferType) {
-                    indices = makeIndexBufferForType(runLength, optimalIndexBufferType);
-                    indices.set(transIndexBuffer);
-                }
+                [indices, indexType] = optimizeIndexData(indices, indexType, runLength, vertexCount);
 
                 transfer.push(indices.buffer);
 
