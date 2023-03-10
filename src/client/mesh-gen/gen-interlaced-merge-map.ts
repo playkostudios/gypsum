@@ -3,9 +3,13 @@ import { BitArray } from './BitArray';
 import type { DynamicArray } from '../../common/DynamicArray';
 import type { Triangle } from './Triangle';
 
+/**
+ * A helper list containing necessary ranges for visiting an index buffer, and
+ * that index buffer.
+ */
 export type IndexRangeList = Array<[vertexStart: number, indexStart: number, indexEnd: number, indexData: Uint8Array | Uint16Array | Uint32Array | null]>;
 
-export function getResolvedIndex(index: number, indices: IndexRangeList): number {
+function getResolvedIndex(index: number, indices: IndexRangeList): number {
     for (const [vertexStart, indexStart, indexEnd, indexData] of indices) {
         if (index < indexStart || index >= indexEnd) {
             continue;
@@ -21,6 +25,16 @@ export function getResolvedIndex(index: number, indices: IndexRangeList): number
     throw new Error("Can't resolve index; index not in range");
 }
 
+/**
+ * Generate an interlaced MergeMap. The MergeMap should then be de-interlaced so
+ * it can be used for Manifold.
+ *
+ * @param triangles - The list of triangles to get connectivity from
+ * @param vertexCount - The number of vertices (not indices) required by the triangles
+ * @param indices - A list of the necessary ranges for visiting an index buffer, and that index buffer
+ * @param triIdxMap - A list of indices that maps a Triangle to the index of the first vertex of the triangle in an index buffer. If null, only the triangle helpers are used instead, and the index buffer is assumed to bne in the order of the triangles list
+ * @param interlacedMergeMap - An output buffer to store the interlaced MergeMap
+ */
 export function genInterlacedMergeMap(triangles: Array<Triangle>, vertexCount: number, indices: IndexRangeList, triIdxMap: Uint32Array | null, interlacedMergeMap: DynamicArray<Uint32ArrayConstructor>) {
     const visitedVertices = new BitArray(vertexCount, false);
     const orderedTriangles = triIdxMap === null;

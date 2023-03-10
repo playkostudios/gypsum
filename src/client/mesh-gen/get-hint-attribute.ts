@@ -3,6 +3,10 @@ import { MeshAttribute } from '@wonderlandengine/api';
 import type { Mesh, MeshAttributeAccessor } from '@wonderlandengine/api';
 import type { AllowedExtraMeshAttribute } from '../../common/AllowedExtraMeshAttribute';
 
+// TODO continue documentation here
+/**
+ * 
+ */
 export function getHintAttribute(mesh: Mesh, attribute: AllowedExtraMeshAttribute, failOnMissing?: true): MeshAttributeAccessor;
 export function getHintAttribute(mesh: Mesh, attribute: AllowedExtraMeshAttribute, failOnMissing: false): MeshAttributeAccessor | null;
 export function getHintAttribute(mesh: Mesh, attribute: AllowedExtraMeshAttribute, failOnMissing: boolean): MeshAttributeAccessor | null;
