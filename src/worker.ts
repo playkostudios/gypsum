@@ -5,6 +5,8 @@ import { MeshAttribute } from '@wonderlandengine/api';
 import { getComponentCount } from './common/getComponentCount';
 import { makeIndexBuffer } from './client';
 import { DynamicArray } from './common/DynamicArray';
+import { optimizeIndexData } from './common/optimize-index-data';
+import { mat3, vec3 } from 'gl-matrix';
 
 import type { WorkerRequest, WorkerOperation } from './common/WorkerRequest';
 import type { WorkerResponse, WorkerResult, WorkerResultPassthroughValue } from './common/WorkerResponse';
@@ -12,7 +14,8 @@ import type { ManifoldStatic, Manifold } from 'manifold-3d';
 import type { AllowedExtraMeshAttribute } from './common/AllowedExtraMeshAttribute';
 import type { EncodedSubmesh } from './common/EncodedSubmesh';
 import type { MergeMap } from './common/MergeMap';
-import { optimizeIndexData } from './common/optimize-index-data';
+
+const IDENTITY_3X3_COL_MAJ = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
 
 function logWorker(callback: (message: string) => void, message: unknown) {
     callback(`[Worker ${self.name}] ${message}`);
@@ -420,10 +423,6 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
             }
 
             const runTransform = outMesh.runTransform;
-            if (runTransform === undefined) {
-                throw new Error('Missing runTransform in resulting MeshJS object');
-            }
-
             const triVerts = outMesh.triVerts;
             const outNumProp = outMesh.numProp;
             const vertProperties = outMesh.vertProperties;
@@ -504,11 +503,41 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                 for (const a of submeshWantedExtra) {
                     const [attrType, attrOffset, attrCompSize] = attributeMapping[a];
                     const attrArray = new Float32Array(vertexCount * attrCompSize);
+                    let tangentTransform: mat3 | null = null;
 
-                    for (let i = 0, o = 0; i < vertexCount; i++) {
-                        let iManif = vertexOffsetMap.get_guarded(i) * outNumProp + attrOffset;
-                        for (let j = 0; j < attrCompSize; j++) {
-                            attrArray[o++] = vertProperties[iManif++];
+                    if (runTransform && attrType === MeshAttribute.Tangent) {
+                        const tanTrans = runTransform.slice(m * 12, m * 12 + 9);
+                        let isIdentity = true;
+
+                        for (let i = 0; i < 12; i++) {
+                            if (tanTrans[i] !== IDENTITY_3X3_COL_MAJ[i]) {
+                                isIdentity = false;
+                                break;
+                            }
+                        }
+
+                        if (!isIdentity) {
+                            // XXX gl-matrix is column-major and so is Manifold.
+                            // we can use it as the transform
+                            tangentTransform = tanTrans;
+                        }
+                    }
+
+                    // XXX tangents aren't transformed by Manifold, so we need
+                    // to manually apply rotations
+                    if (tangentTransform) {
+                        for (let i = 0, o = 0; i < vertexCount; i++, o += 4) {
+                            const iManif = vertexOffsetMap.get_guarded(i) * outNumProp + attrOffset;
+                            const tangent = vertProperties.slice(iManif, iManif + 4);
+                            vec3.transformMat3(tangent, tangent, tangentTransform);
+                            attrArray.set(tangent, o);
+                        }
+                    } else {
+                        for (let i = 0, o = 0; i < vertexCount; i++) {
+                            let iManif = vertexOffsetMap.get_guarded(i) * outNumProp + attrOffset;
+                            for (let j = 0; j < attrCompSize; j++) {
+                                attrArray[o++] = vertProperties[iManif++];
+                            }
                         }
                     }
 
