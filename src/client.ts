@@ -3,8 +3,12 @@ export * from './client/curves/extend-curve-frames';
 export * from './client/curves/fix-tangent-list';
 export * from './client/curves/make-rotation-minimizing-frames';
 
+export * from './client/mesh-gen/auto-connect-all-edges';
+export * from './client/mesh-gen/auto-connect-edges';
 export * from './client/mesh-gen/clone-mesh';
+export * from './client/mesh-gen/EdgeList';
 export { CuboidFaceUVs, CuboidFaceUVPosRatio } from './client/mesh-gen/make-cuboid-builder';
+export * from './client/mesh-gen/merge-map-from-wle';
 export * from './client/mesh-gen/MeshBuilder';
 export * from './client/mesh-gen/normal-from-triangle';
 export * from './client/mesh-gen/Triangle';
@@ -48,9 +52,12 @@ export * from './client/SolidOfRevolutionMesh';
 export * from './client/TorusMesh';
 export * from './client/UVSphereMesh';
 
+export * from './common/AllowedExtraMeshAttribute';
 export * from './common/CSGFinalOperation';
 export * from './common/CSGGeometricOperation';
 export * from './common/CSGOperation';
 export * from './common/CSGPrimitive';
 export * from './common/CSGTree';
 export * from './common/makeIndexBuffer';
+export * from './common/MergeMap';
+export * from './common/optimize-index-data';
