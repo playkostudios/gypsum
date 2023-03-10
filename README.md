@@ -149,13 +149,16 @@ Transformation methods are chainable.
 
 All procedural meshes are implemented as subclasses of the `MeshGroup` class. To
 make a new procedural mesh, simply instantiate a subclass. The constructor
-arguments usually have 1 or more required argument, and all optional arguments
-are passed in an options object which can be omitted.
+arguments usually have 2 or more required argument, and all optional arguments
+are passed in an options object which can be omitted. The first argument is
+always a Wonderland Engine instance (the `WL` object for 0.9.5, or `this.engine`
+in future versions); this is to prepare for future versions where the WL object
+will no longer be global.
 
 For example, a 1x1x1 cube can be created by creating a new `CubeMesh` instance:
 
 ```js
-const procMesh = new CubeMesh(1);
+const procMesh = new CubeMesh(WL, 1);
 ```
 
 However, more options can be passed via an options object. For example, in this
@@ -163,7 +166,7 @@ However, more options can be passed via an options object. For example, in this
 material, and the UVs for each face are set to each UV corner:
 
 ```js
-const procMesh = new CubeMesh(6, {
+const procMesh = new CubeMesh(WL, 6, {
   center: false,
   // supply WL.Material instances for the following properties:
   // instead of a separate material for each side, `material` can also be passed to set all sides
@@ -299,10 +302,10 @@ const csg = new CSGPool(1);
 // await csg.initialize();
 
 // subtract 2 cubes, where the subtracting cube is offset by (0.5, 0.5, 0.5)
-const resultMesh = await csg.dispatch({
+const resultMesh = await csg.dispatch(WL, {
   operation: 'subtract',
-  left: new CubeMesh(1).mark(),
-  right: new CubeMesh(1).translate([0.5, 0.5, 0.5]).mark(),
+  left: new CubeMesh(WL, 1).mark(),
+  right: new CubeMesh(WL, 1).translate([0.5, 0.5, 0.5]).mark(),
 });
 
 // get submeshes of the result of the CSG operation
