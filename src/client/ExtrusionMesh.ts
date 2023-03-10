@@ -259,8 +259,8 @@ export class ExtrusionMesh extends MeshGroup {
                     trTri = builder.addTriangle(preCalcPos[il1], preCalcPos[jl2], preCalcPos[jl1], uvi1, uvj2, uvj1);
                 }
 
-                blTri.autoSetTangents(0);
-                trTri.autoSetTangents(1, true);
+                blTri.autoSetTangents(0, true);
+                trTri.autoSetTangents(1);
             }
         }
 
