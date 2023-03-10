@@ -10,6 +10,7 @@ import type { EncodedSubmesh } from '../common/EncodedSubmesh';
 import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 import type { MergeMap } from '../common/MergeMap';
 import type { WonderlandEngine, Material } from '@wonderlandengine/api';
+import { getHintAttribute } from './mesh-gen/get-hint-attribute';
 
 /**
  * Maps a manifold triangle index to a WLE submesh index. The format is:
@@ -397,13 +398,9 @@ export class MeshGroup {
 
             for (const attrType of hints) {
                 const componentCount = getComponentCount(attrType);
-                const accessor = mesh.attribute(attrType);
-                if (accessor === null) {
-                    if (failOnMissing) {
-                        throw new Error(`Unexpected missing mesh attribute with type ID ${attrType}`);
-                    } else {
-                        continue;
-                    }
+                const accessor = getHintAttribute(mesh, attrType, failOnMissing);
+                if (!accessor) {
+                    continue;
                 }
 
                 attrs.push([attrType, accessor, componentCount]);

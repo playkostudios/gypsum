@@ -1,6 +1,6 @@
 import { DynamicArray } from '../../common/DynamicArray';
 import { BitArray } from './BitArray';
-import { Triangle, VERTEX_NORMAL_OFFSET, VERTEX_POSITION_OFFSET, VERTEX_STRIDE, VERTEX_TANGENT_OFFSET, VERTEX_TOTAL, VERTEX_UV_OFFSET } from './Triangle';
+import { Triangle, VERTEX_STRIDE, VERTEX_TOTAL } from './Triangle';
 import { vec2, vec3, mat4, mat3, vec4 } from 'gl-matrix';
 import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';

@@ -9,6 +9,7 @@ import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 
 const THIRD = 1 / 3;
 const DEFAULT_TANGENT = new Float32Array([1, 0, 0, 1]);
+const ALLOWED_EDGE_INDICES = [0, 1, 2];
 
 const tmp0 = vec3.create();
 const tmp1 = vec3.create();
@@ -24,7 +25,7 @@ export const VERTEX_TANGENT_OFFSET = 8;
 export const VERTEX_COLOR_OFFSET = 12;
 
 function validateEdgeIndex(edgeIndex: number) {
-    if ([0, 1, 2].indexOf(edgeIndex) === -1) {
+    if (ALLOWED_EDGE_INDICES.indexOf(edgeIndex) === -1) {
         throw new Error(`Invalid edge index (${edgeIndex})`);
     }
 }

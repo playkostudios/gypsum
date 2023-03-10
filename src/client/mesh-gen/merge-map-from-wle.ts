@@ -3,6 +3,7 @@ import { genInterlacedMergeMap, IndexRangeList } from './gen-interlaced-merge-ma
 import { MeshAttribute } from '@wonderlandengine/api';
 import { Triangle } from './Triangle';
 import { DynamicArray } from '../../common/DynamicArray';
+import { getHintAttributeFromSet } from './get-hint-attribute';
 
 import type { AllowedExtraMeshAttribute } from '../../common/AllowedExtraMeshAttribute';
 import type { Mesh, MeshAttributeAccessor } from '@wonderlandengine/api';
@@ -52,33 +53,10 @@ export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Set
 
         const hint = hints[m];
         if (hint) {
-            if (hint.has(MeshAttribute.Normal)) {
-                normals = mesh.attribute(MeshAttribute.Normal);
-                // TODO should we throw if null?
-            } else {
-                normals = null;
-            }
-
-            if (hint.has(MeshAttribute.TextureCoordinate)) {
-                uvs = mesh.attribute(MeshAttribute.TextureCoordinate);
-                // TODO should we throw if null?
-            } else {
-                uvs = null;
-            }
-
-            if (hint.has(MeshAttribute.Tangent)) {
-                tangents = mesh.attribute(MeshAttribute.Tangent);
-                // TODO should we throw if null?
-            } else {
-                tangents = null;
-            }
-
-            if (hint.has(MeshAttribute.Color)) {
-                colors = mesh.attribute(MeshAttribute.Color);
-                // TODO should we throw if null?
-            } else {
-                colors = null;
-            }
+            normals = getHintAttributeFromSet(mesh, hint, MeshAttribute.Normal);
+            uvs = getHintAttributeFromSet(mesh, hint, MeshAttribute.TextureCoordinate);
+            tangents = getHintAttributeFromSet(mesh, hint, MeshAttribute.Tangent);
+            colors = getHintAttributeFromSet(mesh, hint, MeshAttribute.Color);
         } else {
             normals = mesh.attribute(MeshAttribute.Normal);
             uvs = mesh.attribute(MeshAttribute.TextureCoordinate);
