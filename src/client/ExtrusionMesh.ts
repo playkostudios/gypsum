@@ -253,11 +253,15 @@ export class ExtrusionMesh extends MeshGroup {
 
                 let blTri: Triangle, trTri: Triangle;
                 if (hasSmoothNormals) {
-                    blTri = builder.addTriangleNoNormals(preCalcPos[il1], preCalcPos[il2], preCalcPos[jl2], uvi1, uvi2, uvj2);
-                    trTri = builder.addTriangleNoNormals(preCalcPos[il1], preCalcPos[jl2], preCalcPos[jl1], uvi1, uvj2, uvj1);
+                    blTri = builder.addTriangleNoNormals(preCalcPos[il1], preCalcPos[il2], preCalcPos[jl2]);
+                    blTri.setUVs(uvi1, uvi2, uvj2);
+                    trTri = builder.addTriangleNoNormals(preCalcPos[il1], preCalcPos[jl2], preCalcPos[jl1]);
+                    trTri.setUVs(uvi1, uvj2, uvj1);
                 } else {
-                    blTri = builder.addTriangle(preCalcPos[il1], preCalcPos[il2], preCalcPos[jl2], uvi1, uvi2, uvj2);
-                    trTri = builder.addTriangle(preCalcPos[il1], preCalcPos[jl2], preCalcPos[jl1], uvi1, uvj2, uvj1);
+                    blTri = builder.addTriangle(preCalcPos[il1], preCalcPos[il2], preCalcPos[jl2]);
+                    blTri.setUVs(uvi1, uvi2, uvj2);
+                    trTri = builder.addTriangle(preCalcPos[il1], preCalcPos[jl2], preCalcPos[jl1]);
+                    trTri.setUVs(uvi1, uvj2, uvj1);
                 }
 
                 blTri.autoSetTangents(0, true);
@@ -290,14 +294,10 @@ export class ExtrusionMesh extends MeshGroup {
                 const bIdx = triangulatedBase[t++];
                 const aIdx = triangulatedBase[t++];
 
-                const newTri = builder.addTriangle(
-                    preCalcPos[aIdx], preCalcPos[bIdx], preCalcPos[cIdx],
-                    startNormal, startNormal, startNormal,
-                    startBaseUVs[aIdx], startBaseUVs[bIdx], startBaseUVs[cIdx],
-                );
-                newTri.setTangent(0, startTangent);
-                newTri.setTangent(1, startTangent);
-                newTri.setTangent(2, startTangent);
+                const newTri = builder.addTriangle(preCalcPos[aIdx], preCalcPos[bIdx], preCalcPos[cIdx]);
+                newTri.setNormals(startNormal, startNormal, startNormal);
+                newTri.setUVs(startBaseUVs[aIdx], startBaseUVs[bIdx], startBaseUVs[cIdx]);
+                newTri.setTangents(startTangent, startTangent, startTangent);
                 newTri.materialID = 1;
                 startBaseTris.push(newTri);
             }
@@ -309,14 +309,10 @@ export class ExtrusionMesh extends MeshGroup {
                 const bIdx = triangulatedBase[t++];
                 const cIdx = triangulatedBase[t++];
 
-                const newTri = builder.addTriangle(
-                    preCalcPos[offset + aIdx], preCalcPos[offset + bIdx], preCalcPos[offset + cIdx],
-                    endNormal, endNormal, endNormal,
-                    endBaseUVs[aIdx], endBaseUVs[bIdx], endBaseUVs[cIdx],
-                );
-                newTri.setTangent(0, endTangent);
-                newTri.setTangent(1, endTangent);
-                newTri.setTangent(2, endTangent);
+                const newTri = builder.addTriangle(preCalcPos[offset + aIdx], preCalcPos[offset + bIdx], preCalcPos[offset + cIdx]);
+                newTri.setNormals(endNormal, endNormal, endNormal);
+                newTri.setUVs(endBaseUVs[aIdx], endBaseUVs[bIdx], endBaseUVs[cIdx]);
+                newTri.setTangents(endTangent, endTangent, endTangent);
                 newTri.materialID = 2;
                 endBaseTris.push(newTri);
             }

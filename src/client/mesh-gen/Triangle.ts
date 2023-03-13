@@ -30,6 +30,10 @@ function validateEdgeIndex(edgeIndex: number) {
     }
 }
 
+/**
+ * A list of triangle-vertex index pair that represents the list of vertices
+ * that are part of a vertex star.
+ */
 export type VertexStar = Array<[triangle: Triangle, vertexIndex: number]>;
 
 /**
@@ -180,6 +184,7 @@ export class Triangle {
         return new Triangle(vertexData);
     }
 
+    /** Internal method. Set a connected edge of this triangle. */
     private setEdgeTriangle(edgeIndex: number, triangle: Triangle | null) {
         switch(edgeIndex) {
             case 0:
@@ -368,6 +373,19 @@ export class Triangle {
     }
 
     /**
+     * Set the positions of all vertices in this triangle.
+     *
+     * @param new0 - The new position for the vertex (vertex 0).
+     * @param new1 - The new position for the vertex (vertex 1).
+     * @param new2 - The new position for the vertex (vertex 2).
+     */
+    setPositions(new0: Readonly<vec3>, new1: Readonly<vec3>, new2: Readonly<vec3>) {
+        this.setPosition(0, new0);
+        this.setPosition(1, new1);
+        this.setPosition(2, new2);
+    }
+
+    /**
      * Set the normal of a vertex at a given vertex index.
      *
      * @param vertexIndex - The index of the vertex, from 0 to 2. 0 is the first vertex of the triangle, etc...
@@ -381,6 +399,19 @@ export class Triangle {
     }
 
     /**
+     * Set the normals of all vertices in this triangle.
+     *
+     * @param new0 - The new normal for the vertex (vertex 0).
+     * @param new1 - The new normal for the vertex (vertex 1).
+     * @param new2 - The new normal for the vertex (vertex 2).
+     */
+    setNormals(new0: Readonly<vec3>, new1: Readonly<vec3>, new2: Readonly<vec3>) {
+        this.setNormal(0, new0);
+        this.setNormal(1, new1);
+        this.setNormal(2, new2);
+    }
+
+    /**
      * Set the texture coordinates of a vertex at a given vertex index.
      *
      * @param vertexIndex - The index of the vertex, from 0 to 2. 0 is the first vertex of the triangle, etc...
@@ -390,6 +421,19 @@ export class Triangle {
         const offset = VERTEX_STRIDE * vertexIndex + VERTEX_UV_OFFSET;
         this.vertexData[offset] = newUV[0];
         this.vertexData[offset + 1] = newUV[1];
+    }
+
+    /**
+     * Set the UVs of all vertices in this triangle.
+     *
+     * @param new0 - The new UV for the vertex (vertex 0).
+     * @param new1 - The new UV for the vertex (vertex 1).
+     * @param new2 - The new UV for the vertex (vertex 2).
+     */
+    setUVs(new0: Readonly<vec2>, new1: Readonly<vec2>, new2: Readonly<vec2>) {
+        this.setUV(0, new0);
+        this.setUV(1, new1);
+        this.setUV(2, new2);
     }
 
     /**
@@ -407,6 +451,19 @@ export class Triangle {
     }
 
     /**
+     * Set the tangents of all vertices in this triangle.
+     *
+     * @param new0 - The new tangent for the vertex (vertex 0).
+     * @param new1 - The new tangent for the vertex (vertex 1).
+     * @param new2 - The new tangent for the vertex (vertex 2).
+     */
+    setTangents(new0: Readonly<vec4>, new1: Readonly<vec4>, new2: Readonly<vec4>) {
+        this.setTangent(0, new0);
+        this.setTangent(1, new1);
+        this.setTangent(2, new2);
+    }
+
+    /**
      * Set the tangent of a vertex at a given vertex index.
      *
      * @param vertexIndex - The index of the vertex, from 0 to 2. 0 is the first vertex of the triangle, etc...
@@ -418,6 +475,19 @@ export class Triangle {
         this.vertexData[offset + 1] = newColor[1];
         this.vertexData[offset + 2] = newColor[2];
         this.vertexData[offset + 3] = newColor[3];
+    }
+
+    /**
+     * Set the colors of all vertices in this triangle.
+     *
+     * @param new0 - The new color for the vertex (vertex 0).
+     * @param new1 - The new color for the vertex (vertex 1).
+     * @param new2 - The new color for the vertex (vertex 2).
+     */
+    setColors(new0: Readonly<vec4>, new1: Readonly<vec4>, new2: Readonly<vec4>) {
+        this.setColor(0, new0);
+        this.setColor(1, new1);
+        this.setColor(2, new2);
     }
 
     /**
@@ -676,9 +746,6 @@ export class Triangle {
      * Transform vertices by a given transformation matrix. By default, normals
      * and tangents are also transformed. If they are transformed, then a
      * normal matrix needs to be supplied, otherwise they are not transformed.
-     */
-    /**
-     * Transform the triangle by a given transformation matrix.
      *
      * @param matrix - The transformation matrix to transform positions by.
      * @param normalMatrix - The transformation matrix to transform normals and tangents by. Will be ignored if normals and tangents aren't transformed. If not supplied and normals or tangents are to be transformed, then the triangle's normals and tangents will not be transformed.

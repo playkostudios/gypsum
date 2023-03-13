@@ -338,6 +338,9 @@ export class MeshGroup {
     /**
      * Encode into a format that is passable to the Manifold worker, along with
      * a numeric mapping for materials.
+     *
+     * @param materials: A list of materials. Materials will be converted to indices from this array.
+     * @param transferables: An array to push transferables to, so that typed arrays can be transfered to a worker.
      */
     encode(materials: Array<Material>, transferables: Array<Transferable>): EncodedMeshGroup {
         // get merge map

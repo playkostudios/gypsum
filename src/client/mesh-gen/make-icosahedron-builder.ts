@@ -37,30 +37,50 @@ export function makeIcosahedronBuilder(engine: WonderlandEngine, addTangents = t
     const builder = new MeshBuilder(engine);
 
     // top triangles
-    const t0  = builder.addTriangle(ICO_V[0 ], ICO_V[1 ], ICO_V[2 ], TM_UV, BL_UV, BR_UV);
-    const t1  = builder.addTriangle(ICO_V[0 ], ICO_V[2 ], ICO_V[3 ], TM_UV, BL_UV, BR_UV);
-    const t2  = builder.addTriangle(ICO_V[0 ], ICO_V[3 ], ICO_V[4 ], TM_UV, BL_UV, BR_UV);
-    const t3  = builder.addTriangle(ICO_V[0 ], ICO_V[4 ], ICO_V[5 ], TM_UV, BL_UV, BR_UV);
-    const t4  = builder.addTriangle(ICO_V[0 ], ICO_V[5 ], ICO_V[1 ], TM_UV, BL_UV, BR_UV);
+    const t0  = builder.addTriangle(ICO_V[0 ], ICO_V[1 ], ICO_V[2 ]);
+    t0 .setUVs(TM_UV, BL_UV, BR_UV);
+    const t1  = builder.addTriangle(ICO_V[0 ], ICO_V[2 ], ICO_V[3 ]);
+    t1 .setUVs(TM_UV, BL_UV, BR_UV);
+    const t2  = builder.addTriangle(ICO_V[0 ], ICO_V[3 ], ICO_V[4 ]);
+    t2 .setUVs(TM_UV, BL_UV, BR_UV);
+    const t3  = builder.addTriangle(ICO_V[0 ], ICO_V[4 ], ICO_V[5 ]);
+    t3 .setUVs(TM_UV, BL_UV, BR_UV);
+    const t4  = builder.addTriangle(ICO_V[0 ], ICO_V[5 ], ICO_V[1 ]);
+    t4 .setUVs(TM_UV, BL_UV, BR_UV);
 
     // side triangles
-    const t5  = builder.addTriangle(ICO_V[1 ], ICO_V[6 ], ICO_V[2 ], TL_UV, BM_UV, TR_UV);
-    const t6  = builder.addTriangle(ICO_V[2 ], ICO_V[6 ], ICO_V[7 ], TM_UV, BL_UV, BR_UV);
-    const t7  = builder.addTriangle(ICO_V[2 ], ICO_V[7 ], ICO_V[3 ], TL_UV, BM_UV, TR_UV);
-    const t8  = builder.addTriangle(ICO_V[3 ], ICO_V[7 ], ICO_V[8 ], TM_UV, BL_UV, BR_UV);
-    const t9  = builder.addTriangle(ICO_V[3 ], ICO_V[8 ], ICO_V[4 ], TL_UV, BM_UV, TR_UV);
-    const t10 = builder.addTriangle(ICO_V[4 ], ICO_V[8 ], ICO_V[9 ], TM_UV, BL_UV, BR_UV);
-    const t11 = builder.addTriangle(ICO_V[4 ], ICO_V[9 ], ICO_V[5 ], TL_UV, BM_UV, TR_UV);
-    const t12 = builder.addTriangle(ICO_V[5 ], ICO_V[9 ], ICO_V[10], TM_UV, BL_UV, BR_UV);
-    const t13 = builder.addTriangle(ICO_V[5 ], ICO_V[10], ICO_V[1 ], TL_UV, BM_UV, TR_UV);
-    const t14 = builder.addTriangle(ICO_V[1 ], ICO_V[10], ICO_V[6 ], TM_UV, BL_UV, BR_UV);
+    const t5  = builder.addTriangle(ICO_V[1 ], ICO_V[6 ], ICO_V[2 ]);
+    t5 .setUVs(TL_UV, BM_UV, TR_UV);
+    const t6  = builder.addTriangle(ICO_V[2 ], ICO_V[6 ], ICO_V[7 ]);
+    t6 .setUVs(TM_UV, BL_UV, BR_UV);
+    const t7  = builder.addTriangle(ICO_V[2 ], ICO_V[7 ], ICO_V[3 ]);
+    t7 .setUVs(TL_UV, BM_UV, TR_UV);
+    const t8  = builder.addTriangle(ICO_V[3 ], ICO_V[7 ], ICO_V[8 ]);
+    t8 .setUVs(TM_UV, BL_UV, BR_UV);
+    const t9  = builder.addTriangle(ICO_V[3 ], ICO_V[8 ], ICO_V[4 ]);
+    t9 .setUVs(TL_UV, BM_UV, TR_UV);
+    const t10 = builder.addTriangle(ICO_V[4 ], ICO_V[8 ], ICO_V[9 ]);
+    t10.setUVs(TM_UV, BL_UV, BR_UV);
+    const t11 = builder.addTriangle(ICO_V[4 ], ICO_V[9 ], ICO_V[5 ]);
+    t11.setUVs(TL_UV, BM_UV, TR_UV);
+    const t12 = builder.addTriangle(ICO_V[5 ], ICO_V[9 ], ICO_V[10]);
+    t12.setUVs(TM_UV, BL_UV, BR_UV);
+    const t13 = builder.addTriangle(ICO_V[5 ], ICO_V[10], ICO_V[1 ]);
+    t13.setUVs(TL_UV, BM_UV, TR_UV);
+    const t14 = builder.addTriangle(ICO_V[1 ], ICO_V[10], ICO_V[6 ]);
+    t14.setUVs(TM_UV, BL_UV, BR_UV);
 
     // bottom triangles
-    const t15 = builder.addTriangle(ICO_V[11], ICO_V[7 ], ICO_V[6 ], BM_UV, TR_UV, TL_UV);
-    const t16 = builder.addTriangle(ICO_V[11], ICO_V[8 ], ICO_V[7 ], BM_UV, TR_UV, TL_UV);
-    const t17 = builder.addTriangle(ICO_V[11], ICO_V[9 ], ICO_V[8 ], BM_UV, TR_UV, TL_UV);
-    const t18 = builder.addTriangle(ICO_V[11], ICO_V[10], ICO_V[9 ], BM_UV, TR_UV, TL_UV);
-    const t19 = builder.addTriangle(ICO_V[11], ICO_V[6 ], ICO_V[10], BM_UV, TR_UV, TL_UV);
+    const t15 = builder.addTriangle(ICO_V[11], ICO_V[7 ], ICO_V[6 ]);
+    t15.setUVs(BM_UV, TR_UV, TL_UV);
+    const t16 = builder.addTriangle(ICO_V[11], ICO_V[8 ], ICO_V[7 ]);
+    t16.setUVs(BM_UV, TR_UV, TL_UV);
+    const t17 = builder.addTriangle(ICO_V[11], ICO_V[9 ], ICO_V[8 ]);
+    t17.setUVs(BM_UV, TR_UV, TL_UV);
+    const t18 = builder.addTriangle(ICO_V[11], ICO_V[10], ICO_V[9 ]);
+    t18.setUVs(BM_UV, TR_UV, TL_UV);
+    const t19 = builder.addTriangle(ICO_V[11], ICO_V[6 ], ICO_V[10]);
+    t19.setUVs(BM_UV, TR_UV, TL_UV);
 
     // set material IDs
     t1.materialID = 1;

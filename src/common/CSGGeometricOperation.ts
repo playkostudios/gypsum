@@ -53,7 +53,5 @@ export type CSGGeometricOperation<MeshType> = (
 };
 
 // TODO compose/decompose
-
-// XXX warp operation is not supported since you can't pass functions to web
-// workers
-// XXX sdf operation not supported for same reason
+// TODO warp and sdf (levelset) operation. callbacks can either be encoded, or
+// passed as a script url

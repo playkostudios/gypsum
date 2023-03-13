@@ -8,13 +8,15 @@
  * A helper class which hashes vertices to check for uniqueness.
  */
 export default class VertexHasher {
+    /** Buckets containing found vertices and indices using the vertex. */
     buckets = new Map<number, [Array<Float32Array>, Array<number>]>;
-    readonly byteLength: number;
 
-    constructor(public readonly floatCount = 3) {
-        this.byteLength = floatCount * 4;
-    }
+    /**
+     * @param floatCount - The amount of floats per vertex. 3 by default (only position tracked)
+     */
+    constructor(public readonly floatCount = 3) {}
 
+    /** Internal method. Make a hash from vertex data */
     private getHash(vertexDataBuffer: ArrayBuffer, byteOffset: number): number {
         let h = 0xea8ed414;
         const view = new Uint32Array(vertexDataBuffer, byteOffset);
@@ -25,6 +27,15 @@ export default class VertexHasher {
         return h;
     }
 
+    /**
+     * Get auxiliary index for vertex. If the vertex was already found, the
+     * index of the vertex in a vertex array is returned, otherwise, null is
+     * returned.
+     *
+     * @param vertexData - The vertex, or a buffer containing the buffer
+     * @param auxIdx - The index to track if never found. -1 by default
+     * @param offset - The offset to use if vertexData is a buffer. 0 by default
+     */
     getAuxIdx(vertexData: Float32Array, auxIdx = -1, offset = 0): null | number {
         const byteOffset = vertexData.byteOffset + offset * 4;
         const hash = this.getHash(vertexData.buffer, byteOffset);
@@ -64,10 +75,17 @@ export default class VertexHasher {
         return null;
     }
 
+    /**
+     * Check if the vertex has ever been found.
+     *
+     * @param vertexData - The vertex, or a buffer containing the buffer
+     * @param offset - The offset to use if vertexData is a buffer. 0 by default
+     */
     isUnique(vertexData: Float32Array, offset = 0): boolean {
         return this.getAuxIdx(vertexData, -1, offset) === null;
     }
 
+    /** Clear the buckets; resets the hasher, but keeps the same floatCount. */
     clear() {
         this.buckets.clear();
     }

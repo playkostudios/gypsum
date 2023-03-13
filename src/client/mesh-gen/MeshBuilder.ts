@@ -86,15 +86,28 @@ function sortMaterials(materials: Iterable<Material | null>, materialMap: Map<nu
     });
 }
 
+/**
+ * Extra mesh attributes to pass to {@link MeshBuilder#addTriangle}, but without
+ * normals.
+ */
+export interface ExtraTriangleAttributesNoNormals {
+    uvs?: [uv0: Readonly<vec2>, uv1: Readonly<vec2>, uv2: Readonly<vec2>],
+    tangents?: [tangent0: Readonly<vec4>, tangent1: Readonly<vec4>, tangent2: Readonly<vec4>],
+    colors?: [color0: Readonly<vec4>, color1: Readonly<vec4>, color2: Readonly<vec4>],
+}
+
+/** Extra mesh attributes to pass to {@link MeshBuilder#addTriangle}. */
+export interface ExtraTriangleAttributes extends ExtraTriangleAttributesNoNormals {
+    normals?: [normal0: Readonly<vec3>, normal1: Readonly<vec3>, normal2: Readonly<vec3>],
+}
+
 // XXX this whole class could be optimised by having a
 // WL.Mesh.isAttributeAvailable API, and a pipeline API, so that we could choose
 // whether or not to generate normals and UVs, but there's nothing i can do
 // about it for now (the isAttributeAvailable feature could be hacked in, but
 // it's very ugly and i'd rather wait)
 
-/**
- * A helper class for easily creating meshes, with connected triangles.
- */
+/** A helper class for easily creating meshes, with connected triangles. */
 export class MeshBuilder {
     /**
      * The list of all triangles in this manifold. Note that this array might be
@@ -136,19 +149,25 @@ export class MeshBuilder {
     /**
      * Similar to {@link MeshBuilder#addTriangle}, but normals are not set
      * (kept as 0,0,0).
+     *
+     * @param extraAttributes: Extra mesh attributes to add to the triangle, but normals are ignored
      */
-    addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>): Triangle;
-    addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, uv0: Readonly<vec2>, uv1: Readonly<vec2>, uv2: Readonly<vec2>): Triangle;
-    addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, uv0?: Readonly<vec2>, uv1?: Readonly<vec2>, uv2?: Readonly<vec2>): Triangle {
+    addTriangleNoNormals(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, extraAttributes?: ExtraTriangleAttributesNoNormals): Triangle {
         const triangle = new Triangle();
-        triangle.setPosition(0, pos0);
-        triangle.setPosition(1, pos1);
-        triangle.setPosition(2, pos2);
+        triangle.setPositions(pos0, pos1, pos2);
 
-        if (uv0) {
-            triangle.setUV(0, uv0);
-            triangle.setUV(1, uv1 as vec2);
-            triangle.setUV(2, uv2 as vec2);
+        if (extraAttributes) {
+            if (extraAttributes.uvs) {
+                triangle.setUVs(extraAttributes.uvs[0], extraAttributes.uvs[1], extraAttributes.uvs[2]);
+            }
+
+            if (extraAttributes.tangents) {
+                triangle.setTangents(extraAttributes.tangents[0], extraAttributes.tangents[1], extraAttributes.tangents[2]);
+            }
+
+            if (extraAttributes.colors) {
+                triangle.setColors(extraAttributes.colors[0], extraAttributes.colors[1], extraAttributes.colors[2]);
+            }
         }
 
         triangle.helper = this.numTri;
@@ -159,49 +178,19 @@ export class MeshBuilder {
     /**
      * Pushes a new triangle to the end of the {@link MeshBuilder#triangles}
      * array. Helpers are set to their index on the triangles array.
+     *
+     * @param extraAttributes: Extra mesh attributes to add to the triangle
      */
-    addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>): Triangle;
-    addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, normal0: Readonly<vec3>, normal1: Readonly<vec3>, normal2: Readonly<vec3>): Triangle;
-    addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, uv0: Readonly<vec2>, uv1: Readonly<vec2>, uv2: Readonly<vec2>): Triangle;
-    addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, normal0: Readonly<vec3>, normal1: Readonly<vec3>, normal2: Readonly<vec3>, uv0: Readonly<vec2>, uv1: Readonly<vec2>, uv2: Readonly<vec2>): Triangle;
-    addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, uvNormal0?: Readonly<vec3> | Readonly<vec2>, uvNormal1?: Readonly<vec3> | Readonly<vec2>, uvNormal2?: Readonly<vec3> | Readonly<vec2>, uv0?: Readonly<vec2>, uv1?: Readonly<vec2>, uv2?: Readonly<vec2>): Triangle {
-        const triangle = new Triangle();
-        triangle.setPosition(0, pos0);
-        triangle.setPosition(1, pos1);
-        triangle.setPosition(2, pos2);
+    addTriangle(pos0: Readonly<vec3>, pos1: Readonly<vec3>, pos2: Readonly<vec3>, extraAttributes?: ExtraTriangleAttributes): Triangle {
+        const triangle = this.addTriangleNoNormals(pos0, pos1, pos2, extraAttributes);
 
-        let needsHardNormals = true;
-
-        if (uv0) {
-            needsHardNormals = false;
-            triangle.setNormal(0, uvNormal0 as vec3);
-            triangle.setNormal(1, uvNormal1 as vec3);
-            triangle.setNormal(2, uvNormal2 as vec3);
-            triangle.setUV(0, uv0);
-            triangle.setUV(1, uv1 as vec2);
-            triangle.setUV(2, uv2 as vec2);
-        } else if (uvNormal0) {
-            if (uvNormal0.length === 2) {
-                triangle.setUV(0, uvNormal0);
-                triangle.setUV(1, uvNormal1 as vec2);
-                triangle.setUV(2, uvNormal2 as vec2);
-            } else {
-                needsHardNormals = false;
-                triangle.setNormal(0, uvNormal0 as vec3);
-                triangle.setNormal(1, uvNormal1 as vec3);
-                triangle.setNormal(2, uvNormal2 as vec3);
-            }
-        }
-
-        if (needsHardNormals) {
+        if (extraAttributes && extraAttributes.normals) {
+            triangle.setNormals(extraAttributes.normals[0], extraAttributes.normals[1], extraAttributes.normals[2]);
+        } else {
             const temp = normalFromTriangle(pos0, pos1, pos2);
-            triangle.setNormal(0, temp);
-            triangle.setNormal(1, temp);
-            triangle.setNormal(2, temp);
+            triangle.setNormals(temp, temp, temp);
         }
 
-        triangle.helper = this.numTri;
-        this.triangles.push(triangle);
         return triangle;
     }
 
@@ -215,7 +204,17 @@ export class MeshBuilder {
      * edges; new triangles will not be connected to triangles already present
      * in the builder.
      *
-     * @param addTangents True by default. If true, then vertex tangents will be generated for each triangle. Tangents point from left to right, and have a w component of 1.
+     * @param tlPos - Top-left quad position.
+     * @param trPos - Top-right quad position.
+     * @param blPos - Bottom-left quad position.
+     * @param brPos - Bottom-right quad position.
+     * @param materialID - The material to use for the quad, as a numeric ID.
+     * @param addTangents - True by default. If true, then vertex tangents will be generated for each triangle. Tangents point from left to right, and have a w component of 1.
+     * @param subDivisions - The amount of horizontal and vertical subdivisions to use. 1 by default (only one square). If there are 2 sub-divisions there will be 4 squares, 3 sub-divisions there will be 9 squares, etc...
+     * @param tlUV - Top-left quad texture coordinate.
+     * @param trUV - Top-right quad texture coordinate.
+     * @param blUV - Bottom-left quad texture coordinate.
+     * @param brUV - Bottom-right quad texture coordinate.
      */
     addSubdivQuad(tlPos: vec3, trPos: vec3, blPos: vec3, brPos: vec3, materialID: number, addTangents = true, subDivisions = 1, tlUV?: vec2, trUV?: vec2, blUV?: vec2, brUV?: vec2): void {
         const subDivisionsP1 = subDivisions + 1;
@@ -305,8 +304,10 @@ export class MeshBuilder {
                 const o01 = o00 + subDivisionsP1;
                 const o11 = o01 + 1;
 
-                const tlTri = this.addTriangle(positions[o00], positions[o01], positions[o10], normal, normal, normal);
-                const brTri = this.addTriangle(positions[o10], positions[o01], positions[o11], normal, normal, normal);
+                const tlTri = this.addTriangle(positions[o00], positions[o01], positions[o10]);
+                tlTri.setNormals(normal, normal, normal);
+                const brTri = this.addTriangle(positions[o10], positions[o01], positions[o11]);
+                brTri.setNormals(normal, normal, normal);
                 tlTri.materialID = materialID;
                 brTri.materialID = materialID;
 
@@ -368,10 +369,20 @@ export class MeshBuilder {
      * Similar to {@link addSubdivQuad}, but also records edges and triangles to
      * given lists so that they can be used with {@link autoConnectEdges}.
      *
-     * @param edgeList The list of edges that will be connected to the list of triangles. Edges will be appended to this list if the edgeMask is set to a non-zero value.
-     * @param connectableTriangles The list of triangles that will be connected to the list of edges. Triangles will be appended to this list if the connectableTriMask is set to a non-zero value.
-     * @param edgeMask A 4-bit bitmask with the edges that will be added to the list of edges. The bits, from most significant to least significant, are: left edge, right edge, top edge, bottom edge.
-     * @param connectableTriMask A 4-bit bitmask with the triangles that will be added to the list of connectable triangles. The bits, from most significant to least significant, are: left edge triangles, right edge triangles, top edge triangles, bottom edge triangles.
+     * @param edgeList - The list of edges that will be connected to the list of triangles. Edges will be appended to this list if the edgeMask is set to a non-zero value.
+     * @param connectableTriangles - The list of triangles that will be connected to the list of edges. Triangles will be appended to this list if the connectableTriMask is set to a non-zero value.
+     * @param edgeMask - A 4-bit bitmask with the edges that will be added to the list of edges. The bits, from most significant to least significant, are: left edge, right edge, top edge, bottom edge.
+     * @param connectableTriMask - A 4-bit bitmask with the triangles that will be added to the list of connectable triangles. The bits, from most significant to least significant, are: left edge triangles, right edge triangles, top edge triangles, bottom edge triangles.
+     * @param tlPos - Top-left quad position.
+     * @param trPos - Top-right quad position.
+     * @param blPos - Bottom-left quad position.
+     * @param brPos - Bottom-right quad position.
+     * @param materialID - The material to use for the quad, as a numeric ID.
+     * @param addTangents True by default. If true, then vertex tangents will be generated for each triangle. Tangents point from left to right, and have a w component of 1.
+     * @param tlUV - Top-left quad texture coordinate.
+     * @param trUV - Top-right quad texture coordinate.
+     * @param blUV - Bottom-left quad texture coordinate.
+     * @param brUV - Bottom-right quad texture coordinate.
      */
     addSubdivQuadWithEdges(edgeList: EdgeList, connectableTriangles: Array<Triangle>, edgeMask: number, connectableTriMask: number, tlPos: vec3, trPos: vec3, blPos: vec3, brPos: vec3, materialID: number, addTangents = true, subDivisions = 1, tlUV?: vec2, trUV?: vec2, blUV?: vec2, brUV?: vec2): void {
         if ((edgeMask & connectableTriMask) > 0) {
@@ -497,6 +508,7 @@ export class MeshBuilder {
         }
     }
 
+    /** Internal function. Creates a submesh */
     private finalizeSubmesh(material: Material | null, triangles: Array<Triangle>, timOffset: number, triIdxMap: Uint32Array | null, totalVertexCount: number, indexRangeList: IndexRangeList): [submesh: Submesh, totalVertexCount: number] {
         // make index and vertex data in advance
         const triCount = triangles.length;
@@ -603,7 +615,7 @@ export class MeshBuilder {
     /**
      * Check if all triangles in the MeshBuilder are connected to each-other.
      *
-     * @return True if all triangles are conencted.
+     * @return True if all triangles are connected.
      */
     get isConnected(): boolean {
         const visited = new BitArray(this.numTri);
@@ -850,6 +862,7 @@ export class MeshBuilder {
         }
     }
 
+    /** Internal method. Makes smooth vertex normals given helper values. */
     private smoothenVertexNormal(hardNormals: Array<vec3>, surfaceAreas: Array<number>, dotThreshold: number, triangle: Triangle, vertexIdx: number, mergeTangents: boolean) {
         // don't do anything if normal is already set
         if (triangle.hasNormals(vertexIdx)) {

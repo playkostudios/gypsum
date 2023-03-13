@@ -157,9 +157,12 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
                     // need to be replaced by smoothing) will have to be used.
                     // maybe <vec3>[NaN, NaN, NaN]?
                     const triNorm = normalFromTriangle(apexPos, a, b, vec3.create());
-                    tri = builder.addTriangle(apexPos, a, b, triNorm, ZERO_NORM, ZERO_NORM, apexTexCoords, aUV, bUV);
+                    tri = builder.addTriangle(apexPos, a, b);
+                    tri.setNormals(triNorm, ZERO_NORM, ZERO_NORM);
+                    tri.setUVs(apexTexCoords, aUV, bUV);
                 } else {
-                    tri = builder.addTriangle(apexPos, a, b, apexTexCoords, aUV, bUV);
+                    tri = builder.addTriangle(apexPos, a, b);
+                    tri.setUVs(apexTexCoords, aUV, bUV);
                 }
 
                 tri.autoSetTangents(1);
@@ -199,14 +202,10 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
                 const bIdx = triangulatedBase[i++];
                 const cIdx = triangulatedBase[i++];
 
-                const baseTri = builder.addTriangle(
-                    basePos[aIdx], basePos[bIdx], basePos[cIdx],
-                    baseNormal, baseNormal, baseNormal,
-                    baseUVs[aIdx], baseUVs[bIdx], baseUVs[cIdx],
-                );
-                baseTri.setTangent(0, baseTangent);
-                baseTri.setTangent(1, baseTangent);
-                baseTri.setTangent(2, baseTangent);
+                const baseTri = builder.addTriangle(basePos[aIdx], basePos[bIdx], basePos[cIdx]);
+                baseTri.setNormals(baseNormal, baseNormal, baseNormal);
+                baseTri.setUVs(baseUVs[aIdx], baseUVs[bIdx], baseUVs[cIdx]);
+                baseTri.setTangents(baseTangent, baseTangent, baseTangent);
                 baseTri.materialID = 1;
 
                 baseTris.push(baseTri);

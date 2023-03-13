@@ -13,6 +13,7 @@ import type { PatchedMeshAttributeAccessor } from '../misc/PatchedMeshAttributeA
  * Note that skinning data is not cloned.
  *
  * @param oMesh - The original mesh to copy.
+ * @param engine - The Wonderland Engine instance to use for creating the mesh
  * @returns Returns a copy of the given mesh.
  */
 export function cloneMesh(oMesh: Mesh, engine: WonderlandEngine): Mesh {

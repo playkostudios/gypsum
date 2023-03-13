@@ -70,6 +70,7 @@ function addCubeFace(builder: MeshBuilder, edgeList: EdgeList, connectableTriang
  * 4: back
  * 5: front
  *
+ * @param engine - The Wonderland Engine instance to use this mesh for
  * @param subDivisions - The amount of sub-divisions per face. For example, 1 sub-division means that there are only 2 triangles per face, but 2 sub-divisions means that there are 8 triangles per face.
  * @param width - The width (X length) of the cuboid.
  * @param height - The height (Y length) of the cuboid.
