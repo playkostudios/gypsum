@@ -65,9 +65,9 @@ export function genInterlacedMergeMap(triangles: Array<Triangle>, vertexCount: n
                 }
 
                 // add to merge map
-                interlacedMergeMap.expandCapacity_guarded(interlacedMergeMap.length + 2);
-                interlacedMergeMap.pushBack_guarded(ovIdx);
-                interlacedMergeMap.pushBack_guarded(vIdx);
+                interlacedMergeMap.expandCapacity(interlacedMergeMap.length + 2);
+                interlacedMergeMap.pushBack(ovIdx);
+                interlacedMergeMap.pushBack(vIdx);
             }
         }
     }

@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig-base",
+  "compilerOptions": {
+    "lib": ["ESNext", "dom", "webworker"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "lib"]
+}

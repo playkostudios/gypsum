@@ -16,8 +16,8 @@ export function deinterlaceMergeMap(interlacedMergeMap: DynamicArray<Uint32Array
     const mergeToMap = new Uint32Array(mergeMapLen);
 
     for (let ii = 0, di = 0; di < mergeMapLen;) {
-        mergeFromMap[di] = interlacedMergeMap.get_guarded(ii++);
-        mergeToMap[di++] = interlacedMergeMap.get_guarded(ii++);
+        mergeFromMap[di] = interlacedMergeMap.get(ii++);
+        mergeToMap[di++] = interlacedMergeMap.get(ii++);
     }
 
     return [mergeFromMap, mergeToMap];

@@ -57,7 +57,7 @@ export type TypedArrayValue<T extends TypedArrayCtor> = MappedType<T, TypedArray
  * should only be used when your code is stable.
  */
 export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
-    private _length = 0;
+    protected _length = 0;
     /**
      * The actual typed array created by this dynamic array. If the dynamic
      * array has been invalidated, then this will be null.
@@ -89,31 +89,11 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
     }
 
     /**
-     * Similar to {@link DynamicArray#length} but guarded; will throw an error
-     * if the new length set is invalid, or the dynamic array has been
-     * invalidated.
-     */
-    setLength_guarded(newLength: number) {
-        this.assertPositiveIndex(newLength);
-        this.assertValid();
-        this.length = newLength;
-    }
-
-    /**
      * The current capacity of the dynamic array. Read-only; to expand the
      * dynamic array, call {@link DynamicArray#expandCapacity}.
      */
     get capacity(): number {
         return (this.array as TypedArray<TypedArrayCtorType>).length;
-    }
-
-    /**
-     * Similar to {@link DynamicArray#capacity} but guarded; will throw an error
-     * if the dynamic array has been invalidated.
-     */
-    getCapacity_guarded(): number {
-        this.assertValid();
-        return this.capacity;
     }
 
     private resizeCapacity(newCapacity: number) {
@@ -123,40 +103,9 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
         this.array.set(oldArray as unknown as (ArrayLike<number> & ArrayLike<bigint>));
     }
 
-    private assertValid() {
+    protected assertValid() {
         if (!this.array) {
             throw new Error('Assertion failed: array !== null');
-        }
-    }
-
-    private assertPositiveIndex(index: number) {
-        if (index < 0) {
-            throw new Error('Assertion failed: index >= 0');
-        }
-    }
-
-    private assertValidIndex(index: number) {
-        this.assertPositiveIndex(index);
-
-        if (index >= this._length) {
-            throw new Error('Assertion failed: index < this.length');
-        }
-    }
-
-    private assertValidRangeParam(index: number) {
-        if (index > this._length) {
-            throw new Error('Assertion failed: index <= this.length');
-        }
-    }
-
-    private assertValidPosRangeParam(index: number) {
-        this.assertPositiveIndex(index);
-        this.assertValidRangeParam(index);
-    }
-
-    private assertValidRangeOrder(startIndex: number, endIndex: number) {
-        if (startIndex > endIndex) {
-            throw new Error('Assertion failed: startIndex <= endIndex');
         }
     }
 
@@ -200,15 +149,6 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
     }
 
     /**
-     * Similar to {@link DynamicArray#expandCapacity} but guarded; will throw an
-     * error if the dynamic array has been invalidated.
-     */
-    expandCapacity_guarded(wantedLength: number) {
-        this.assertValid();
-        this.expandCapacity(wantedLength);
-    }
-
-    /**
      * Add an element to the end of the array. Increases the length by 1, but
      * does not expand the capacity to fit the new length, for optimisation
      * purposes. Make sure to call {@link DynamicArray#expandCapacity} before
@@ -217,31 +157,9 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
      * @param value - The value to push to the end of the array.
      */
     pushBack(value: TypedArrayValue<TypedArrayCtorType>) {
-        // XXX unlike pushBack_guarded, this doesn't expand the array. it
+        // XXX unlike the guarded pushBack, this doesn't expand the array. it
         // assumes that the array already has enough capacity
         (this.array as TypedArray<TypedArrayCtorType>)[this._length++] = value;
-    }
-
-    /**
-     * Similar to {@link DynamicArray#pushBack} but guarded; will throw an error
-     * if the dynamic array has been invalidated.
-     *
-     * Note that, unlike the unguarded version of this method, this guarded
-     * version DOES expand the capacity to fit the new length. When converting
-     * to the unguarded version, make sure to also call
-     * {@link DynamicArray#expandCapacity} to fit the new length.
-     */
-    pushBack_guarded(value: TypedArrayValue<TypedArrayCtorType>) {
-        this.assertValid();
-        const oldCapacity = this.capacity;
-        this.expandCapacity(this._length + 1);
-        const newCapacity = this.capacity;
-
-        if (oldCapacity !== newCapacity) {
-            console.warn('Guarded pushBack resulted in expanded capacity. Make sure to pre-allocate the needed capacity when switching to unguarded pushBack calls');
-        }
-
-        this.pushBack(value);
     }
 
     /**
@@ -254,16 +172,6 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
     }
 
     /**
-     * Similar to {@link DynamicArray#get} but guarded; will throw an error if
-     * the dynamic array has been invalidated, or the index is invalid.
-     */
-    get_guarded(index: number): TypedArrayValue<TypedArrayCtorType> {
-        this.assertValid();
-        this.assertValidIndex(index);
-        return this.get(index);
-    }
-
-    /**
      * Get the value at a given index to a given value.
      *
      * @param index - The index to set.
@@ -271,16 +179,6 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
      */
     set(index: number, value: TypedArrayValue<TypedArrayCtorType>): void {
         (this.array as TypedArray<TypedArrayCtorType>)[index] = value;
-    }
-
-    /**
-     * Similar to {@link DynamicArray#set} but guarded; will throw an error if
-     * the dynamic array has been invalidated, or the index is invalid.
-     */
-    set_guarded(index: number, value: TypedArrayValue<TypedArrayCtorType>): void {
-        this.assertValid();
-        this.assertValidIndex(index);
-        return this.set(index, value);
     }
 
     /**
@@ -295,19 +193,6 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
     }
 
     /**
-     * Similar to {@link DynamicArray#slice} but guarded; will throw an error if
-     * the dynamic array has been invalidated, or the indices in the range are
-     * invalid.
-     */
-    slice_guarded(startIndex: number, endIndex: number): TypedArray<TypedArrayCtorType> {
-        this.assertValid();
-        this.assertValidPosRangeParam(startIndex);
-        this.assertValidPosRangeParam(endIndex);
-        this.assertValidRangeOrder(startIndex, endIndex);
-        return this.slice(startIndex, endIndex);
-    }
-
-    /**
      * Calls TypedArray.set on the internal array; copies a given array of
      * values to a given offset.
      *
@@ -316,22 +201,6 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
      */
     copy(offset: number, values: ArrayLike<TypedArrayValue<TypedArrayCtorType>>): void {
         (this.array as TypedArray<TypedArrayCtorType>).set(values as (ArrayLike<number> & ArrayLike<bigint>), offset);
-    }
-
-    /**
-     * Similar to {@link DynamicArray#copy} but guarded; will throw an error if
-     * the dynamic array has been invalidated, or the offset can't fit the
-     * values array.
-     */
-    copy_guarded(offset: number, values: ArrayLike<TypedArrayValue<TypedArrayCtorType>>): void {
-        this.assertValid();
-
-        const valLen = values.length;
-        if (valLen > 0) {
-            this.assertValidIndex(offset + valLen - 1);
-        }
-
-        this.copy(offset, values);
     }
 
     /**
@@ -358,23 +227,6 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
         (this.array as Float32Array).fill(fillValue as number, startIndex, endIndex);
     }
 
-    /**
-     * Similar to {@link DynamicArray#fill} but guarded; will throw an error if
-     * the dynamic array has been invalidated, or the indices aren't valid.
-     */
-    fill_guarded(fillValue: TypedArrayValue<TypedArrayCtorType>, startIndex?: number, endIndex?: number): void {
-        this.assertValid();
-
-        if (startIndex !== undefined) {
-            this.assertValidRangeParam(startIndex);
-        }
-        if (endIndex !== undefined) {
-            this.assertValidRangeParam(endIndex);
-        }
-
-        this.fill(fillValue, startIndex, endIndex);
-    }
-
     /** Get the index of a value in the array, or -1 if not found. */
     indexOf(value: TypedArrayValue<TypedArrayCtorType>, fromIndex?: number): number {
         // XXX type inference fails here, pretend array is a float32array
@@ -385,20 +237,6 @@ export class DynamicArray<TypedArrayCtorType extends TypedArrayCtor> {
         } else {
             return index;
         }
-    }
-
-    /**
-     * Similar to {@link DynamicArray#indexOf} but guarded; will throw an error
-     * if the dynamic array has been invalidated, or fromIndex isn't valid.
-     */
-    indexOf_guarded(value: TypedArrayValue<TypedArrayCtorType>, fromIndex?: number): number {
-        this.assertValid();
-
-        if (fromIndex !== undefined) {
-            this.assertValidIndex(fromIndex);
-        }
-
-        return this.indexOf(value, fromIndex);
     }
 
     /**

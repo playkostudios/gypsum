@@ -465,12 +465,12 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
 
                 for (let i = 0; i < runLength; i++) {
                     const iManif = triVerts[runStart + i];
-                    let newIndex = vertexOffsetMap.indexOf_guarded(iManif);
+                    let newIndex = vertexOffsetMap.indexOf(iManif);
 
                     if (newIndex < 0) {
                         newIndex = vertexOffsetMap.length;
-                        vertexOffsetMap.expandCapacity_guarded(newIndex + 1);
-                        vertexOffsetMap.pushBack_guarded(iManif);
+                        vertexOffsetMap.expandCapacity(newIndex + 1);
+                        vertexOffsetMap.pushBack(iManif);
                     }
 
                     indices[i] = newIndex;
@@ -485,7 +485,7 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                 // deinterlace position
                 const positions = new Float32Array(vertexCount * 3);
                 for (let i = 0, o = 0; i < vertexCount; i++) {
-                    let iManif = vertexOffsetMap.get_guarded(i) * outNumProp;
+                    let iManif = vertexOffsetMap.get(i) * outNumProp;
                     positions[o++] = vertProperties[iManif++];
                     positions[o++] = vertProperties[iManif++];
                     positions[o++] = vertProperties[iManif];
@@ -527,14 +527,14 @@ function evaluateOpTree(manifoldModule: ManifoldStatic, tree: WorkerOperation, t
                     // to manually apply rotations
                     if (tangentTransform) {
                         for (let i = 0, o = 0; i < vertexCount; i++, o += 4) {
-                            const iManif = vertexOffsetMap.get_guarded(i) * outNumProp + attrOffset;
+                            const iManif = vertexOffsetMap.get(i) * outNumProp + attrOffset;
                             const tangent = vertProperties.slice(iManif, iManif + 4);
                             vec3.transformMat3(tangent, tangent, tangentTransform);
                             attrArray.set(tangent, o);
                         }
                     } else {
                         for (let i = 0, o = 0; i < vertexCount; i++) {
-                            let iManif = vertexOffsetMap.get_guarded(i) * outNumProp + attrOffset;
+                            let iManif = vertexOffsetMap.get(i) * outNumProp + attrOffset;
                             for (let j = 0; j < attrCompSize; j++) {
                                 attrArray[o++] = vertProperties[iManif++];
                             }

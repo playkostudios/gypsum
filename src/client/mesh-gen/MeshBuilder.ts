@@ -535,24 +535,24 @@ export class MeshBuilder {
                 const auxIdx = hasher.getAuxIdx(triangle.vertexData, nextIdx, offset);
                 if (auxIdx === null) {
                     const posBufLen = positions.length;
-                    positions.setLength_guarded(posBufLen + 3);
-                    positions.copy_guarded(posBufLen, triangle.getPosition(i));
+                    positions.length = posBufLen + 3;
+                    positions.copy(posBufLen, triangle.getPosition(i));
 
                     const normBufLen = normals.length;
-                    normals.setLength_guarded(normBufLen + 3);
-                    normals.copy_guarded(normBufLen, triangle.getNormal(i));
+                    normals.length = normBufLen + 3;
+                    normals.copy(normBufLen, triangle.getNormal(i));
 
                     const uvBufLen = texCoords.length;
-                    texCoords.setLength_guarded(uvBufLen + 2);
-                    texCoords.copy_guarded(uvBufLen, triangle.getUV(i));
+                    texCoords.length = uvBufLen + 2;
+                    texCoords.copy(uvBufLen, triangle.getUV(i));
 
                     const tanBufLen = tangents.length;
-                    tangents.setLength_guarded(tanBufLen + 4);
-                    tangents.copy_guarded(tanBufLen, triangle.getTangent(i));
+                    tangents.length = tanBufLen + 4;
+                    tangents.copy(tanBufLen, triangle.getTangent(i));
 
                     const colBufLen = colors.length;
-                    colors.setLength_guarded(colBufLen + 4);
-                    colors.copy_guarded(colBufLen, triangle.getColor(i));
+                    colors.length = colBufLen + 4;
+                    colors.copy(colBufLen, triangle.getColor(i));
 
                     indexData[iOffset++] = nextIdx++;
                 } else {
