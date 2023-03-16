@@ -382,7 +382,7 @@ export class MeshBuilder {
      * @param blPos - Bottom-left quad position.
      * @param brPos - Bottom-right quad position.
      * @param materialID - The material to use for the quad, as a numeric ID.
-     * @param addTangents True by default. If true, then vertex tangents will be generated for each triangle. Tangents point from left to right, and have a w component of 1.
+     * @param addTangents - True by default. If true, then vertex tangents will be generated for each triangle. Tangents point from left to right, and have a w component of 1.
      * @param tlUV - Top-left quad texture coordinate.
      * @param trUV - Top-right quad texture coordinate.
      * @param blUV - Bottom-left quad texture coordinate.
