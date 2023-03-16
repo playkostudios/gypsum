@@ -2,6 +2,7 @@ import { makeCuboidBuilder } from './mesh-gen/make-cuboid-builder';
 import { MeshGroup } from './MeshGroup';
 import { vec3 } from 'gl-matrix';
 import { makeCuboidMaterialMap } from './mesh-gen/make-cuboid-material-map';
+import { filterHintMap } from './filter-hintmap';
 
 import type { CuboidFaceUVPosRatio, CuboidFaceUVs } from './mesh-gen/make-cuboid-builder';
 import type { RadialOptions } from './RadialOptions';
@@ -97,11 +98,15 @@ export class CubeSphereMesh extends MeshGroup {
             builder.makeEquirectUVs();
         }
 
-        super(...builder.finalize(makeCuboidMaterialMap(
-            options?.material,
-            options?.leftMaterial, options?.rightMaterial,
-            options?.downMaterial, options?.upMaterial,
-            options?.backMaterial, options?.frontMaterial,
-        )));
+        const hints = filterHintMap(true, true, true, false, options?.hints);
+        super(...builder.finalize(
+            makeCuboidMaterialMap(
+                options?.material,
+                options?.leftMaterial, options?.rightMaterial,
+                options?.downMaterial, options?.upMaterial,
+                options?.backMaterial, options?.frontMaterial,
+            ),
+            hints
+        ));
     }
 }

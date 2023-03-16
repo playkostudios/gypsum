@@ -14,6 +14,7 @@ import type { MergeMap } from '../common/MergeMap';
 import type { Material } from '@wonderlandengine/api';
 import type { WonderlandEngine } from '../common/backport-shim';
 import type { PatchedMeshAttributeAccessor } from './misc/PatchedMeshAttributeAccessor';
+import type { Hint } from '../common/Hint';
 
 /**
  * Maps a manifold triangle index to a WLE submesh index. The format is:
@@ -36,7 +37,7 @@ export type SubmeshMap = Uint8Array | Uint16Array | Uint32Array;
  * including mesh attributes that are potentially not used, since the available
  * attributes are dictated by the existing pipelines, not by each mesh.
  */
-export type Submesh = [mesh: Mesh, material: Material | null, extraAttributesHint?: Set<AllowedExtraMeshAttribute>];
+export type Submesh = [mesh: Mesh, material: Material | null, extraAttributesHint?: Hint];
 
 /**
  * A helper class which acts as a single mesh, but contains a list of submeshes,
@@ -175,7 +176,7 @@ export class MeshGroup {
         if (!this.premadeMergeMap) {
             const submeshCount = this.submeshes.length;
             const wleMeshes = new Array<Mesh>(submeshCount);
-            const hints = new Array<Set<AllowedExtraMeshAttribute> | undefined>(submeshCount);
+            const hints = new Array<Hint | undefined>(submeshCount);
 
             let i = 0;
             for (const [wleMesh, _material, hint] of this.submeshes) {

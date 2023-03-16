@@ -5,19 +5,21 @@ import { MeshBuilder } from './mesh-gen/MeshBuilder';
 import { Triangle } from './mesh-gen/Triangle';
 import { autoConnectAllEdges } from './mesh-gen/auto-connect-all-edges';
 import { autoConnectEdges } from './mesh-gen/auto-connect-edges';
+import { filterHintMap } from './filter-hintmap';
 
 import type { CurveFrames } from './curves/curve-frame';
 import type { Vec3 } from 'manifold-3d';
 import type { EdgeList } from './mesh-gen/EdgeList';
 import type { Material } from '@wonderlandengine/api';
 import type { WonderlandEngine } from '../common/backport-shim';
+import type { HintOptions } from './HintOptions';
 
 const RIGHT = vec3.fromValues(1, 0, 0);
 
 /**
  * Optional material arguments for an extrusion.
  */
-export interface ExtrusionMaterialOptions {
+export interface ExtrusionMaterialOptions extends HintOptions {
     /** The material used for the starting base of the extrusion. */
     startMaterial?: Material | null;
     /** The material used for the end base of the extrusion. */
@@ -384,6 +386,7 @@ export class ExtrusionMesh extends MeshGroup {
             [2, options?.endMaterial ?? null],
         ]);
 
-        super(...builder.finalize(materialMap));
+        const hints = filterHintMap(true, true, true, false, options?.hints);
+        super(...builder.finalize(materialMap, hints));
     }
 }

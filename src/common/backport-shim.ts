@@ -6,6 +6,5 @@ export interface WonderlandEngine {
 }
 
 export function newShim_Mesh(engine: WonderlandEngine, params: Partial<MeshParameters>) {
-    console.debug(params);
     return new engine.Mesh(params);
 }

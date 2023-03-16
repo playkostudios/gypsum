@@ -1,12 +1,14 @@
 import { makeCuboidBuilder } from './mesh-gen/make-cuboid-builder';
 import { MeshGroup } from './MeshGroup';
 import { makeCuboidMaterialMap } from './mesh-gen/make-cuboid-material-map';
+import { filterHintMap } from './filter-hintmap';
 
 import type { CuboidFaceUVs, CuboidFaceUVPosRatio } from './mesh-gen/make-cuboid-builder';
 import type { Material } from '@wonderlandengine/api';
 import type { WonderlandEngine } from '../common/backport-shim';
+import type { HintOptions } from './HintOptions';
 
-export interface CuboidMaterialOptions {
+export interface CuboidMaterialOptions extends HintOptions {
     /**
      * The material to use for all of the cube faces, or the cube faces that
      * weren't specified.
@@ -63,15 +65,20 @@ export class RectangularCuboidMesh extends MeshGroup {
      * @param options - Optional arguments for the cuboid generation.
      */
     constructor(engine: WonderlandEngine, width: number, height: number, depth: number, options?: CuboidOptions) {
+        const hints = filterHintMap(true, true, true, false, options?.hints);
+
         super(...makeCuboidBuilder(
             engine, 1, width, height, depth, options?.center ?? true, true,
             options?.leftUVs, options?.rightUVs, options?.downUVs,
             options?.upUVs, options?.backUVs, options?.frontUVs,
-        ).finalize(makeCuboidMaterialMap(
-            options?.material,
-            options?.leftMaterial, options?.rightMaterial,
-            options?.downMaterial, options?.upMaterial,
-            options?.backMaterial, options?.frontMaterial,
-        )));
+        ).finalize(
+            makeCuboidMaterialMap(
+                options?.material,
+                options?.leftMaterial, options?.rightMaterial,
+                options?.downMaterial, options?.upMaterial,
+                options?.backMaterial, options?.frontMaterial,
+            ),
+            hints,
+        ));
     }
 }

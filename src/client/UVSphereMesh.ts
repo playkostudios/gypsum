@@ -1,5 +1,6 @@
 import { makeCuboidBuilder } from './mesh-gen/make-cuboid-builder';
 import { MeshGroup } from './MeshGroup';
+import { filterHintMap } from './filter-hintmap';
 
 import type { RadialOptions } from './RadialOptions';
 import type { vec2 } from 'gl-matrix';
@@ -32,6 +33,7 @@ export class UVSphereMesh extends MeshGroup {
         const subDivs = options?.subDivisions ?? 12;
         const radius = options?.radius ?? 0.5;
         const diameter = radius * 2;
+        const hints = filterHintMap(true, true, true, false, options?.hints);
 
         const builder = makeCuboidBuilder(
             engine, subDivs, diameter, diameter, diameter, true, false,
@@ -47,6 +49,6 @@ export class UVSphereMesh extends MeshGroup {
             materialMap.set(i, material);
         }
 
-        super(...builder.finalize(materialMap));
+        super(...builder.finalize(materialMap, hints));
     }
 }

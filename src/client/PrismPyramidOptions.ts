@@ -1,5 +1,4 @@
-import { SmoothNormalsOptions } from './SmoothNormalsOptions';
-
+import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
 import type { Material } from '@wonderlandengine/api';
 
 /** Optional arguments for prism/pyramid generation. */

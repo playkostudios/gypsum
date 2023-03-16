@@ -1,6 +1,7 @@
 import { makeIcosahedronMaterialMap } from './mesh-gen/make-icosahedron-material-map';
 import { makeIcosahedronBuilder } from './mesh-gen/make-icosahedron-builder';
 import { MeshGroup } from './MeshGroup';
+import { filterHintMap } from './filter-hintmap';
 
 import type { Tuple } from './misc/Tuple';
 import type { NumRange } from './misc/NumRange';
@@ -57,6 +58,7 @@ export class IcosphereMesh extends MeshGroup {
         builder.uniformScale(options?.radius ?? 0.5);
 
         // convert
-        super(...builder.finalize(makeIcosahedronMaterialMap(options?.faceMaterials)));
+        const hints = filterHintMap(true, true, true, false, options?.hints);
+        super(...builder.finalize(makeIcosahedronMaterialMap(options?.faceMaterials), hints));
     }
 }

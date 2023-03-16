@@ -4,13 +4,14 @@ import { Triangle, VERTEX_STRIDE, VERTEX_TOTAL } from './Triangle';
 import { vec2, vec3, mat4, mat3, vec4 } from 'gl-matrix';
 import VertexHasher from './VertexHasher';
 import { normalFromTriangle } from './normal-from-triangle';
-import { makeIndexBuffer } from '../../client';
+import { makeIndexBuffer } from '../../common/makeIndexBuffer';
 import { genInterlacedMergeMap, IndexRangeList } from './gen-interlaced-merge-map';
 import { deinterlaceMergeMap } from './deinterlace-merge-map';
 import { autoConnectAllEdges } from './auto-connect-all-edges';
 import { Mesh, MeshAttribute } from '@wonderlandengine/api';
 import { optimizeIndexData } from '../../common/optimize-index-data';
 import { newShim_Mesh } from '../../common/backport-shim';
+import { getHintAttributeFromSet } from './get-hint-attribute';
 
 import type { Submesh } from '../MeshGroup';
 import type { quat } from 'gl-matrix';
@@ -18,10 +19,13 @@ import type { MergeMap } from '../../common/MergeMap';
 import type { EdgeList } from './EdgeList';
 import type { Material } from '@wonderlandengine/api';
 import type { WonderlandEngine } from '../../common/backport-shim';
+import type { Hint } from '../../common/Hint';
+import type { HintMap } from '../../common/HintMap';
 
 const MAT3_IDENTITY = mat3.create();
 const MAT4_IDENTITY = mat4.create();
 const TAU_INV = 1 / (Math.PI * 2);
+const DEFAULT_HINT: Hint = new Set([MeshAttribute.Tangent, MeshAttribute.Normal, MeshAttribute.TextureCoordinate, MeshAttribute.Color]);
 
 function getVertexMid(a: Float32Array, b: Float32Array): Float32Array {
     const result = new Float32Array(VERTEX_STRIDE);
@@ -509,17 +513,18 @@ export class MeshBuilder {
     }
 
     /** Internal function. Creates a submesh */
-    private finalizeSubmesh(material: Material | null, triangles: Array<Triangle>, timOffset: number, triIdxMap: Uint32Array | null, totalVertexCount: number, indexRangeList: IndexRangeList): [submesh: Submesh, totalVertexCount: number] {
+    private finalizeSubmesh(material: Material | null, hint: Hint, failOnMissing: boolean, triangles: Array<Triangle>, timOffset: number, triIdxMap: Uint32Array | null, totalVertexCount: number, indexRangeList: IndexRangeList): [submesh: Submesh, totalVertexCount: number] {
         // make index and vertex data in advance
         const triCount = triangles.length;
-        // XXX this assumes the worst case; that no vertices are merged
+        // XXX this assumes the worst case; that no vertices are merged. index
+        //     buffer is optimized later
         const indexCount = triCount * 3;
         let [indexData, indexType] = makeIndexBuffer(indexCount, indexCount);
         const positions = new DynamicArray(Float32Array);
-        const normals = new DynamicArray(Float32Array);
-        const texCoords = new DynamicArray(Float32Array);
-        const tangents = new DynamicArray(Float32Array);
-        const colors = new DynamicArray(Float32Array);
+        const normals = hint.has(MeshAttribute.Normal) ? new DynamicArray(Float32Array) : null;
+        const texCoords = hint.has(MeshAttribute.TextureCoordinate) ? new DynamicArray(Float32Array) : null;
+        const tangents = hint.has(MeshAttribute.Tangent) ? new DynamicArray(Float32Array) : null;
+        const colors = hint.has(MeshAttribute.Color) ? new DynamicArray(Float32Array) : null;
 
         const hasher = new VertexHasher(VERTEX_STRIDE);
         let nextIdx = 0;
@@ -538,21 +543,29 @@ export class MeshBuilder {
                     positions.length = posBufLen + 3;
                     positions.copy(posBufLen, triangle.getPosition(i));
 
-                    const normBufLen = normals.length;
-                    normals.length = normBufLen + 3;
-                    normals.copy(normBufLen, triangle.getNormal(i));
+                    if (normals) {
+                        const normBufLen = normals.length;
+                        normals.length = normBufLen + 3;
+                        normals.copy(normBufLen, triangle.getNormal(i));
+                    }
 
-                    const uvBufLen = texCoords.length;
-                    texCoords.length = uvBufLen + 2;
-                    texCoords.copy(uvBufLen, triangle.getUV(i));
+                    if (texCoords) {
+                        const uvBufLen = texCoords.length;
+                        texCoords.length = uvBufLen + 2;
+                        texCoords.copy(uvBufLen, triangle.getUV(i));
+                    }
 
-                    const tanBufLen = tangents.length;
-                    tangents.length = tanBufLen + 4;
-                    tangents.copy(tanBufLen, triangle.getTangent(i));
+                    if (tangents) {
+                        const tanBufLen = tangents.length;
+                        tangents.length = tanBufLen + 4;
+                        tangents.copy(tanBufLen, triangle.getTangent(i));
+                    }
 
-                    const colBufLen = colors.length;
-                    colors.length = colBufLen + 4;
-                    colors.copy(colBufLen, triangle.getColor(i));
+                    if (colors) {
+                        const colBufLen = colors.length;
+                        colors.length = colBufLen + 4;
+                        colors.copy(colBufLen, triangle.getColor(i));
+                    }
 
                     indexData[iOffset++] = nextIdx++;
                 } else {
@@ -585,24 +598,28 @@ export class MeshBuilder {
             }
             positionsAttr.set(0, positions.finalize());
 
-            const normalsAttr = mesh.attribute(MeshAttribute.Normal);
+            const normalsAttr = getHintAttributeFromSet(mesh, hint, MeshAttribute.Normal, failOnMissing);
             if (normalsAttr) {
-                normalsAttr.set(0, normals.finalize());
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                normalsAttr.set(0, normals!.finalize());
             }
 
-            const texCoordsAttr = mesh.attribute(MeshAttribute.TextureCoordinate);
+            const texCoordsAttr = getHintAttributeFromSet(mesh, hint, MeshAttribute.TextureCoordinate, failOnMissing);
             if (texCoordsAttr) {
-                texCoordsAttr.set(0, texCoords.finalize());
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                texCoordsAttr.set(0, texCoords!.finalize());
             }
 
-            const tangentsAttr = mesh.attribute(MeshAttribute.Tangent);
+            const tangentsAttr = getHintAttributeFromSet(mesh, hint, MeshAttribute.Tangent, failOnMissing);
             if (tangentsAttr) {
-                tangentsAttr.set(0, tangents.finalize());
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                tangentsAttr.set(0, tangents!.finalize());
             }
 
-            const colorsAttr = mesh.attribute(MeshAttribute.Color);
+            const colorsAttr = getHintAttributeFromSet(mesh, hint, MeshAttribute.Color, failOnMissing);
             if (colorsAttr) {
-                colorsAttr.set(0, colors.finalize());
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                colorsAttr.set(0, colors!.finalize());
             }
         } catch(e) {
             mesh.destroy();
@@ -656,15 +673,27 @@ export class MeshBuilder {
      * Output meshes are optimised by merging vertices with the same vertex
      * data, via indexing.
      *
-     * @param materialMap Maps each material index to a Wonderland Engine material. Triangles with different material will be put in separate meshes, but in the same manifold. A null material is equivalent to the material being missing in the material map. Materials missing from the material map will use null as the material so they can be replaced later with a fallback material.
-     * @param generateManifold True by default. If true, a manifold and a submesh map will also be generated, otherwise, these will be null. Note than if a manifold is generated, then the triangles must form a 2-manifold surface, but if a manifold is not generated, then even a triangle soup is supported.
+     * @param materialMap - Maps each material index to a Wonderland Engine material. Triangles with different material will be put in separate meshes, but in the same manifold. A null material is equivalent to the material being missing in the material map. Materials missing from the material map will use null as the material so they can be replaced later with a fallback material.
+     * @param hints - Maps a hint to a material. The null key represents the default hint. A hint decides which mesh attribute to generate.
+     * @param generateManifold - True by default. If true, a manifold and a submesh map will also be generated, otherwise, these will be null. Note than if a manifold is generated, then the triangles must form a 2-manifold surface, but if a manifold is not generated, then even a triangle soup is supported.
      */
-    finalize(materialMap: Map<number, Material | null>, generateManifold?: true): [ submeshes: Array<Submesh>, mergeMap: MergeMap ];
-    finalize(materialMap: Map<number, Material | null>, generateManifold: false): [ submeshes: Array<Submesh>, mergeMap: null ];
-    finalize(materialMap: Map<number, Material | null>, generateManifold = true): [ submeshes: Array<Submesh>, mergeMap: MergeMap | null ] {
+    finalize(materialMap: Map<number, Material | null>, hints: HintMap, generateManifold?: true): [ submeshes: Array<Submesh>, mergeMap: MergeMap ];
+    finalize(materialMap: Map<number, Material | null>, hints: HintMap, generateManifold: false): [ submeshes: Array<Submesh>, mergeMap: null ];
+    finalize(materialMap: Map<number, Material | null>, hints: HintMap, generateManifold = true): [ submeshes: Array<Submesh>, mergeMap: MergeMap | null ] {
         const triCount = this.triangles.length;
         const submeshes = new Array<Submesh>();
         const interlacedMergeMap = generateManifold ? new DynamicArray(Uint32Array) : null;
+
+        // get default hint
+        let defaultHintCrashes = false;
+        let defaultHint: Hint;
+
+        if (hints.has(null)) {
+            defaultHintCrashes = true;
+            defaultHint = hints.get(null) as Hint;
+        } else {
+            defaultHint = DEFAULT_HINT;
+        }
 
         // create submeshes (and merge map if wanted)
         try {
@@ -692,9 +721,19 @@ export class MeshBuilder {
             let timOffset = 0, vertexCount = 0;
 
             for (const material of sortedMaterials) {
+                // get hint for this material
+                let hintCrashes = true;
+                let hint: Hint | undefined = hints.get(material);
+
+                if (hint === undefined) {
+                    hintCrashes = defaultHintCrashes;
+                    hint = defaultHint;
+                }
+
+                // finalize submesh
                 const triangles = groupedTris.get(material) as Array<Triangle>;
                 let submesh: Submesh;
-                [submesh, vertexCount] = this.finalizeSubmesh(material, triangles, timOffset, maybeTriIdxMap, vertexCount, indexRangeList);
+                [submesh, vertexCount] = this.finalizeSubmesh(material, hint, hintCrashes, triangles, timOffset, maybeTriIdxMap, vertexCount, indexRangeList);
                 submeshes.push(submesh);
 
                 // XXX we know that the mesh has non-null indices... because we

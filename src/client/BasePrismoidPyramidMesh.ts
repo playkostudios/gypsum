@@ -7,11 +7,13 @@ import { MeshBuilder } from './mesh-gen/MeshBuilder';
 import { Triangle } from './mesh-gen/Triangle';
 import { autoConnectAllEdges } from './mesh-gen/auto-connect-all-edges';
 import { autoConnectEdges } from './mesh-gen/auto-connect-edges';
+import { filterHintMap } from './filter-hintmap';
 
 import type { CurveFrame } from '../client';
 import type { Material } from '@wonderlandengine/api';
 import type { WonderlandEngine } from '../common/backport-shim';
 import type { EdgeList } from './mesh-gen/EdgeList';
+import type { HintMap } from '../common/HintMap';
 
 const TAU = Math.PI * 2;
 const ZERO_NORM = vec3.create();
@@ -80,7 +82,7 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
      * @param baseMaterial - The WL.Material to use for the base triangles.
      * @param sideMaterial - The WL.Material to use fot the side triangles.
      */
-    constructor(engine: WonderlandEngine, polyline: Array<vec2>, bottomScale: number, topScale: number, bottomOffset: vec3, topOffset: vec3, smoothNormalMaxAngle: number | null, baseMaterial: Material | null = null, sideMaterial: Material | null = null) {
+    constructor(engine: WonderlandEngine, polyline: Array<vec2>, bottomScale: number, topScale: number, bottomOffset: vec3, topOffset: vec3, smoothNormalMaxAngle: number | null, hints?: HintMap, baseMaterial: Material | null = null, sideMaterial: Material | null = null) {
         // validate that there is at most one apex
         if (topScale === 0 && bottomScale === 0) {
             throw new Error('Only one of the scales can be 0');
@@ -223,10 +225,11 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
             autoConnectEdges(baseEdges, baseTris);
 
             // turn to mesh and manifold
+            const filteredHints = filterHintMap(true, true, true, false, hints);
             super(...builder.finalize(new Map([
                 [0, sideMaterial],
                 [1, baseMaterial],
-            ])));
+            ]), filteredHints));
         } else {
             // prismoid
             const rst: CurveFrame = [ [0, 0, 1], [1, 0, 0], [0, 1, 0] ];
@@ -248,6 +251,7 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
                     startMaterial: baseMaterial,
                     endMaterial: baseMaterial,
                     segmentMaterial: sideMaterial,
+                    hints,
                 },
             );
         }

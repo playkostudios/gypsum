@@ -1,16 +1,18 @@
 import { makeIcosahedronMaterialMap } from './mesh-gen/make-icosahedron-material-map';
 import { makeIcosahedronBuilder } from './mesh-gen/make-icosahedron-builder';
 import { MeshGroup } from './MeshGroup';
+import { filterHintMap } from './filter-hintmap';
 
 import type { Tuple } from './misc/Tuple';
 import type { NumRange } from './misc/NumRange';
 import type { Material } from '@wonderlandengine/api';
 import type { WonderlandEngine } from '../common/backport-shim';
+import type { HintOptions } from './HintOptions';
 
 /**
  * Optional arguments for a procedural icosahedron.
  */
-export interface IcosahedronOptions {
+export interface IcosahedronOptions extends HintOptions {
     /**
      * The material to use for each face. Can either be an array with 20
      * materials, or a single materials that is assigned to all faces.
@@ -40,6 +42,7 @@ export class IcosahedronMesh extends MeshGroup {
         builder.uniformScale(options?.radius ?? 0.5);
 
         // convert
-        super(...builder.finalize(makeIcosahedronMaterialMap(options?.faceMaterials)));
+        const hints = filterHintMap(true, true, true, false, options?.hints);
+        super(...builder.finalize(makeIcosahedronMaterialMap(options?.faceMaterials), hints));
     }
 }

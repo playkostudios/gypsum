@@ -5,7 +5,7 @@ import { Triangle } from './Triangle';
 import { DynamicArray } from '../../common/DynamicArray';
 import { getHintAttributeFromSet } from './get-hint-attribute';
 
-import type { AllowedExtraMeshAttribute } from '../../common/AllowedExtraMeshAttribute';
+import type { Hint } from '../../common/Hint';
 import type { Mesh, MeshAttributeAccessor } from '@wonderlandengine/api';
 import type { MergeMap } from '../../common/MergeMap';
 
@@ -18,7 +18,7 @@ import type { MergeMap } from '../../common/MergeMap';
  * @param wleMeshes - A Wonderland Engine mesh, or a list of Wonderland Engine meshes, to convert to a manifold
  * @returns Returns a tuple containing the submesh map, and a manifold. If genSubmeshMap is false, then the submesh map will be null.
  */
-export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Set<AllowedExtraMeshAttribute> | undefined>): MergeMap {
+export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Hint | undefined>): MergeMap {
     // make sure input is an array
     if (!Array.isArray(wleMeshes)) {
         wleMeshes = [wleMeshes];

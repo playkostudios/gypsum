@@ -2,6 +2,7 @@ import { MeshAttribute } from '@wonderlandengine/api';
 
 import type { Mesh, MeshAttributeAccessor } from '@wonderlandengine/api';
 import type { AllowedExtraMeshAttribute } from '../../common/AllowedExtraMeshAttribute';
+import type { Hint } from '../../common/Hint';
 
 /**
  * Get a mesh attribute from a given mesh. If the attribute is missing and
@@ -42,9 +43,9 @@ export function getHintAttribute(mesh: Mesh, attribute: AllowedExtraMeshAttribut
  * @param hint - The set of attributes to check against. If the attribute is not in the set, null is returned
  * @param attribute - The mesh attribute type
  */
-export function getHintAttributeFromSet(mesh: Mesh, hint: Set<AllowedExtraMeshAttribute>, attribute: AllowedExtraMeshAttribute): MeshAttributeAccessor | null {
+export function getHintAttributeFromSet(mesh: Mesh, hint: Hint, attribute: AllowedExtraMeshAttribute, failOnMissing = true): MeshAttributeAccessor | null {
     if (hint.has(attribute)) {
-        return getHintAttribute(mesh, attribute);
+        return getHintAttribute(mesh, attribute, failOnMissing);
     } else {
         return null;
     }
