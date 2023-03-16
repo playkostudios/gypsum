@@ -27,6 +27,7 @@ export class CSGPool {
     private nextJobID = 0;
     private jobs = new Map<number, JobTuple>();
     private disposed = false;
+    private initLock: Array<CallableFunction> | null = null;
 
     /**
      * Create a new pool of workers. Workers will only be initialized on the
@@ -212,8 +213,30 @@ export class CSGPool {
             throw new Error('Cannot initialize a disposed CSGPool');
         }
 
+        if (this.initLock !== null) {
+            await new Promise<void>((resolve, _reject) => {
+                // XXX this may seem redundant, but there might be a data race
+                if (this.initLock === null) {
+                    resolve();
+                    return;
+                }
+
+                this.initLock.push(resolve);
+            });
+        }
+
         if (!this.workers) {
-            await this.initializeImpl();
+            this.initLock = [];
+
+            try {
+                await this.initializeImpl();
+            } finally {
+                for (const resolve of this.initLock) {
+                    resolve();
+                }
+
+                this.initLock = null;
+            }
         }
 
         if ((this.workers as WorkerArray).length === 0) {
