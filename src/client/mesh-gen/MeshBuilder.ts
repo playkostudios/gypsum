@@ -675,21 +675,20 @@ export class MeshBuilder {
      *
      * @param materialMap - Maps each material index to a Wonderland Engine material. Triangles with different material will be put in separate meshes, but in the same manifold. A null material is equivalent to the material being missing in the material map. Materials missing from the material map will use null as the material so they can be replaced later with a fallback material.
      * @param hints - Maps a hint to a material. The null key represents the default hint. A hint decides which mesh attribute to generate.
+     * @param failOnMissing - If this is true and a hinted mesh attribute fails to be gotten, an error will be thrown.
      * @param generateManifold - True by default. If true, a manifold and a submesh map will also be generated, otherwise, these will be null. Note than if a manifold is generated, then the triangles must form a 2-manifold surface, but if a manifold is not generated, then even a triangle soup is supported.
      */
-    finalize(materialMap: Map<number, Material | null>, hints: HintMap, generateManifold?: true): [ submeshes: Array<Submesh>, mergeMap: MergeMap ];
-    finalize(materialMap: Map<number, Material | null>, hints: HintMap, generateManifold: false): [ submeshes: Array<Submesh>, mergeMap: null ];
-    finalize(materialMap: Map<number, Material | null>, hints: HintMap, generateManifold = true): [ submeshes: Array<Submesh>, mergeMap: MergeMap | null ] {
+    finalize(materialMap: Map<number, Material | null>, hints: HintMap, failOnMissing?: boolean, generateManifold?: true): [ submeshes: Array<Submesh>, mergeMap: MergeMap ];
+    finalize(materialMap: Map<number, Material | null>, hints: HintMap, failOnMissing: boolean, generateManifold: false): [ submeshes: Array<Submesh>, mergeMap: null ];
+    finalize(materialMap: Map<number, Material | null>, hints: HintMap, failOnMissing = false, generateManifold = true): [ submeshes: Array<Submesh>, mergeMap: MergeMap | null ] {
         const triCount = this.triangles.length;
         const submeshes = new Array<Submesh>();
         const interlacedMergeMap = generateManifold ? new DynamicArray(Uint32Array) : null;
 
         // get default hint
-        let defaultHintCrashes = false;
         let defaultHint: Hint;
 
         if (hints.has(null)) {
-            defaultHintCrashes = true;
             defaultHint = hints.get(null) as Hint;
         } else {
             defaultHint = DEFAULT_HINT;
@@ -722,18 +721,12 @@ export class MeshBuilder {
 
             for (const material of sortedMaterials) {
                 // get hint for this material
-                let hintCrashes = true;
-                let hint: Hint | undefined = hints.get(material);
-
-                if (hint === undefined) {
-                    hintCrashes = defaultHintCrashes;
-                    hint = defaultHint;
-                }
+                const hint: Hint = hints.get(material) ?? defaultHint;
 
                 // finalize submesh
                 const triangles = groupedTris.get(material) as Array<Triangle>;
                 let submesh: Submesh;
-                [submesh, vertexCount] = this.finalizeSubmesh(material, hint, hintCrashes, triangles, timOffset, maybeTriIdxMap, vertexCount, indexRangeList);
+                [submesh, vertexCount] = this.finalizeSubmesh(material, hint, failOnMissing, triangles, timOffset, maybeTriIdxMap, vertexCount, indexRangeList);
                 submeshes.push(submesh);
 
                 // XXX we know that the mesh has non-null indices... because we
