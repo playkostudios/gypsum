@@ -1,5 +1,13 @@
 {
     "entryPoints": ["src/client.ts"],
     "out": "docs",
-    "tsconfig": "tsconfig-client.json"
+    "tsconfig": "tsconfig-client.json",
+    "intentionallyNotExported": [
+        "src/client/CSGPool.ts:JobTuple",
+        "src/client/CSGPool.ts:JobResult",
+        "src/client/CSGPool.ts:WorkerArray",
+        "src/client/CSGPool.ts:WorkerTuple",
+        "src/client/mesh-gen/gen-interlaced-merge-map.ts:IndexRangeList",
+        "src/common/EncodedMeshGroup.ts:EncodedMeshGroup"
+    ]
 }

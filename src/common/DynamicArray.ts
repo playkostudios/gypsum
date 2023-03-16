@@ -5,7 +5,7 @@ const LINEAR_CAP_GROWTH = 0x4000;
 const EXP_CAPS = [ START_CAP, 0x40, 0x80, 0x100, 0x200, 0x400, 0x800, 0x1000, 0x2000, 0x4000 ];
 const MAX_EXP_CAP = EXP_CAPS[EXP_CAPS.length - 1];
 
-interface TypedArrayRegistry {
+export interface TypedArrayRegistry {
     i8: [ Int8ArrayConstructor, Int8Array ],
     u8: [ Uint8ArrayConstructor, Uint8Array ],
     uc8: [ Uint8ClampedArrayConstructor, Uint8ClampedArray ],
@@ -19,7 +19,7 @@ interface TypedArrayRegistry {
     f64: [ Float64ArrayConstructor, Float64Array ],
 }
 
-interface TypedArrayValueRegistry {
+export interface TypedArrayValueRegistry {
     i8: [ Int8ArrayConstructor, number ],
     u8: [ Uint8ArrayConstructor, number ],
     uc8: [ Uint8ClampedArrayConstructor, number ],

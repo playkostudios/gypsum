@@ -54,6 +54,7 @@ export * from './client/TorusMesh';
 export * from './client/UVSphereMesh';
 
 export * from './common/AllowedExtraMeshAttribute';
+export { WonderlandEngine } from './common/backport-shim';
 export * from './common/CSGFinalOperation';
 export * from './common/CSGGeometricOperation';
 export * from './common/CSGOperation';
@@ -64,5 +65,6 @@ export * from './common/getComponentCount';
 export * from './common/Hint';
 export * from './common/HintMap';
 export * from './common/makeIndexBuffer';
+export * from './common/MappedType';
 export * from './common/MergeMap';
 export * from './common/optimize-index-data';
