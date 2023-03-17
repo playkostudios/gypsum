@@ -60,7 +60,7 @@ jobs:
 
   deploy-docs:
     if: startsWith(github.ref, 'refs/tags/releases/')
-    needs: generate-docs
+    needs: [build, test, generate-docs]
     permissions:
       pages: write
       id-token: write
