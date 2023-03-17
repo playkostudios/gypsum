@@ -73,6 +73,6 @@ export function genInterlacedMergeMap(triangles: Array<Triangle>, vertexCount: n
     }
 
     if (!visitedVertices.isAllSet()) {
-        throw new Error('Not all vertices were visited');
+        throw new Error('Not all vertices were visited. Maybe the input mesh is not manifold?');
     }
 }

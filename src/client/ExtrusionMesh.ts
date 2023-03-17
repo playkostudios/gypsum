@@ -357,6 +357,8 @@ export class ExtrusionMesh extends MeshGroup {
             // auto-connect bases
             const startBase = startBaseTris as Array<Triangle>;
             const endBase = endBaseTris as Array<Triangle>;
+            // TODO avoid auto-connecting this. make a triangulator that gives
+            //      you shared edges instead
             autoConnectAllEdges(startBase);
             autoConnectAllEdges(endBase);
 

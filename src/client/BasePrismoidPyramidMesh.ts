@@ -214,6 +214,8 @@ export class BasePrismoidPyramidMesh extends MeshGroup {
             }
 
             // auto-connect base triangles
+            // TODO avoid auto-connecting this. make a triangulator that gives
+            //      you shared edges instead
             autoConnectAllEdges(baseTris);
 
             // auto-connect edges between base and lateral

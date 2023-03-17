@@ -135,6 +135,8 @@ export function makeIcosahedronBuilder(engine: WonderlandEngine, addTangents = t
     }
 
     builder.setTriangleHelpers();
+    // TODO avoid auto-connecting edges. manually make a map of shared edges for
+    //      icosahedra
     builder.autoConnectAllEdges();
 
     return builder;

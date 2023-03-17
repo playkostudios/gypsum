@@ -50,19 +50,8 @@ export function autoConnectAllEdges(triangles: Array<Triangle>): void {
             const oMissingEdge0 = !otherTriangle.isEdgeConnected(0);
             const oMissingEdge1 = !otherTriangle.isEdgeConnected(1);
             const oMissingEdge2 = !otherTriangle.isEdgeConnected(2);
-            let oEdgesLeft = 0;
 
-            if (oMissingEdge0) {
-                oEdgesLeft++;
-            }
-            if (oMissingEdge1) {
-                oEdgesLeft++;
-            }
-            if (oMissingEdge2) {
-                oEdgesLeft++;
-            }
-
-            if (oEdgesLeft === 0) {
+            if (!(oMissingEdge0 || oMissingEdge1 || oMissingEdge2)) {
                 continue;
             }
 

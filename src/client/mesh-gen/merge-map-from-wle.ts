@@ -4,6 +4,7 @@ import { MeshAttribute } from '@wonderlandengine/api';
 import { Triangle } from './Triangle';
 import { DynamicArray } from '../../common/DynamicArray';
 import { getHintAttributeFromSet } from './get-hint-attribute';
+import { autoConnectAllEdges } from './auto-connect-all-edges';
 
 import type { Hint } from '../../common/Hint';
 import type { Mesh, MeshAttributeAccessor } from '@wonderlandengine/api';
@@ -93,6 +94,9 @@ export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Hin
         // count vertices
         vertexCount += mesh.vertexCount;
     }
+
+    // auto-connect triangles
+    autoConnectAllEdges(triangles);
 
     // merge vertices. the triangles were generated in order, so no
     // triangle->index map needs to be generated
