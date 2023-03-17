@@ -294,7 +294,9 @@ Example (CSG pool has only 1 worker here):
 
 ```js
 // create a new pool of workers. note that the workers are not initialised until
-// the first csg operation is dispatched, or until `initialize` is called
+// the first csg operation is dispatched, or until `initialize` is called. note
+// that this should be shared between multiple scripts to avoid creating too
+// many workers. always reuse a csg pool
 const csg = new CSGPool(1);
 
 // if you want to make sure that the pool is initialized before the first csg
