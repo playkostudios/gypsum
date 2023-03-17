@@ -41,7 +41,7 @@ export function genInterlacedMergeMap(triangles: Array<Triangle>, vertexCount: n
 
     for (const triangle of triangles) {
         // iterate all 3 vertices of triangle
-        const indexOffset = orderedTriangles ? triangle.helper : triIdxMap[triangle.helper];
+        const indexOffset = orderedTriangles ? (triangle.helper * 3) : triIdxMap[triangle.helper];
 
         for (let v = 0; v < 3; v++) {
             // abort if visited already
@@ -58,7 +58,7 @@ export function genInterlacedMergeMap(triangles: Array<Triangle>, vertexCount: n
 
                 // abort if other vertex is already visited, or if resolved
                 // index already matches
-                const oIndexOffset = orderedTriangles ? oTriangle.helper : triIdxMap[oTriangle.helper];
+                const oIndexOffset = orderedTriangles ? (oTriangle.helper * 3) : triIdxMap[oTriangle.helper];
                 const ovIdx = getResolvedIndex(oIndexOffset + ov, indices);
                 if (visitedVertices.getAndSet(ovIdx, true) || vIdx === ovIdx) {
                     continue;
