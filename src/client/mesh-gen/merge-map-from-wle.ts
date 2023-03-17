@@ -74,17 +74,21 @@ export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Hin
         if (indexData) {
             indexCount = indexData.length;
             for (let i = 0; i < indexCount;) {
-                triangles.push(Triangle.fromMeshData(
+                const triangle = Triangle.fromMeshData(
                     indexData[i++], indexData[i++], indexData[i++],
                     positions, normals, uvs, tangents, colors
-                ));
+                );
+                triangle.helper = triangles.length;
+                triangles.push(triangle);
             }
         } else {
             indexCount = mesh.vertexCount;
             for (let i = 0; i < indexCount;) {
-                triangles.push(Triangle.fromMeshData(
+                const triangle = Triangle.fromMeshData(
                     i++, i++, i++, positions, normals, uvs, tangents, colors
-                ));
+                );
+                triangle.helper = triangles.length;
+                triangles.push(triangle);
             }
         }
 
