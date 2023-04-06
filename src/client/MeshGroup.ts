@@ -13,7 +13,6 @@ import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 import type { MergeMap } from '../common/MergeMap';
 import type { Material } from '@wonderlandengine/api';
 import type { WonderlandEngine } from '../common/backport-shim';
-import type { PatchedMeshAttributeAccessor } from './misc/PatchedMeshAttributeAccessor';
 import type { Hint } from '../common/Hint';
 
 /**
@@ -276,21 +275,18 @@ export class MeshGroup {
             const tangents = submesh.attribute(MeshAttribute.Tangent);
 
             for (let i = 0; i < vertexCount; i++) {
-                // TODO remove cast once WLE types are fixed
-                (positions as PatchedMeshAttributeAccessor<Float32Array>).get(i, tmp3);
+                positions.get(i, tmp3);
                 vec3.transformMat4(tmp3, tmp3, matrix);
                 positions.set(i, tmp3);
 
                 if (normals) {
-                    // TODO remove cast once WLE types are fixed
-                    (normals as PatchedMeshAttributeAccessor<Float32Array>).get(i, tmp3);
+                    normals.get(i, tmp3);
                     vec3.transformMat3(tmp3, tmp3, normalMatrix);
                     normals.set(i, tmp3);
                 }
 
                 if (tangents) {
-                    // TODO remove cast once WLE types are fixed
-                    (tangents as PatchedMeshAttributeAccessor<Float32Array>).get(i, tmp4);
+                    tangents.get(i, tmp4);
                     vec3.transformMat3(tmp4 as vec3, tmp4 as vec3, normalMatrix);
                     tangents.set(i, tmp4);
                 }
@@ -392,13 +388,13 @@ export class MeshGroup {
 
             const vertexCount = mesh.vertexCount;
             const positions = new Float32Array(vertexCount * 3);
-            // TODO remove cast once WLE types are fixed
-            (origPositions as PatchedMeshAttributeAccessor<Float32Array>).get(0, positions);
+            origPositions.get(0, positions);
             transferables.push(positions.buffer);
 
             // get which extra attributes need to be copied, or generate the
             // list of attributes if no hints are provided
-            const attrs = new Array<[type: AllowedExtraMeshAttribute, accessor: MeshAttributeAccessor, componentCount: number]>();
+            // TODO use default generics for meshattributeaccessor when its fixed in wle api (stop using <Float32ArrayConstructor | Uint16ArrayConstructor>)
+            const attrs = new Array<[type: AllowedExtraMeshAttribute, accessor: MeshAttributeAccessor<Float32ArrayConstructor | Uint16ArrayConstructor>, componentCount: number]>();
             let hints: Iterable<AllowedExtraMeshAttribute> | undefined = submesh[2];
             let failOnMissing = true;
 
@@ -421,8 +417,7 @@ export class MeshGroup {
             const extraAttributes = new Array<[AllowedExtraMeshAttribute, Float32Array]>();
             for (const [attrType, attrAccessor, componentCount] of attrs) {
                 const attrArray = new Float32Array(vertexCount * componentCount);
-                // TODO remove cast once WLE types are fixed
-                (attrAccessor as PatchedMeshAttributeAccessor<Float32Array>).get(0, attrArray);
+                attrAccessor.get(0, attrArray);
                 extraAttributes.push([attrType, attrArray]);
                 transferables.push(attrArray.buffer);
             }

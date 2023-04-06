@@ -5,7 +5,7 @@ import { NumRange } from '../misc/NumRange';
 import { EPS } from '../misc/EPS';
 
 import type { vec2 } from 'gl-matrix';
-import type { MeshAttributeAccessor } from '@wonderlandengine/api';
+import { MeshAttributeAccessor } from '@wonderlandengine/api';
 
 const THIRD = 1 / 3;
 const DEFAULT_TANGENT = new Float32Array([1, 0, 0, 1]);
@@ -148,7 +148,7 @@ export class Triangle {
      * @param tangents - An optional mesh attribute accessor for the mesh's vertex tangents
      * @param colors - An optional mesh attribute accessor for the mesh's vertex colors
      */
-    static fromMeshData(idx0: number, idx1: number, idx2: number, positions: MeshAttributeAccessor, normals: MeshAttributeAccessor | null = null, uvs: MeshAttributeAccessor | null = null, tangents: MeshAttributeAccessor | null = null, colors: MeshAttributeAccessor | null = null): Triangle {
+    static fromMeshData(idx0: number, idx1: number, idx2: number, positions: MeshAttributeAccessor<Float32ArrayConstructor>, normals: MeshAttributeAccessor<Float32ArrayConstructor> | null = null, uvs: MeshAttributeAccessor<Float32ArrayConstructor> | null = null, tangents: MeshAttributeAccessor<Float32ArrayConstructor> | null = null, colors: MeshAttributeAccessor<Float32ArrayConstructor> | null = null): Triangle {
         const vertexData = new Float32Array(VERTEX_TOTAL);
 
         // store positions

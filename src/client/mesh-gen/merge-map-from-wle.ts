@@ -47,10 +47,10 @@ export function mergeMapFromWLE(wleMeshes: Mesh | Array<Mesh>, hints?: Array<Hin
         }
 
         // get other attrs according to hints
-        let normals: MeshAttributeAccessor | null;
-        let uvs: MeshAttributeAccessor | null;
-        let tangents: MeshAttributeAccessor | null;
-        let colors: MeshAttributeAccessor | null;
+        let normals: MeshAttributeAccessor<Float32ArrayConstructor> | null;
+        let uvs: MeshAttributeAccessor<Float32ArrayConstructor> | null;
+        let tangents: MeshAttributeAccessor<Float32ArrayConstructor> | null;
+        let colors: MeshAttributeAccessor<Float32ArrayConstructor> | null;
 
         const hint = hints[m];
         if (hint) {
