@@ -5,8 +5,7 @@ import { filterHintMap } from './filter-hintmap';
 
 import type { Tuple } from './misc/Tuple';
 import type { NumRange } from './misc/NumRange';
-import type { Material } from '@wonderlandengine/api';
-import type { WonderlandEngine } from '../common/backport-shim';
+import type { Material, WonderlandEngine } from '@wonderlandengine/api';
 import type { HintOptions } from './HintOptions';
 
 /**

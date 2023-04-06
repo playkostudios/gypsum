@@ -54,7 +54,6 @@ export * from './client/TorusMesh';
 export * from './client/UVSphereMesh';
 
 export * from './common/AllowedExtraMeshAttribute';
-export { WonderlandEngine } from './common/backport-shim';
 export * from './common/CSGFinalOperation';
 export * from './common/CSGGeometricOperation';
 export * from './common/CSGOperation';

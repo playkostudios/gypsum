@@ -1,8 +1,7 @@
-import { WonderlandEngine, newShim_Mesh } from '../../common/backport-shim';
 import { makeIndexBuffer } from '../../client';
 import { Mesh, MeshAttribute } from '@wonderlandengine/api';
 
-import type { MeshIndexType } from '@wonderlandengine/api';
+import type { MeshIndexType, WonderlandEngine } from '@wonderlandengine/api';
 
 /**
  * Clone a Wonderland Engine mesh. A new, separate mesh will be created with the
@@ -32,7 +31,7 @@ export function cloneMesh(oMesh: Mesh, engine: WonderlandEngine): Mesh {
     }
 
     // make new mesh
-    const mesh = newShim_Mesh(engine, { indexData, indexType, vertexCount });
+    const mesh = new Mesh(engine, { indexData, indexType, vertexCount });
 
     // clone vertex attributes
     // (positions)

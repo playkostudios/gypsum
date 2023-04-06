@@ -10,8 +10,7 @@ import { autoConnectEdges } from './mesh-gen/auto-connect-edges';
 import { filterHintMap } from './filter-hintmap';
 
 import type { CurveFrame } from '../client';
-import type { Material } from '@wonderlandengine/api';
-import type { WonderlandEngine } from '../common/backport-shim';
+import type { Material, WonderlandEngine } from '@wonderlandengine/api';
 import type { EdgeList } from './mesh-gen/EdgeList';
 import type { HintMap } from '../common/HintMap';
 

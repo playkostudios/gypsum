@@ -6,8 +6,7 @@ import { filterHintMap } from './filter-hintmap';
 import type { Tuple } from './misc/Tuple';
 import type { NumRange } from './misc/NumRange';
 import type { RadialOptions } from './RadialOptions';
-import type { Material} from '@wonderlandengine/api';
-import type { WonderlandEngine } from '../common/backport-shim';
+import type { Material, WonderlandEngine } from '@wonderlandengine/api';
 
 /** Optional arguments for a procedural icosphere. */
 export interface IcosphereOptions extends RadialOptions {

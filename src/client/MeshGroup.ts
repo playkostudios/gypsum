@@ -3,7 +3,6 @@ import { getComponentCount } from '../common/getComponentCount';
 import { mergeMapFromWLE } from './mesh-gen/merge-map-from-wle';
 import { MeshIndexType, MeshAttribute, Mesh } from '@wonderlandengine/api';
 import { getHintAttribute } from './mesh-gen/get-hint-attribute';
-import { newShim_Mesh } from '../common/backport-shim';
 
 import type { quat } from 'gl-matrix';
 import type { EncodedMeshGroup } from '../common/EncodedMeshGroup';
@@ -11,8 +10,7 @@ import type { AllowedExtraMeshAttribute } from '../common/AllowedExtraMeshAttrib
 import type { EncodedSubmesh } from '../common/EncodedSubmesh';
 import type { MeshAttributeAccessor } from '@wonderlandengine/api';
 import type { MergeMap } from '../common/MergeMap';
-import type { Material } from '@wonderlandengine/api';
-import type { WonderlandEngine } from '../common/backport-shim';
+import type { Material, WonderlandEngine } from '@wonderlandengine/api';
 import type { Hint } from '../common/Hint';
 
 /**
@@ -123,7 +121,7 @@ export class MeshGroup {
                 }
 
                 // make mesh
-                const mesh = newShim_Mesh(engine, {
+                const mesh = new Mesh(engine, {
                     indexData, indexType, vertexCount
                 });
                 submeshes.push([ mesh, material ]);

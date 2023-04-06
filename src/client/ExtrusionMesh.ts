@@ -10,8 +10,7 @@ import { filterHintMap } from './filter-hintmap';
 import type { CurveFrames } from './curves/curve-frame';
 import type { Vec3 } from 'manifold-3d';
 import type { EdgeList } from './mesh-gen/EdgeList';
-import type { Material } from '@wonderlandengine/api';
-import type { WonderlandEngine } from '../common/backport-shim';
+import type { Material, WonderlandEngine } from '@wonderlandengine/api';
 import type { HintOptions } from './HintOptions';
 
 const RIGHT = vec3.fromValues(1, 0, 0);

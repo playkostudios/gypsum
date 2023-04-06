@@ -4,8 +4,7 @@ import { makeCuboidMaterialMap } from './mesh-gen/make-cuboid-material-map';
 import { filterHintMap } from './filter-hintmap';
 
 import type { CuboidFaceUVs, CuboidFaceUVPosRatio } from './mesh-gen/make-cuboid-builder';
-import type { Material } from '@wonderlandengine/api';
-import type { WonderlandEngine } from '../common/backport-shim';
+import type { Material, WonderlandEngine } from '@wonderlandengine/api';
 import type { HintOptions } from './HintOptions';
 
 export interface CuboidMaterialOptions extends HintOptions {

@@ -3,8 +3,7 @@ import { vec3 } from 'gl-matrix';
 
 import type { vec2 } from 'gl-matrix';
 import type { SmoothNormalsOptions } from './SmoothNormalsOptions';
-import type { Material } from '@wonderlandengine/api';
-import type { WonderlandEngine } from '../common/backport-shim';
+import type { Material, WonderlandEngine } from '@wonderlandengine/api';
 
 /**
  * Optional arguments for a procedural frustum.

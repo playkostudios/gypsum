@@ -9,7 +9,7 @@ import type { RadialOptions } from './RadialOptions';
 import type { vec2 } from 'gl-matrix';
 import type { MeshBuilder } from './mesh-gen/MeshBuilder';
 import type { CuboidMaterialOptions } from './RectangularCuboidMesh';
-import type { WonderlandEngine } from '../common/backport-shim';
+import type { WonderlandEngine } from '@wonderlandengine/api';
 
 const THIRD = 1 / 3;
 const NO_UVS: [vec2, vec2, vec2, vec2] = [[0,0],[0,0],[0,0],[0,0]];

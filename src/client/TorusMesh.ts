@@ -2,7 +2,7 @@ import { vec2 } from 'gl-matrix';
 import { makeCirclePolyline } from '../client';
 import { SolidOfRevolutionMesh, SolidOfRevolutionNoOffsetOptions } from './SolidOfRevolutionMesh';
 
-import type { WonderlandEngine } from '../common/backport-shim';
+import type { WonderlandEngine } from '@wonderlandengine/api';
 
 /** Optional arguments for torus generation. */
 export interface TorusOptions extends SolidOfRevolutionNoOffsetOptions {
