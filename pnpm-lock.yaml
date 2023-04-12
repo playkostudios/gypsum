@@ -8,8 +8,8 @@ devDependencies:
     specifier: ^5.54.0
     version: 5.57.1(eslint@8.37.0)(typescript@4.9.5)
   '@wonderlandengine/api':
-    specifier: 1.0.0-rc.3
-    version: 1.0.0-rc.3
+    specifier: 1.0.0-rc.4
+    version: 1.0.0-rc.4
   esbuild:
     specifier: ^0.17.10
     version: 0.17.15
@@ -472,8 +472,8 @@ packages:
       eslint-visitor-keys: 3.4.0
     dev: true
 
-  /@wonderlandengine/api@1.0.0-rc.3:
-    resolution: {integrity: sha512-keJiI9lPzCuO5mRPFeMdPQt+tnpKzVdaLJJChAjLZzEcz2S/k5xbJTy8Z6c0uJuzkOTaKmwvMIsetuuQUcinGg==}
+  /@wonderlandengine/api@1.0.0-rc.4:
+    resolution: {integrity: sha512-gVHX8CRoxog5DdVlF6jCXwCS14erX9dMKrG7FeaTLXb9BPdPtF67El5RZCNCZBiANAkcKPvE/Fo9CNiqPZxiZw==}
     dependencies:
       '@types/webxr': 0.5.1
       wasm-feature-detect: 1.5.1

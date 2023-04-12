@@ -391,8 +391,7 @@ export class MeshGroup {
 
             // get which extra attributes need to be copied, or generate the
             // list of attributes if no hints are provided
-            // TODO use default generics for meshattributeaccessor when its fixed in wle api (stop using <Float32ArrayConstructor | Uint16ArrayConstructor>)
-            const attrs = new Array<[type: AllowedExtraMeshAttribute, accessor: MeshAttributeAccessor<Float32ArrayConstructor | Uint16ArrayConstructor>, componentCount: number]>();
+            const attrs = new Array<[type: AllowedExtraMeshAttribute, accessor: MeshAttributeAccessor, componentCount: number]>();
             let hints: Iterable<AllowedExtraMeshAttribute> | undefined = submesh[2];
             let failOnMissing = true;
 
