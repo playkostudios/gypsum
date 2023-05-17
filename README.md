@@ -361,17 +361,6 @@ Summary:
 - Mesh decimation utilities
 - Better mesh to manifold conversion for user-provided meshes with no edge connectivity data
 
-# Developer notes
-
-## Wonderland Engine 1.0.0 port
-
-The API port is basically done, but it was backported as it's not backwards
-compatible. To convert to 1.0.0:
-1. Replace all `newShim_Mesh` occurances with `new Mesh`
-2. Replace all `WonderlandEngine` imports from the `backport-shim.ts` file with imports from `@wonderlandengine/api`. If the file is being imported but `WonderlandEngine` is not part of the imports, remove the import line
-3. Delete `backport-shim.ts`
-4. Update the example project
-
 # Credits
 
 This project depends on:
