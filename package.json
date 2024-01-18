@@ -13,10 +13,10 @@
   "scripts": {
     "lint": "eslint . --ext .ts",
     "typecheck": "tsc -p ./tsconfig-client.json --noEmit && tsc -p ./tsconfig-worker.json --noEmit",
-    "clean": "shx rm -f dist/*.js dist/*.map dist/*.ts",
+    "clean-build": "shx rm -f dist/*.js dist/*.map dist/*.ts",
     "build": "shx rm -f dist/*.js dist/*.map && esbuild src/client.ts --sourcemap --bundle --minify --platform=neutral --external:@wonderlandengine/api --external:gl-matrix --outfile=dist/index.esm.min.js && esbuild src/worker.ts --define:import.meta.url=globalThis.location.href --external:module --sourcemap --bundle --minify --platform=browser --format=iife --outfile=dist/gypsum-manifold.worker.min.js",
     "gen-types": "npm-dts generate --entry client.ts --output dist/index.d.ts -L debug --tsc ' -p ./tsconfig-client.json'",
-    "prepack": "npm run typecheck && npm run lint && npm run clean && npm run build && npm run gen-types",
+    "prepack": "npm run typecheck && npm run lint && npm run clean-build && npm run build && npm run gen-types",
     "docs": "typedoc --out docs"
   },
   "repository": {
