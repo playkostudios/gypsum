@@ -57,7 +57,7 @@ asynchronous Constructive Solid Geometry powered by
 
 # Installing
 
-Install Gypsum and the custom Manifold build with:
+Install Gypsum and Manifold with:
 
 ```
 npm install --save-dev gypsum-mesh github:playkostudios/manifold#package
@@ -77,6 +77,12 @@ worker to the deployment folder, by doing something such as this in your
   }
 }
 ```
+
+Finally, open your project and:
+1. Click the "Views" button on the top left
+2. Enable "Project Settings"
+3. Open the "Project Settings" tab on the top right
+4. Under "JavaScript", change "bundlingType" to "npm" instead of "esbuild"
 
 # Building
 
