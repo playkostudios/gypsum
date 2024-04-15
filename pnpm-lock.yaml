@@ -24,7 +24,7 @@ devDependencies:
     specifier: ^3.4.3
     version: 3.4.3
   manifold-3d:
-    specifier: ^2.1.0
+    specifier: 2.1.0
     version: 2.1.0
   npm-dts:
     specifier: ^1.3.12
