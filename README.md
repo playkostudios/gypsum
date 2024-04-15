@@ -60,7 +60,7 @@ asynchronous Constructive Solid Geometry powered by
 Install Gypsum and Manifold with:
 
 ```
-npm install --save-dev gypsum-mesh github:playkostudios/manifold#package
+npm install --save-dev gypsum-mesh manifold-3d@^2.1.0
 ```
 
 In your build script, make sure to copy the Manifold library and the Gypsum
